@@ -7,7 +7,12 @@ authors = [
 ]
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pyrtcm>=1.1.12",
+    "pyserial>=3.5",
+    "pyubx2>=1.2.60",
+    "rich>=14.3.3",
+]
 
 [dependency-groups]
 dev = [
