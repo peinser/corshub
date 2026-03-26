@@ -18,7 +18,7 @@ permissions:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: on-prem
     environment: pypi
 
     steps:

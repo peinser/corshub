@@ -16,7 +16,7 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: on-prem
     steps:
     - name: Git Checkout
       uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v6
       with:
-        images: ${{ vars.OCI_REGISTRY }}/peinser/template
+        images: ${{ vars.OCI_REGISTRY }}/peinser/corshub
         tags: |
           type=raw,value=${{ steps.version.outputs.value }}-{{sha}}
           type=sha,format=short
