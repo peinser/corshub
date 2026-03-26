@@ -34,12 +34,54 @@ High-level flow
    it verbatim.  This file can be tailed and forwarded directly to an NTRIP caster.
 
 Use asyncio as much as possible (including serial read from USB).
+
+Metrics glossary
+----------------
+H-Acc (horizontal accuracy estimate)
+    1-sigma (68 % confidence) radius of the horizontal position error, in metres.
+    Computed by the receiver's Kalman filter from the pseudorange residuals and satellite
+    geometry.  Typical standalone GNSS: 1–5 m.  RTK fixed: 0.01–0.02 m.
+
+V-Acc (vertical accuracy estimate)
+    Same concept as H-Acc but for the vertical (altitude) axis.  Vertical is inherently
+    weaker than horizontal because all satellites are above the horizon, so V-Acc is
+    typically 1.5–2× H-Acc.
+
+pDOP (Position Dilution of Precision)
+    A dimensionless multiplier that captures how satellite geometry amplifies ranging
+    errors into position error: position_error ≈ pDOP × pseudorange_noise.
+    Determined purely by the angles between tracked satellites — more spread across the
+    sky gives a lower (better) pDOP.  Excellent < 1.5, good < 2.5, poor > 4.
+
+C/N0 (carrier-to-noise density ratio, dBHz)
+    Signal strength of each tracked satellite.  Higher is better.
+    < 20 dBHz: too weak to track reliably (shown red).
+    20–34 dBHz: marginal — contributes to the fix but with high noise (yellow).
+    ≥ 35 dBHz: healthy signal — carrier-phase tracking is stable (green).
+    Typical open-sky values: 40–50 dBHz.  Obstructions, foliage, and multipath lower it.
+
+Fix type
+    0 No fix — insufficient satellites or geometry.
+    2 2D fix — altitude is assumed/borrowed; only x/y are solved.
+    3 3D fix — full position solution; minimum needed before survey-in is triggered.
+    4 GNSS + dead reckoning — position is blended with IMU data (not applicable here).
+
+gnssFixOk
+    Flag set by the receiver when it considers the fix reliable enough to use.
+    A 3D fix without gnssFixOk (e.g. during startup or severe multipath) will not
+    trigger survey-in.
+
+Survey-in mean accuracy
+    The 3-D standard deviation of the running mean position estimate, in metres.
+    Decreases as more observations are averaged.  Survey-in completes when this value
+    drops below SVIN_ACC_LIMIT and SVIN_MIN_DUR seconds have elapsed.
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
+from collections import deque
 from enum import Enum
 from enum import auto
 from pathlib import Path
@@ -131,6 +173,8 @@ class GNSSState:
         # RTCM output counters
         self.rtcm_msgs = 0
         self.rtcm_bytes = 0
+        # H-Acc history for sparkline (1 Hz NAV-PVT → 120 s of history)
+        self.h_acc_history: deque[float] = deque(maxlen=120)
 
 
 # ── UBX helpers ───────────────────────────────────────────────────────────────
@@ -211,6 +255,25 @@ def find_ublox_ports() -> list[str]:
 # ── Display ───────────────────────────────────────────────────────────────────
 
 
+_SPARK = "▁▂▃▄▅▆▇█"
+
+
+def _sparkline(values: deque[float]) -> str:
+    """Render a deque of floats as a Unicode block sparkline."""
+    if len(values) < 2:
+        return ""
+    lo, hi = min(values), max(values)
+    span = hi - lo or 1.0
+    return "".join(_SPARK[round((v - lo) / span * 7)] for v in values)
+
+
+def _cno_bar(cno: int) -> Text:
+    """Render a C/N0 value as a coloured block bar (scale 0–50 dBHz, 10 chars wide)."""
+    filled = round(max(0, min(cno, 50)) / 50 * 10)
+    color = "green" if cno >= 35 else ("yellow" if cno >= 20 else "red")
+    return Text(f"{'█' * filled}{'░' * (10 - filled)} {cno:2d}", style=color)
+
+
 def build_display(gs: GNSSState) -> Table:
     """Render the full terminal display from current GNSSState."""
     root = Table.grid(padding=(0, 1))
@@ -262,6 +325,18 @@ def build_display(gs: GNSSState) -> Table:
         rt.add_row("Bytes written", str(gs.rtcm_bytes))
         root.add_row(rt)
 
+    # H-Acc sparkline (shown once we have history)
+    if len(gs.h_acc_history) >= 2:
+        spark = _sparkline(gs.h_acc_history)
+        lo, hi = min(gs.h_acc_history), max(gs.h_acc_history)
+        root.add_row(Panel(
+            f"[cyan]{spark}[/cyan]\n"
+            f"[dim]min {lo:.2f} m  ·  max {hi:.2f} m  ·  now {gs.h_acc_history[-1]:.2f} m  "
+            f"·  {len(gs.h_acc_history)} s of history[/dim]",
+            title="H-Acc trend  [dim](↓ better)[/dim]",
+            expand=True,
+        ))
+
     # Satellite table (top 16 by C/N0)
     if gs.satellites:
         st = Table(title=f"Satellites ({len(gs.satellites)} tracked)", show_header=True, expand=True)
@@ -269,17 +344,15 @@ def build_display(gs: GNSSState) -> Table:
         st.add_column("System", width=8)
         st.add_column("Elev°", justify="right", width=6)
         st.add_column("Azim°", justify="right", width=6)
-        st.add_column("C/N0", justify="right", width=5)
+        st.add_column("C/N0 (dBHz)", width=18)
         st.add_column("Used", justify="center", width=5)
         for s in sorted(gs.satellites, key=lambda x: x["cno"], reverse=True)[:16]:
-            cno = s["cno"]
-            sig = "green" if cno >= 35 else ("yellow" if cno >= 20 else "red")
             st.add_row(
                 str(s["svId"]),
                 GNSS_NAMES.get(s["gnssId"], "?"),
                 str(s["elev"]),
                 str(s["azim"]),
-                Text(str(cno), style=sig),
+                _cno_bar(s["cno"]),
                 Text("✓", style="green") if s["used"] else Text("·", style="dim"),
             )
         root.add_row(st)
@@ -290,7 +363,7 @@ def build_display(gs: GNSSState) -> Table:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
-async def main() -> None:
+async def main(args: argparse.Namespace) -> None:
     gs = GNSSState()
     queue: asyncio.Queue[tuple[bytes | None, object]] = asyncio.Queue(maxsize=512)
     ser_ref: list[serial.Serial] = []  # mutable slot so process_loop can send CFG commands
@@ -380,6 +453,7 @@ async def main() -> None:
                 gs.v_acc = parsed.vAcc / 1e3    # raw mm → m
                 gs.pdop = parsed.pDOP        # pyubx2 applies 1e-2 scale → dimensionless
                 gs.num_sv = parsed.numSV
+                gs.h_acc_history.append(gs.h_acc)
                 if parsed.validDate and parsed.validTime:
                     gs.utc_time = (
                         f"{parsed.year:04d}-{parsed.month:02d}-{parsed.day:02d} "
@@ -392,16 +466,25 @@ async def main() -> None:
                     and gs.gnss_fix_ok
                     and ser_ref
                 ):
-                    gs.state = State.SURVEY_IN
                     ser = ser_ref[0]
-                    # Enable RTCM correction output messages
+                    # Enable RTCM correction output messages (same for both modes)
                     for rtcm_id in RTCM_OUTPUT_IDS:
                         await loop.run_in_executor(None, ser.write, _cfg_msg(RTCM_CLASS, rtcm_id, 1))
                         await asyncio.sleep(0.05)
-                    # Start survey-in via CFG-TMODE3
-                    await loop.run_in_executor(
-                        None, ser.write, _cfg_tmode3(1, SVIN_MIN_DUR, SVIN_ACC_LIMIT)
-                    )
+                    if args.lat is not None:
+                        # Fixed mode: apply known coordinates immediately, skip survey-in
+                        await loop.run_in_executor(
+                            None, ser.write,
+                            _cfg_tmode3_fixed(args.lat, args.lon, args.alt, args.fixed_acc),
+                        )
+                        gs.state = State.FIXED
+                        rtcm_file = RTCM_OUTPUT.open("wb")
+                    else:
+                        # Survey-in mode: let the receiver converge on its own position
+                        await loop.run_in_executor(
+                            None, ser.write, _cfg_tmode3_svin(SVIN_MIN_DUR, SVIN_ACC_LIMIT)
+                        )
+                        gs.state = State.SURVEY_IN
 
             # ── NAV-SVIN: survey-in progress ───────────────────────────────────
             elif identity == "NAV-SVIN":
@@ -453,7 +536,26 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Here4 RTK base station — streams RTCM corrections to a file."
+    )
+    fixed = parser.add_argument_group(
+        "fixed mode",
+        "Supply all three to skip survey-in and use a known surveyed position instead. "
+        "Gives sub-centimetre absolute accuracy when the coordinates are survey-grade.",
+    )
+    fixed.add_argument("--lat", type=float, metavar="DEG", help="Base latitude (decimal degrees)")
+    fixed.add_argument("--lon", type=float, metavar="DEG", help="Base longitude (decimal degrees)")
+    fixed.add_argument("--alt", type=float, metavar="M",   help="Base altitude above ellipsoid (metres)")
+    fixed.add_argument(
+        "--fixed-acc", type=float, default=10.0, metavar="MM",
+        help="Known accuracy of the fixed position in mm (default: 10)",
+    )
+    _args = parser.parse_args()
+    if any(x is not None for x in (_args.lat, _args.lon, _args.alt)):
+        if not all(x is not None for x in (_args.lat, _args.lon, _args.alt)):
+            parser.error("--lat, --lon and --alt must all be provided together")
     try:
-        asyncio.run(main())
+        asyncio.run(main(_args))
     except KeyboardInterrupt:
         pass
