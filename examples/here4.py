@@ -82,6 +82,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 from collections import deque
+import shutil
 from enum import Enum
 from enum import auto
 from pathlib import Path
@@ -259,12 +260,14 @@ _SPARK = "▁▂▃▄▅▆▇█"
 
 
 def _sparkline(values: deque[float]) -> str:
-    """Render a deque of floats as a Unicode block sparkline."""
+    """Render a deque of floats as a Unicode block sparkline, capped to terminal width."""
     if len(values) < 2:
         return ""
-    lo, hi = min(values), max(values)
+    max_len = max(10, shutil.get_terminal_size().columns - 6)  # subtract panel borders/padding
+    data = list(values)[-max_len:]
+    lo, hi = min(data), max(data)
     span = hi - lo or 1.0
-    return "".join(_SPARK[round((v - lo) / span * 7)] for v in values)
+    return "".join(_SPARK[round((v - lo) / span * 7)] for v in data)
 
 
 def _cno_bar(cno: int) -> Text:
