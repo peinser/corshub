@@ -1,0 +1,19 @@
+services:
+
+  devcontainer:
+    container_name: devcontainer
+    build:
+      target: devcontainer
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    command: sleep infinity
+    environment: []
+    ports: []
+    volumes:
+    - ..:/workspace:cached
+    networks:
+    - dev
+
+networks:
+  dev:
+    driver: bridge

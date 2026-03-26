@@ -1,0 +1,50 @@
+{
+	"name": "Template",
+	"dockerComposeFile": "../.dev/compose.yml",
+	"service": "devcontainer",
+	"workspaceFolder": "/workspace",
+	"features": {
+		"ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+			"version": "latest",
+			"moby": true,
+			"dockerDashComposeVersion": "v2",
+			"installDockerBuildx": true
+		}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				// Your existing Python/Jupyter/GitHub extensions
+				"anthropic.claude-code",
+				"ms-python.python",
+				"ms-python.vscode-pylance",
+				"ms-toolsai.jupyter",
+				"github.vscode-github-actions",
+				"github.vscode-pull-request-github",
+				"sanjulaganepola.github-local-actions",
+				"ms-azuretools.vscode-docker"
+
+				// ── C/C++ core support ──
+				// "ms-vscode.cpptools", // IntelliSense, debugging, code navigation
+				// "ms-vscode.cmake-tools", // CMake integration (build, configure, variants)
+				// "twxs.cmake", // CMake language support & highlighting
+				// "llvm-vs-code-extensions.vscode-clangd",
+
+				// OpenFOAM support
+				// "arefhm94.openfoam-language-support"
+			],
+			"settings": {
+				// Your existing Python setting
+				"python.defaultInterpreterPath": "/opt/pysetup/.venv/bin/python"  // updated key (preferred over pythonPath)
+
+				// Optional C/C++ tweaks – adjust based on your container's compilers
+				// "C_Cpp.default.compilerPath": "/usr/bin/g++", // or /usr/bin/clang++ if using clang
+				// "C_Cpp.default.cppStandard": "c++17", // or c++20 / gnu++20 etc.
+				// "C_Cpp.default.cStandard": "c11",
+				// "C_Cpp.intelliSenseEngine": "default" // set to "Disabled" if using clangd instead
+			}
+		}
+	},
+	"postCreateCommand": "./.devcontainer/startup.sh",
+	"forwardPorts": []
+}

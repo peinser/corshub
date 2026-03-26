@@ -1,0 +1,69 @@
+name: Image
+run-name: ${{ github.actor }} is building a new image
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+    - development
+    paths:
+    - docker/**
+    - src/**
+    - tests/**
+    - pyproject.toml
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Git Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Authenticate with the remote Container Registry
+      uses: docker/login-action@v4
+      with:
+        registry: ${{ vars.OCI_REGISTRY }}
+        username: ${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}
+        password: ${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}
+
+    - name: Determine image version
+      id: version
+      run: |
+        echo "value=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")" >> $GITHUB_OUTPUT
+
+    - name: Extract image metadata
+      id: meta
+      uses: docker/metadata-action@v6
+      with:
+        images: ${{ vars.OCI_REGISTRY }}/peinser/template
+        tags: |
+          type=raw,value=${{ steps.version.outputs.value }}-{{sha}}
+          type=sha,format=short
+
+    - name: Validate
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: docker/Dockerfile
+        target: validate
+        push: false
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+    - name: Build and push production image
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: docker/Dockerfile
+        target: production
+        push: true
+        # platforms: linux/amd64,linux/arm64
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
