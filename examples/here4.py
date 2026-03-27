@@ -242,6 +242,7 @@ def _cfg_tmode3_fixed(lat: float, lon: float, alt: float, acc_mm: float) -> byte
 def find_ublox_ports() -> list[str]:
     """Return serial port names that look like u-blox devices."""
     ports = []
+
     for p in serial.tools.list_ports.comports():
         if (
             p.vid == UBLOX_VID
@@ -250,6 +251,7 @@ def find_ublox_ports() -> list[str]:
             or p.device.startswith("/dev/ttyACM")
         ):
             ports.append(p.device)
+
     return ports
 
 

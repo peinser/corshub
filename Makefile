@@ -112,3 +112,12 @@ act-job: ## Run a specific job from the workflows via act. Usage: make act-job J
 	@command -v act >/dev/null 2>&1 || (echo -e "$(ERROR_COLOR)act not found in PATH. Use the project's devcontainer or install act$(NO_COLOR)" && exit 1)
 	: $${PLATFORM:="on-prem=harbor.peinser.com/library/github-actions-runner:latest"}; \
 	act -P "$$PLATFORM" -j "$(JOB)" -s GITHUB_TOKEN="$$GITHUB_TOKEN"
+
+# ───────────────────────────────────────────────
+# NTRIP / Caster / Stations server
+# ───────────────────────────────────────────────
+
+.PHONY: server
+server: ## Run the NTRIP and Caster server.
+	@echo -e "$(INFO_COLOR)Starting server...$(NO_COLOR)"
+	sanic -1 --debug --reload --host '0.0.0.0' corshub.bin.standalone:app
