@@ -8,8 +8,8 @@ from typing import TYPE_CHECKING
 
 from sanic import Sanic
 
-from charge import http
-from charge import json
+from corshub import http
+from corshub import json
 
 
 if TYPE_CHECKING:
