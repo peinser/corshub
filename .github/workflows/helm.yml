@@ -31,7 +31,15 @@ jobs:
     - name: Determine chart version
       id: version
       run: |
-        echo "value=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")" >> $GITHUB_OUTPUT
+        # Strip any Python pre-release suffix (.devN, .aN, .bN, .rcN) to get a
+        # clean SemVer base, then append the short commit SHA as a pre-release
+        # identifier so every push produces a unique, valid Helm chart version.
+        BASE=$(python3 -c "
+        import re, tomllib
+        v = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
+        print(re.sub(r'(\.(dev|a|b|rc)\d+)+$', '', v))
+        ")
+        echo "value=${BASE}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
 
     - name: Set chart version and appVersion
       run: |
