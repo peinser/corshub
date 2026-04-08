@@ -1,0 +1,48 @@
+name: Helm
+run-name: ${{ github.actor }} is publishing the Helm chart
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+    - development
+    paths:
+    - helm/**
+
+jobs:
+
+  publish:
+    runs-on: on-prem
+    steps:
+    - name: Git Checkout
+      uses: actions/checkout@v6
+
+    - name: Authenticate with the remote Container Registry
+      run: |
+        helm registry login ${{ vars.OCI_REGISTRY }} \
+          --username ${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }} \
+          --password ${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}
+
+    - name: Determine chart version
+      id: version
+      run: |
+        echo "value=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")" >> $GITHUB_OUTPUT
+
+    - name: Set chart version and appVersion
+      run: |
+        sed -i "s/^version:.*/version: ${{ steps.version.outputs.value }}/" helm/Chart.yaml
+        sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.value }}\"/" helm/Chart.yaml
+
+    - name: Package chart
+      run: helm package helm --destination /tmp/helm-package
+
+    - name: Push chart to OCI registry
+      run: |
+        helm push \
+          /tmp/helm-package/corshub-${{ steps.version.outputs.value }}.tgz \
+          oci://${{ vars.OCI_REGISTRY }}/peinser
+
+    - name: Log out of registry
+      if: always()
+      run: helm registry logout ${{ vars.OCI_REGISTRY }}
