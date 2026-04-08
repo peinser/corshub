@@ -16,24 +16,27 @@ def enable_test_mode() -> None:
     Sanic.test_mode = True
 
 
-@pytest.fixture
-def mountpoint() -> Mountpoint:
-    return Mountpoint(
-        name="BASE1",
-        identifier="BASE1",
-        username="BASE1",
-        password="s3cr3t",
-        format="RTCM 3.3",
-        country="BEL",
-        latitude=50.8503,
-        longitude=4.3517,
-    )
+_metadata = {
+    "name": "BASE1",
+    "identifier": "BASE1",
+    "username": "BASE1",
+    "password": "s3cr3t",
+    "format": "RTCM 3.3",
+    "country": "BEL",
+    "latitude": 50.8503,
+    "longitude": 4.3517,
+}
 
 
 @pytest.fixture
-def caster(mountpoint: Mountpoint) -> NTRIPCaster:
+def mountpoint_metadata() -> dict:
+    return _metadata
+
+
+@pytest.fixture
+async def caster() -> NTRIPCaster:
     c = NTRIPCaster()
-    c.register(mountpoint)
+    await c.register(**_metadata)
     return c
 
 

@@ -24,6 +24,7 @@ from abc import abstractmethod
 from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 
@@ -121,6 +122,8 @@ class Mountpoint:
             raise ValueError(f"Latitude {self.latitude} is out of range [-90, 90].")
         if not -180.0 <= self.longitude <= 180.0:
             raise ValueError(f"Longitude {self.longitude} is out of range [-180, 180].")
+
+    dict = asdict  # for easy serialisation to STR fields in the source table
 
 
 class Caster(ABC):
@@ -223,16 +226,22 @@ class NTRIPCaster(Caster):
         self._transports: dict[str, Transport] = {}
         self._reaper_task: asyncio.Task[None] | None = None
 
-    # ── Registry ──────────────────────────────────────────────────────────────
+    async def register(self, identifier: str, **kwargs: dict) -> Mountpoint:
+        if identifier in self._mountpoints:
+            instance = self._mountpoints[identifier]
+            for key, value in kwargs.items():
+                if key in NTRIPCaster._METADATA_FIELDS and value is not None:
+                    setattr(instance, key, value)
 
-    def register(self, mountpoint: Mountpoint) -> None:
-        if mountpoint.identifier in self._mountpoints:
-            raise ValueError(f"Mountpoint {mountpoint.identifier!r} is already registered.")
+            return instance
 
-        self._mountpoints[mountpoint.identifier] = mountpoint
-        self._transports[mountpoint.identifier] = self._transport_factory()
+        mountpoint = Mountpoint(identifier=identifier, **kwargs)
+        self._mountpoints[identifier] = mountpoint
+        self._transports[identifier] = self._transport_factory()
 
-    def unregister(self, identifier: str) -> None:
+        return mountpoint
+
+    async def unregister(self, identifier: str) -> None:
         if identifier not in self._mountpoints:
             raise KeyError(identifier)
 
@@ -282,12 +291,13 @@ class NTRIPCaster(Caster):
         """Periodically unregister mountpoints that have gone silent."""
         while True:
             await asyncio.sleep(self._reap_interval)
-            self._reap()
+            await self._reap()
 
-    def _reap(self) -> None:
+    async def _reap(self) -> None:
         if self._expiry is None:
             return
+
         cutoff = time.monotonic() - self._expiry
         stale = [identifier for identifier, mp in self._mountpoints.items() if mp.last_seen < cutoff]
         for identifier in stale:
-            self.unregister(identifier)
+            await self.unregister(identifier)

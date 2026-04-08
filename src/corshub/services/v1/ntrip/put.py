@@ -71,13 +71,8 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         except Exception:
             pass  # Malformed Ntrip-STR is not fatal; we already have a registered mountpoint.
 
-    # Update metadata fields from Ntrip-STR if provided.
-    if meta:
-        from corshub.ntrip.v2.caster import NTRIPCaster
-        mp = caster.mountpoints[mountpoint_id]
-        for key, value in meta.items():
-            if key in NTRIPCaster._METADATA_FIELDS and value is not None:
-                setattr(mp, key, value)
+    # Register the mountpoint with the available metadata.
+    await caster.register(identifier=mountpoint_id, **meta)
 
     # Stream RTCM frames from the request body and publish to subscribers.
     async for chunk in request.stream:

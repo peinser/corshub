@@ -55,12 +55,18 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
 
     caster = request.app.ctx.ntrip_caster
 
-    if mountpoint_id not in caster.mountpoints:
+    mountpoint = caster.mountpoints.get(mountpoint_id)
+    if not mountpoint:
         raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist.")
 
     # TODO: use a separate rover user table; for now rovers share the mountpoint credentials.
     if not caster.authenticate_source(request.credentials.username, request.credentials.password):
         raise Unauthorized("Invalid credentials.", scheme="Basic")
+
+    # Check if NMEA validation needs to be done (GGA header by the rover needs to be present).
+    if mountpoint.nmea:
+        ...  # TODO Handle NMEA validation using the Ntrip-GGA header and the mountpoint's configured position and mask.
+        raise BadRequestError("NMEA validation requires Ntrip-GGA header, which is not present or invalid.")
 
     async def stream_frames(stream: HTTPResponse) -> None:
         async with caster.subscribe(mountpoint_id) as sub:

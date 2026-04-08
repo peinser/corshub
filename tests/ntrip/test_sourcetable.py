@@ -29,10 +29,10 @@ def _str_lines(table: str) -> list[str]:
     return [line for line in table.splitlines() if line.startswith("STR;")]
 
 
-def _make_caster(*mountpoints: Mountpoint) -> NTRIPCaster:
+async def _make_caster(*mountpoints: dict) -> NTRIPCaster:
     c = NTRIPCaster()
     for mp in mountpoints:
-        c.register(mp)
+        await c.register(**mp)
     return c
 
 
@@ -53,11 +53,38 @@ class TestSourceTableStructure:
     def test_single_mountpoint_produces_one_str_line(self, caster: NTRIPCaster) -> None:
         assert len(_str_lines(format_sourcetable(caster))) == 1
 
-    def test_multiple_mountpoints_produce_multiple_str_lines(self) -> None:
-        c = _make_caster(
-            Mountpoint(name="A", username="u", password="p", identifier="A", format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0),
-            Mountpoint(name="B", username="u", password="p", identifier="B", format="RTCM 3.3", country="NLD", latitude=52.0, longitude=5.0),
-            Mountpoint(name="C", username="u", password="p", identifier="C", format="RTCM 3.3", country="DEU", latitude=48.0, longitude=10.0),
+    async def test_multiple_mountpoints_produce_multiple_str_lines(self) -> None:
+        c = await _make_caster(
+            {
+                "name": "A",
+                "username": "u",
+                "password": "p",
+                "identifier": "A",
+                "format": "RTCM 3.3",
+                "country": "BEL",
+                "latitude": 50.0,
+                "longitude": 4.0
+            },
+            {
+                "name": "B",
+                "username": "u",
+                "password": "p",
+                "identifier": "B",
+                "format": "RTCM 3.3",
+                "country": "NLD",
+                "latitude": 52.0,
+                "longitude": 5.0
+            },
+            {
+                "name": "C",
+                "username": "u",
+                "password": "p",
+                "identifier": "C",
+                "format": "RTCM 3.3",
+                "country": "DEU",
+                "latitude": 48.0,
+                "longitude": 10.0
+            },
         )
         assert len(_str_lines(format_sourcetable(c))) == 3
 
@@ -97,10 +124,28 @@ class TestSourceTableContent:
         fields = line.split(";")
         assert fields[1] == "BASE1"
 
-    def test_each_mountpoint_name_appears_in_own_str_line(self) -> None:
-        c = _make_caster(
-            Mountpoint(name="ALPHA", username="u", password="p", identifier="ALPHA", format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0),
-            Mountpoint(name="BETA",  username="u", password="p", identifier="BETA",  format="RTCM 3.3", country="NLD", latitude=52.0, longitude=5.0),
+    async def test_each_mountpoint_name_appears_in_own_str_line(self) -> None:
+        c = await _make_caster(
+            {
+                "name": "ALPHA",
+                "username": "u",
+                "password": "p",
+                "identifier": "ALPHA",
+                "format": "RTCM 3.3",
+                "country": "BEL",
+                "latitude": 50.0,
+                "longitude": 4.0
+            },
+            {
+                "name": "BETA",
+                "username": "u",
+                "password": "p",
+                "identifier": "BETA",
+                "format": "RTCM 3.3",
+                "country": "NLD",
+                "latitude": 52.0,
+                "longitude": 5.0
+            },
         )
         str_lines = _str_lines(format_sourcetable(c))
         names = {line.split(";")[1] for line in str_lines}

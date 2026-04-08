@@ -26,17 +26,17 @@ from corshub.ntrip.v2.caster import NTRIPCaster
 
 
 @pytest.fixture
-def extra_mountpoint() -> Mountpoint:
-    return Mountpoint(
-        name="BASE2",
-        username="BASE2",
-        password="other",
-        identifier="BASE2",
-        format="RTCM 3.3",
-        country="NLD",
-        latitude=52.3676,
-        longitude=4.9041,
-    )
+def extra_mountpoint() -> dict:
+    return {
+        "name": "BASE2",
+        "username": "BASE2",
+        "password": "other",
+        "identifier": "BASE2",
+        "format": "RTCM 3.3",
+        "country": "NLD",
+        "latitude": 52.3676,
+        "longitude": 4.9041,
+    }
 
 
 class TestMountpointValidation:
@@ -114,30 +114,30 @@ class TestMountpointRegistry:
     def test_register_adds_mountpoint(self, caster: NTRIPCaster) -> None:
         assert "BASE1" in caster.mountpoints
 
-    def test_register_duplicate_raises_value_error(self, caster: NTRIPCaster, mountpoint: Mountpoint) -> None:
-        with pytest.raises(ValueError, match="BASE1"):
-            caster.register(mountpoint)
+    async def test_register_duplicate_raises_no_error(self, caster: NTRIPCaster, mountpoint_metadata: dict) -> None:
+        mp = await caster.register(**mountpoint_metadata)
+        assert mp is not None
 
-    def test_unregister_removes_mountpoint(self, caster: NTRIPCaster) -> None:
-        caster.unregister("BASE1")
+    async def test_unregister_removes_mountpoint(self, caster: NTRIPCaster) -> None:
+        await caster.unregister("BASE1")
         assert "BASE1" not in caster.mountpoints
 
-    def test_unregister_nonexistent_raises_key_error(self, caster: NTRIPCaster) -> None:
+    async def test_unregister_nonexistent_raises_key_error(self, caster: NTRIPCaster) -> None:
         with pytest.raises(KeyError):
-            caster.unregister("UNKNOWN")
+            await caster.unregister("UNKNOWN")
 
     def test_mountpoints_is_mapping_of_name_to_mountpoint(
-        self, caster: NTRIPCaster, mountpoint: Mountpoint
+        self, caster: NTRIPCaster, mountpoint_metadata: dict
     ) -> None:
         mp = caster.mountpoints["BASE1"]
-        assert mp.name == mountpoint.name
-        assert mp.identifier == mountpoint.identifier
-        assert mp.format == mountpoint.format
+        assert mp.name == mountpoint_metadata["name"]
+        assert mp.identifier == mountpoint_metadata["identifier"]
+        assert mp.format == mountpoint_metadata["format"]
 
-    def test_multiple_mountpoints_tracked_independently(
-        self, caster: NTRIPCaster, extra_mountpoint: Mountpoint
+    async def test_multiple_mountpoints_tracked_independently(
+        self, caster: NTRIPCaster, extra_mountpoint: dict
     ) -> None:
-        caster.register(extra_mountpoint)
+        await caster.register(**extra_mountpoint)
         assert "BASE1" in caster.mountpoints
         assert "BASE2" in caster.mountpoints
 
@@ -158,9 +158,6 @@ class TestMountpointRegistry:
 
 #     def test_empty_password_rejected(self, caster: NTRIPCaster) -> None:
 #         assert caster.authenticate("BASE1", "") is False
-
-
-# ── Fan-out (publish / subscribe) ─────────────────────────────────────────────
 
 
 class TestFanOut:
@@ -244,9 +241,9 @@ class TestFanOut:
         assert await caster.publish("BASE1", b"\xd3\x00\x00") == 0
 
     async def test_subscribers_on_different_mountpoints_isolated(
-        self, caster: NTRIPCaster, extra_mountpoint: Mountpoint
+        self, caster: NTRIPCaster, extra_mountpoint: dict
     ) -> None:
-        caster.register(extra_mountpoint)
+        await caster.register(**extra_mountpoint)
         received_base1: list[bytes] = []
         received_base2: list[bytes] = []
 
@@ -272,9 +269,6 @@ class TestFanOut:
 
         assert received_base1 == [b"\xaa"]
         assert received_base2 == [b"\xbb"]
-
-
-# ── Lifecycle & reaper ────────────────────────────────────────────────────────
 
 
 class TestLifecycle:
@@ -303,23 +297,25 @@ class TestLifecycle:
 
 
 class TestReaper:
-    def test_reap_removes_stale_mountpoint(self, mountpoint: Mountpoint) -> None:
+    async def test_reap_removes_stale_mountpoint(self, mountpoint_metadata: dict) -> None:
         c = NTRIPCaster(expiry=30.0)
-        c.register(mountpoint)
+        await c.register(**mountpoint_metadata)
+
         # Force last_seen into the past beyond the expiry window.
         c.mountpoints["BASE1"].last_seen = 0.0
-        c._reap()
+        await c._reap()
+
         assert "BASE1" not in c.mountpoints
 
-    def test_reap_keeps_fresh_mountpoint(self, mountpoint: Mountpoint) -> None:
+    async def test_reap_keeps_fresh_mountpoint(self, mountpoint_metadata: dict) -> None:
         c = NTRIPCaster(expiry=30.0)
-        c.register(mountpoint)
+        await c.register(**mountpoint_metadata)
         c._reap()
         assert "BASE1" in c.mountpoints
 
-    def test_reap_does_nothing_when_expiry_disabled(self, mountpoint: Mountpoint) -> None:
+    async def test_reap_does_nothing_when_expiry_disabled(self, mountpoint_metadata: dict) -> None:
         c = NTRIPCaster(expiry=None)
-        c.register(mountpoint)
+        await c.register(**mountpoint_metadata)
         c.mountpoints["BASE1"].last_seen = 0.0
         c._reap()
         assert "BASE1" in c.mountpoints
