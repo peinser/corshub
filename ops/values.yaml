@@ -6,7 +6,7 @@
 # -- Pin to an explicit image tag in production; never use "latest".
 image:
   repository: harbor.peinser.com/uas/corshub
-  tag: 0.0.1.dev0-7ca87ca
+  tag: 0.0.1.dev0-e74c449
 
 # -- Increase for higher throughput; see the multi-replica warning in the chart
 # README before scaling beyond 1 (in-process QueueTransport is per-pod).
@@ -29,7 +29,7 @@ ingress:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    cert-manager.io/cluster-issuer: letsencrypt-prod
+    cert-manager.io/cluster-issuer: letsencrypt-production
   hosts:
     - host: corshub.peinser.com
       paths:
