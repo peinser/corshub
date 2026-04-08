@@ -140,8 +140,6 @@ def masked_app(masked_caster: NTRIPCaster) -> Sanic:
     return _make_app(masked_caster)
 
 
-# ── Rover route — mountpoint.nmea = False ─────────────────────────────────────
-
 class TestRoverRouteNmeaDisabled:
     """When nmea=False the Ntrip-GGA header is entirely optional."""
 
@@ -169,8 +167,6 @@ class TestRoverRouteNmeaDisabled:
         )
         assert response.status_code == 200
 
-
-# ── Rover route — mountpoint.nmea = True, no mask ────────────────────────────
 
 class TestRoverRouteNmeaRequired:
 
@@ -224,8 +220,6 @@ class TestRoverRouteNmeaRequired:
         assert response.status_code == 200
 
 
-# ── Rover route — mountpoint.nmea = True, mask = 50 km ───────────────────────
-
 class TestRoverRouteNmeaMasked:
 
     async def test_rover_outside_mask_returns_400(self, masked_app: Sanic) -> None:
@@ -263,8 +257,6 @@ class TestRoverRouteNmeaMasked:
         assert response.status_code == 200
 
 
-# ── Mountpoint.mask validation ────────────────────────────────────────────────
-
 class TestMountpointMaskField:
 
     def test_default_mask_is_zero(self) -> None:
@@ -301,8 +293,6 @@ class TestMountpointMaskField:
                 mask=-1.0,
             )
 
-
-# ── Nearest routes ────────────────────────────────────────────────────────────
 
 @pytest.fixture
 async def two_mountpoint_caster() -> NTRIPCaster:
