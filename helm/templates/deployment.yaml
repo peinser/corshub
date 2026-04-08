@@ -45,16 +45,8 @@ spec:
               containerPort: {{ .Values.app.port }}
               protocol: TCP
           env:
-            - name: CORSHUB_SERVICES
-              value: {{ .Values.app.services | quote }}
             - name: CORSHUB_PORT
               value: {{ .Values.app.port | quote }}
-            - name: CORSHUB_WORKERS
-              value: {{ .Values.app.workers | quote }}
-            - name: CORSHUB_ACCESS_LOGS
-              value: {{ .Values.app.accessLogs | quote }}
-            - name: CORSHUB_REVERSE_PROXY_COUNT
-              value: {{ .Values.app.reverseProxyCount | quote }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

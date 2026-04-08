@@ -42,20 +42,10 @@ containerSecurityContext:
     drop: [ALL]
   readOnlyRootFilesystem: true
 
-# -- Application-level settings passed to the service bootstrap manager.
+# -- Application-level settings.
 app:
-  # -- Comma-separated list of service=version pairs to enable.
-  # Important: this refers to the API version, not the NTRIP protocol version.
-  # Example: "ntrip=v1" or "ntrip=v1,ntrip=v2"
-  services: "ntrip=v1"
   # -- HTTP port the Sanic server listens on inside the container.
   port: 8000
-  # -- Number of Sanic worker processes per pod. Should be kept 1 for async queue communication.
-  workers: 1
-  # -- Enable HTTP access logging.
-  accessLogs: false
-  # -- Number of upstream reverse proxies (for correct client-IP detection).
-  reverseProxyCount: 0
 
 # -- Extra environment variables injected into the container.
 extraEnv: []
