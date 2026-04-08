@@ -26,9 +26,10 @@ jobs:
 
     - name: Authenticate with the remote Container Registry
       run: |
-        helm registry login ${{ vars.OCI_REGISTRY }} \
-          --username ${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }} \
-          --password ${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}
+        echo "${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}" | \
+          helm registry login ${{ vars.OCI_REGISTRY }} \
+            --username ${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }} \
+            --password-stdin
 
     - name: Determine chart version
       id: version
@@ -48,7 +49,3 @@ jobs:
         helm push \
           /tmp/helm-package/corshub-${{ steps.version.outputs.value }}.tgz \
           oci://${{ vars.OCI_REGISTRY }}/uas/charts
-
-    - name: Log out of registry
-      if: always()
-      run: helm registry logout ${{ vars.OCI_REGISTRY }}
