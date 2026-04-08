@@ -56,11 +56,10 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         raise Unauthorized("Basic credentials required.", scheme="Basic")
 
     caster = request.app.ctx.ntrip_caster
-
     if mountpoint_id not in caster.mountpoints:
         raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist.")
 
-    if not caster.authenticate_source(mountpoint_id, request.credentials.password):
+    if not caster.authenticate_source(request.credentials.username, request.credentials.password):
         raise Unauthorized("Invalid mountpoint credentials.", scheme="Basic")
 
     # Parse optional self-description header; ignore errors — it is advisory only.

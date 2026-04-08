@@ -66,7 +66,7 @@ class TransportSubscriber(ABC):
         ...
 
     @abstractmethod
-    async def get(self) -> bytes | None:
+    async def get(self, timeout: float | None = None) -> bytes | None:
         """Get the next frame from the queue, or None if cancelled."""
         ...
 
@@ -144,13 +144,13 @@ class QueueTransportSubscriber(TransportSubscriber):
             self.cancelled = True
             raise
 
-    async def get(self) -> bytes | None:
-        """Get the next frame from the queue, or None if cancelled."""
+    async def get(self, timeout: float | None = None) -> bytes | None:
+        """Get the next frame from the queue, or None if cancelled. Note, this method can raise asyncio.TimeoutError if the timeout is reached before a frame is available."""
         if self.cancelled:
             return None
 
         try:
-            item = await self.queue.get()
+            item = await asyncio.wait_for(self.queue.get(), timeout=timeout)
             if item is self._sentinel:
                 self.queue.task_done()  # Mark the sentinel as done
                 return None  # Signal to stop consuming

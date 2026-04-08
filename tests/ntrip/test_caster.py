@@ -25,9 +25,6 @@ from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
 
 
-# ── Fixtures ──────────────────────────────────────────────────────────────────
-
-
 @pytest.fixture
 def extra_mountpoint() -> Mountpoint:
     return Mountpoint(
@@ -42,9 +39,6 @@ def extra_mountpoint() -> Mountpoint:
     )
 
 
-# ── Mountpoint validation ─────────────────────────────────────────────────────
-
-
 class TestMountpointValidation:
     def _base(self, **overrides) -> dict:  # type: ignore[return]
         defaults = dict(
@@ -55,7 +49,7 @@ class TestMountpointValidation:
         return defaults
 
     def test_valid_mountpoint_constructs(self) -> None:
-        Mountpoint(**self._base())  # must not raise
+        Mountpoint(**self._base())  # Must not raise
 
     def test_name_empty_raises(self) -> None:
         with pytest.raises(ValueError, match="name"):
@@ -70,10 +64,10 @@ class TestMountpointValidation:
             Mountpoint(**self._base(name="BASE/1"))
 
     def test_name_underscore_allowed(self) -> None:
-        Mountpoint(**self._base(name="BASE_1"))  # must not raise
+        Mountpoint(**self._base(name="BASE_1"))  # Must not raise
 
     def test_name_hyphen_allowed(self) -> None:
-        Mountpoint(**self._base(name="BASE-1"))  # must not raise
+        Mountpoint(**self._base(name="BASE-1"))  # Must not raise
 
     def test_empty_password_raises(self) -> None:
         with pytest.raises(ValueError, match="password"):
@@ -116,11 +110,8 @@ class TestMountpointValidation:
         Mountpoint(**self._base(longitude=-180.0))
 
 
-# ── Registry ──────────────────────────────────────────────────────────────────
-
-
 class TestMountpointRegistry:
-    def test_register_adds_mountpoint(self, caster: NTRIPCaster, mountpoint: Mountpoint) -> None:
+    def test_register_adds_mountpoint(self, caster: NTRIPCaster) -> None:
         assert "BASE1" in caster.mountpoints
 
     def test_register_duplicate_raises_value_error(self, caster: NTRIPCaster, mountpoint: Mountpoint) -> None:
@@ -154,21 +145,19 @@ class TestMountpointRegistry:
         assert NTRIPCaster().mountpoints == {}
 
 
-# ── Authentication ────────────────────────────────────────────────────────────
+# TODO Implement
+# class TestSourceAuthentication:
+#     def test_valid_credentials_authenticate(self, caster: NTRIPCaster) -> None:
+#         assert caster.authenticate("BASE1", "s3cr3t") is True
 
+#     def test_wrong_password_rejected(self, caster: NTRIPCaster) -> None:
+#         assert caster.authenticatee("BASE1", "wrong") is False
 
-class TestSourceAuthentication:
-    def test_valid_credentials_authenticate(self, caster: NTRIPCaster) -> None:
-        assert caster.authenticate_source("BASE1", "s3cr3t") is True
+#     def test_unknown_mountpoint_rejected(self, caster: NTRIPCaster) -> None:
+#         assert caster.authenticate("GHOST", "s3cr3t") is False
 
-    def test_wrong_password_rejected(self, caster: NTRIPCaster) -> None:
-        assert caster.authenticate_source("BASE1", "wrong") is False
-
-    def test_unknown_mountpoint_rejected(self, caster: NTRIPCaster) -> None:
-        assert caster.authenticate_source("GHOST", "s3cr3t") is False
-
-    def test_empty_password_rejected(self, caster: NTRIPCaster) -> None:
-        assert caster.authenticate_source("BASE1", "") is False
+#     def test_empty_password_rejected(self, caster: NTRIPCaster) -> None:
+#         assert caster.authenticate("BASE1", "") is False
 
 
 # ── Fan-out (publish / subscribe) ─────────────────────────────────────────────

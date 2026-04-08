@@ -59,7 +59,7 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
         raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist.")
 
     # TODO: use a separate rover user table; for now rovers share the mountpoint credentials.
-    if not caster.authenticate_source(mountpoint_id, request.credentials.password):
+    if not caster.authenticate_source(request.credentials.username, request.credentials.password):
         raise Unauthorized("Invalid credentials.", scheme="Basic")
 
     async def stream_frames(stream: HTTPResponse) -> None:

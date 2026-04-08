@@ -25,9 +25,6 @@ from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.ntrip.v2.sourcetable import format_sourcetable  # noqa: E402
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
 def _str_lines(table: str) -> list[str]:
     return [line for line in table.splitlines() if line.startswith("STR;")]
 
@@ -37,9 +34,6 @@ def _make_caster(*mountpoints: Mountpoint) -> NTRIPCaster:
     for mp in mountpoints:
         c.register(mp)
     return c
-
-
-# ── Structure ─────────────────────────────────────────────────────────────────
 
 
 class TestSourceTableStructure:
@@ -75,9 +69,6 @@ class TestSourceTableStructure:
         # NTRIP v2 spec defines 19 fields for an STR line.
         line = _str_lines(format_sourcetable(caster))[0]
         assert len(line.split(";")) >= 19
-
-
-# ── Content ───────────────────────────────────────────────────────────────────
 
 
 class TestSourceTableContent:

@@ -8,7 +8,7 @@ from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.services.v1.ntrip import service as ntrip_service
 
-ntrip_blueprint = ntrip_service.blueprint("v1")
+ntrip_blueprint = ntrip_service.blueprint()
 
 
 @pytest.fixture(autouse=True, scope="session")

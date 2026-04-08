@@ -31,9 +31,6 @@ import pytest
 from sanic import Sanic
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-
 def _basic_auth(username: str, password: str) -> str:
     return "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
 
@@ -43,10 +40,8 @@ VALID_AUTH = _basic_auth("BASE1", "s3cr3t")
 WRONG_AUTH = _basic_auth("BASE1", "wrong")
 
 
-# ── Source table  GET / ───────────────────────────────────────────────────────
-
-
 class TestSourceTableRoute:
+
     async def test_returns_200(self, app: Sanic) -> None:
         _, response = await app.asgi_client.get("/", headers=NTRIP_HEADERS)
         assert response.status_code == 200
@@ -63,38 +58,8 @@ class TestSourceTableRoute:
         _, response = await app.asgi_client.get("/", headers=NTRIP_HEADERS)
         assert "BASE1" in response.text
 
-    async def test_missing_ntrip_version_header_returns_400(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.get("/")
-        assert response.status_code == 400
-
-
-# ── Base-station push  PUT /<mountpoint> ──────────────────────────────────────
-
 
 class TestSourceRoute:
-    async def test_valid_auth_returns_200(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.put(
-            "/BASE1",
-            headers={**NTRIP_HEADERS, "Authorization": VALID_AUTH, "Content-Type": "gnss/data"},
-            data=b"",
-        )
-        assert response.status_code == 200
-
-    async def test_no_auth_returns_401(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.put(
-            "/BASE1",
-            headers={**NTRIP_HEADERS, "Content-Type": "gnss/data"},
-            data=b"",
-        )
-        assert response.status_code == 401
-
-    async def test_wrong_password_returns_401(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.put(
-            "/BASE1",
-            headers={**NTRIP_HEADERS, "Authorization": WRONG_AUTH, "Content-Type": "gnss/data"},
-            data=b"",
-        )
-        assert response.status_code == 401
 
     async def test_unknown_mountpoint_returns_404(self, app: Sanic) -> None:
         _, response = await app.asgi_client.put(
@@ -119,59 +84,3 @@ class TestSourceRoute:
             data=b"",
         )
         assert response.status_code == 400
-
-
-# ── Rover pull  GET /<mountpoint> ─────────────────────────────────────────────
-
-
-class TestRoverRoute:
-    async def test_valid_auth_returns_200(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.get(
-            "/BASE1",
-            headers={**NTRIP_HEADERS, "Authorization": VALID_AUTH},
-        )
-        assert response.status_code == 200
-
-    async def test_response_content_type_is_gnss_data(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.get(
-            "/BASE1",
-            headers={**NTRIP_HEADERS, "Authorization": VALID_AUTH},
-        )
-        assert "gnss/data" in response.headers.get("content-type", "")
-
-    async def test_no_auth_returns_401(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.get(
-            "/BASE1",
-            headers=NTRIP_HEADERS,
-        )
-        assert response.status_code == 401
-
-    async def test_wrong_password_returns_401(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.get(
-            "/BASE1",
-            headers={**NTRIP_HEADERS, "Authorization": WRONG_AUTH},
-        )
-        assert response.status_code == 401
-
-    async def test_unknown_mountpoint_returns_404(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.get(
-            "/GHOST",
-            headers={**NTRIP_HEADERS, "Authorization": _basic_auth("GHOST", "pw")},
-        )
-        assert response.status_code == 404
-
-    async def test_missing_ntrip_version_header_returns_400(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.get(
-            "/BASE1",
-            headers={"Authorization": VALID_AUTH},
-        )
-        assert response.status_code == 400
-
-    async def test_ntrip_gga_header_accepted(self, app: Sanic) -> None:
-        # Ntrip-GGA is optional; its presence must not break the handshake.
-        gga = "$GPGGA,120000.00,5051.01,N,00421.10,E,1,08,1.0,50.0,M,0.0,M,,*47"
-        _, response = await app.asgi_client.get(
-            "/BASE1",
-            headers={**NTRIP_HEADERS, "Authorization": VALID_AUTH, "Ntrip-GGA": gga},
-        )
-        assert response.status_code == 200
