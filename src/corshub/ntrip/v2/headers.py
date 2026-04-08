@@ -15,7 +15,13 @@ from __future__ import annotations
 
 import math
 
+from typing import TYPE_CHECKING
+
 from pynmeagps import NMEAReader
+
+
+if TYPE_CHECKING:
+    from typing import Final
 
 
 NTRIP_VERSION = "Ntrip-Version"
@@ -175,6 +181,9 @@ def parse_ntrip_gga(header: str | None) -> tuple[float, float] | None:
         return None
 
 
+R_EARTH_KM: Final[float] = 6371.0  # mean Earth radius in km
+
+
 def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """Return the great-circle distance in kilometres between two WGS-84 points.
 
@@ -185,8 +194,7 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     Returns:
         Distance in km.
     """
-    R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
     a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
-    return R * 2 * math.asin(math.sqrt(a))
+    return R_EARTH_KM * 2 * math.asin(math.sqrt(a))

@@ -77,6 +77,8 @@ extend-exclude = ["docs/*", "tests/fixtures/exceptions/*"]
 
 ignore = [
     "E722", # Bare exceptions
+    "TID252", # Prefer absolute imports over relative imports
+    "SIM105", # Use `contextlib.suppress(asyncio.QueueFull, RuntimeError)` instead of `try`-`except`-`pass`
 ]
 
 [tool.ruff.flake8-tidy-imports]

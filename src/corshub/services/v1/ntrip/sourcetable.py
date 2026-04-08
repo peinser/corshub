@@ -24,8 +24,6 @@ from typing import TYPE_CHECKING
 
 from sanic import response
 
-from corshub.exceptions.http import BadRequestError
-from corshub.ntrip.v2.headers import NTRIP_VERSION
 from corshub.ntrip.v2.headers import NTRIP_VERSION_2
 from corshub.ntrip.v2.sourcetable import format_sourcetable
 

@@ -4,8 +4,6 @@ HTTP specific exceptions.
 
 from __future__ import annotations
 
-from uuid import UUID
-
 from sanic.exceptions import BadRequest as BadRequestError  # noqa: F401
 from sanic.exceptions import Forbidden as ForbiddenError  # noqa: F401
 from sanic.exceptions import InternalServerError  # noqa: F401

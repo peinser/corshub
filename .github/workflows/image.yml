@@ -27,9 +27,6 @@ jobs:
       with:
         driver-opts: |
           image=${{ vars.OCI_REGISTRY }}/dockerhub/moby/buildkit:buildx-stable-1
-        config-inline: |
-          [registry."docker.io"]
-            mirrors = ["${{ vars.OCI_REGISTRY }}/dockerhub"]
 
     - name: Authenticate with the remote Container Registry
       uses: docker/login-action@v4

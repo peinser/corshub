@@ -22,13 +22,15 @@ import time
 from abc import ABC
 from abc import abstractmethod
 from contextlib import AbstractAsyncContextManager
+from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
-from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
+    from typing import Final
+
     from corshub.ntrip.v2.transport import Transport
     from corshub.ntrip.v2.transport import TransportSubscriber
 
@@ -46,7 +48,7 @@ class Mountpoint:
 
     Attributes:
         name: Mountpoint identifier used in the URL path (e.g. ``BASE-1``).
-            Alphanumeric, hyphens, and underscores, 1–100 characters (per spec).
+            Alphanumeric, hyphens, and underscores, 1/100 characters (per spec).
         identifier: Human-readable label for the source table STR record,
             typically describing the physical location.
         username: Username the base station must supply via HTTP Basic auth.
@@ -108,11 +110,11 @@ class Mountpoint:
     def __post_init__(self) -> None:
         if not _IDENTIFIER_RE.match(self.name):
             raise ValueError(
-                f"Mountpoint name {self.name!r} is invalid: must be 1–100 characters, alphanumeric, underscore, or hyphen."
+                f"Mountpoint name {self.name!r} is invalid: must be 1/100 characters, alphanumeric, underscore, or hyphen."
             )
         if not _IDENTIFIER_RE.match(self.identifier):
             raise ValueError(
-                f"Mountpoint identifier {self.identifier!r} is invalid: must be 1–100 characters, alphanumeric, underscore, or hyphen."
+                f"Mountpoint identifier {self.identifier!r} is invalid: must be 1/100 characters, alphanumeric, underscore, or hyphen."
             )
         if not self.username:
             raise ValueError("Mountpoint username must be non-empty.")
@@ -209,7 +211,7 @@ class NTRIPCaster(Caster):
             stale mountpoints.
     """
 
-    _METADATA_FIELDS = {
+    _METADATA_FIELDS: Final[dict] = {
         "name",
         "format",
         "format_detail",
@@ -302,10 +304,8 @@ class NTRIPCaster(Caster):
 
             try:
                 await self._reaper_task
-            except asyncio.CancelledError:
-                pass
-
-            self._reaper_task = None
+            finally:
+                self._reaper_task = None
 
     async def _reap_loop(self) -> None:
         """Periodically unregister mountpoints that have gone silent."""

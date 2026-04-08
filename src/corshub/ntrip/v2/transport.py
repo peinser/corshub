@@ -172,7 +172,7 @@ class QueueTransport(Transport):
         self._queues: list[QueueTransportSubscriber] = []
 
     @asynccontextmanager
-    async def subscribe(self) -> AsyncGenerator[QueueTransportSubscriber, None]:
+    async def subscribe(self) -> AsyncGenerator[QueueTransportSubscriber]:
         subscriber = QueueTransportSubscriber()
         self._queues.append(subscriber)
 
