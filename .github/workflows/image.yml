@@ -56,8 +56,6 @@ jobs:
         file: docker/Dockerfile
         target: validate
         push: false
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
 
     - name: Build and push production image
       uses: docker/build-push-action@v7
@@ -69,5 +67,3 @@ jobs:
         # platforms: linux/amd64,linux/arm64
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
