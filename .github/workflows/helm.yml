@@ -19,6 +19,11 @@ jobs:
     - name: Git Checkout
       uses: actions/checkout@v6
 
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: "3.17.3"
+
     - name: Authenticate with the remote Container Registry
       run: |
         helm registry login ${{ vars.OCI_REGISTRY }} \
