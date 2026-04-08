@@ -304,8 +304,10 @@ class NTRIPCaster(Caster):
 
             try:
                 await self._reaper_task
-            finally:
-                self._reaper_task = None
+            except asyncio.CancelledError:
+                pass
+
+            self._reaper_task = None
 
     async def _reap_loop(self) -> None:
         """Periodically unregister mountpoints that have gone silent."""
