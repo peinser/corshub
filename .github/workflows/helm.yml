@@ -42,7 +42,7 @@ jobs:
       run: |
         helm push \
           /tmp/helm-package/corshub-${{ steps.version.outputs.value }}.tgz \
-          oci://${{ vars.OCI_REGISTRY }}/peinser
+          oci://${{ vars.OCI_REGISTRY }}/uas/charts
 
     - name: Log out of registry
       if: always()
