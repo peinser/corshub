@@ -8,7 +8,7 @@
 replicaCount: 1
 
 image:
-  repository: harbor.peinser.com/peinser/corshub
+  repository: harbor.peinser.com/uas/corshub
   pullPolicy: IfNotPresent
   # -- Overrides the image tag; defaults to the chart's appVersion.
   tag: ""
@@ -20,9 +20,7 @@ nameOverride: ""
 fullnameOverride: ""
 
 serviceAccount:
-  # -- Create a dedicated ServiceAccount for the pod.
-  create: true
-  # -- Do not automount the service-account token (the app never calls the k8s API).
+  create: false
   automount: false
   annotations: {}
   name: ""
@@ -47,11 +45,12 @@ containerSecurityContext:
 # -- Application-level settings passed to the service bootstrap manager.
 app:
   # -- Comma-separated list of service=version pairs to enable.
+  # Important: this refers to the API version, not the NTRIP protocol version.
   # Example: "ntrip=v1" or "ntrip=v1,ntrip=v2"
   services: "ntrip=v1"
   # -- HTTP port the Sanic server listens on inside the container.
   port: 8000
-  # -- Number of Sanic worker processes per pod.
+  # -- Number of Sanic worker processes per pod. Should be kept 1 for async queue communication.
   workers: 1
   # -- Enable HTTP access logging.
   accessLogs: false
@@ -80,9 +79,8 @@ service:
 resources:
   requests:
     cpu: 100m
-    memory: 128Mi
+    memory: 256Mi
   limits:
-    cpu: 500m
     memory: 256Mi
 
 # -- Liveness probe — restarts the container if the server stops responding.
