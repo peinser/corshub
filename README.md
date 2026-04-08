@@ -255,21 +255,6 @@ docker run --rm corshub:local
 |---|---|---|
 | `docs.yml` | Push to `main` (docs/src/mkdocs) or manual | Builds and publishes documentation to GitHub Pages |
 | `image.yml` | Push to `main`/`development` (docker/src/tests) or manual | Validates and builds the Docker image, pushes to registry |
-| `pypi.yml` | Push to `main` or manual | Builds and publishes the package to PyPI |
-
----
-
-## Publishing to PyPI
-
-Releases are published automatically via GitHub Actions using **Trusted Publishing** (OIDC) — no long-lived API tokens required.
-
-1. Go to your repository → **Settings** → **Environments** → create an environment named **`pypi`**.
-2. On PyPI, add a trusted publisher under **Manage** → **Publishing** with:
-   - **Repository owner**: `https://github.com/peinser/corshub`
-   - **Repository name**: the name of this repo
-   - **Workflow filename**: `pypi.yml`
-   - **Environment name**: `pypi`
-3. To release: update the version in `pyproject.toml`, commit, and push to `main` (or create a GitHub Release tag).
 
 ---
 

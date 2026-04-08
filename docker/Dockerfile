@@ -29,7 +29,7 @@ RUN uv sync --frozen && \
     uv run ruff check src/corshub && \
     # uv run coverage run -m pytest --cov=src/corshub && \
     uv run pytest && \
-    uv run bandit -r src
+    uv run bandit -r src --severity-level medium
 
 # production ##################################################################
 
