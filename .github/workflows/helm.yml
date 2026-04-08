@@ -13,7 +13,8 @@ on:
 jobs:
 
   publish:
-    runs-on: on-prem
+    runs-on:
+      group: on-prem
     steps:
     - name: Git Checkout
       uses: actions/checkout@v6
