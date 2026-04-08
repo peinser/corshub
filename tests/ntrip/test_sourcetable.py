@@ -22,7 +22,7 @@ import pytest
 
 from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
-from corshub.ntrip.v2.sourcetable import format_sourcetable
+from corshub.ntrip.v2.sourcetable import format_sourcetable  # noqa: E402
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -61,9 +61,9 @@ class TestSourceTableStructure:
 
     def test_multiple_mountpoints_produce_multiple_str_lines(self) -> None:
         c = _make_caster(
-            Mountpoint(name="A", password="p", identifier="A", format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0),
-            Mountpoint(name="B", password="p", identifier="B", format="RTCM 3.3", country="NLD", latitude=52.0, longitude=5.0),
-            Mountpoint(name="C", password="p", identifier="C", format="RTCM 3.3", country="DEU", latitude=48.0, longitude=10.0),
+            Mountpoint(name="A", username="u", password="p", identifier="A", format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0),
+            Mountpoint(name="B", username="u", password="p", identifier="B", format="RTCM 3.3", country="NLD", latitude=52.0, longitude=5.0),
+            Mountpoint(name="C", username="u", password="p", identifier="C", format="RTCM 3.3", country="DEU", latitude=48.0, longitude=10.0),
         )
         assert len(_str_lines(format_sourcetable(c))) == 3
 
@@ -108,8 +108,8 @@ class TestSourceTableContent:
 
     def test_each_mountpoint_name_appears_in_own_str_line(self) -> None:
         c = _make_caster(
-            Mountpoint(name="ALPHA", password="p", identifier="ALPHA", format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0),
-            Mountpoint(name="BETA",  password="p", identifier="BETA",  format="RTCM 3.3", country="NLD", latitude=52.0, longitude=5.0),
+            Mountpoint(name="ALPHA", username="u", password="p", identifier="ALPHA", format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0),
+            Mountpoint(name="BETA",  username="u", password="p", identifier="BETA",  format="RTCM 3.3", country="NLD", latitude=52.0, longitude=5.0),
         )
         str_lines = _str_lines(format_sourcetable(c))
         names = {line.split(";")[1] for line in str_lines}

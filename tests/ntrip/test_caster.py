@@ -32,6 +32,7 @@ from corshub.ntrip.v2.caster import NTRIPCaster
 def extra_mountpoint() -> Mountpoint:
     return Mountpoint(
         name="BASE2",
+        username="BASE2",
         password="other",
         identifier="BASE2",
         format="RTCM 3.3",
@@ -47,7 +48,7 @@ def extra_mountpoint() -> Mountpoint:
 class TestMountpointValidation:
     def _base(self, **overrides) -> dict:  # type: ignore[return]
         defaults = dict(
-            name="BASE1", password="s3cr3t", identifier="BASE1",
+            name="BASE1", username="BASE1", password="s3cr3t", identifier="BASE1",
             format="RTCM 3.3", country="BEL", latitude=50.85, longitude=4.35,
         )
         defaults.update(overrides)

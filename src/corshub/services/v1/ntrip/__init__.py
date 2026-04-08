@@ -4,9 +4,10 @@ from corshub.services.base import Service
 
 from . import put
 from . import read
+from . import sourcetable
 
 
-__all__ = ["put", "read"]
+__all__ = ["put", "read", "sourcetable"]
 
 from .base import bp
 

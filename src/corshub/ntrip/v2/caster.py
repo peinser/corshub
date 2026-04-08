@@ -101,6 +101,10 @@ class Mountpoint:
     last_seen: float = field(default_factory=time.monotonic, compare=False)
 
     def __post_init__(self) -> None:
+        if not _IDENTIFIER_RE.match(self.name):
+            raise ValueError(
+                f"Mountpoint name {self.name!r} is invalid: must be 1–100 characters, alphanumeric, underscore, or hyphen."
+            )
         if not _IDENTIFIER_RE.match(self.identifier):
             raise ValueError(
                 f"Mountpoint identifier {self.identifier!r} is invalid: must be 1–100 characters, alphanumeric, underscore, or hyphen."
@@ -129,10 +133,10 @@ class Caster(ABC):
         """
 
     @abstractmethod
-    def unregister(self, name: str) -> None:
-        """Remove *name* from the registry and close its transport.
+    def unregister(self, identifier: str) -> None:
+        """Remove *identifier* from the registry and close its transport.
 
-        Raises KeyError if *name* is not registered.
+        Raises KeyError if *identifier* is not registered.
         """
 
     @property
@@ -141,8 +145,11 @@ class Caster(ABC):
         """Read-only view of currently registered mountpoints."""
 
     @abstractmethod
-    async def authenticate(self, username: str, password: str) -> bool:
-        """Return True if *password* is valid for mountpoint's *username*."""
+    def authenticate(self, username: str, password: str) -> bool:
+        """Return True if *password* is valid for the base station associated with *username*.
+
+        Raises no exception — returns False for unknown mountpoints.
+        """
 
     @abstractmethod
     async def publish(self, name: str, frame: bytes) -> int:
@@ -218,30 +225,14 @@ class NTRIPCaster(Caster):
 
     # ── Registry ──────────────────────────────────────────────────────────────
 
-    async def register(self, identifier: str, **kwargs) -> Mountpoint:
-        if identifier in self._mountpoints:
-            instance = self._mountpoints[identifier]
-            # Merge incoming metadata into the existing instance.  Credentials
-            # (username, password) and last_seen are intentionally excluded —
-            # those are set by the operator and must not be overwritten by
-            # whatever the base station reports in its Ntrip-STR header.
-            for key, value in kwargs.items():
-                if key in NTRIPCaster._METADATA_FIELDS and value is not None:
-                    setattr(instance, key, value)
+    def register(self, mountpoint: Mountpoint) -> None:
+        if mountpoint.identifier in self._mountpoints:
+            raise ValueError(f"Mountpoint {mountpoint.identifier!r} is already registered.")
 
-            return instance
+        self._mountpoints[mountpoint.identifier] = mountpoint
+        self._transports[mountpoint.identifier] = self._transport_factory()
 
-        instance = Mountpoint(
-            identifier=identifier,
-            **kwargs,
-        )
-
-        self._mountpoints[identifier] = instance
-        self._transports[identifier] = self._transport_factory()
-
-        return instance
-
-    async def unregister(self, identifier: str) -> None:
+    def unregister(self, identifier: str) -> None:
         if identifier not in self._mountpoints:
             raise KeyError(identifier)
 
@@ -252,30 +243,27 @@ class NTRIPCaster(Caster):
     def mountpoints(self) -> dict[str, Mountpoint]:
         return self._mountpoints
 
-    # ── Auth ──────────────────────────────────────────────────────────────────
-
     def authenticate(self, username: str, password: str) -> bool:
-        return True  # TODO Implement
+        mp = self._mountpoints.get(username)
+        if mp is None:
+            return False
 
-    # ── Pub / sub ─────────────────────────────────────────────────────────────
+        return mp.password == password
 
-    async def publish(self, mountpoint: Mountpoint, frame: bytes) -> int:
-        transport = self._transports.get(mountpoint.identifier)
+    async def publish(self, identifier: str, frame: bytes) -> int:
+        transport = self._transports.get(identifier)
         if transport is None:
             return 0
 
-        mp = self._mountpoints[mountpoint.identifier]
-        mp.last_seen = time.monotonic()
-
+        self._mountpoints[identifier].last_seen = time.monotonic()
         return await transport.publish(frame)
 
-    def subscribe(self, name: str) -> AbstractAsyncContextManager[TransportSubscriber]:
-        transport = self._transports.get(name)
+    def subscribe(self, identifier: str) -> AbstractAsyncContextManager[TransportSubscriber]:
+        transport = self._transports.get(identifier)
         if transport is None:
-            raise KeyError(name)
-        return transport.subscribe()
+            raise KeyError(identifier)
 
-    # ── Lifecycle ─────────────────────────────────────────────────────────────
+        return transport.subscribe()
 
     async def start(self) -> None:
         if self._expiry is not None:
@@ -290,8 +278,6 @@ class NTRIPCaster(Caster):
                 pass
             self._reaper_task = None
 
-    # ── Reaper ────────────────────────────────────────────────────────────────
-
     async def _reap_loop(self) -> None:
         """Periodically unregister mountpoints that have gone silent."""
         while True:
@@ -302,6 +288,6 @@ class NTRIPCaster(Caster):
         if self._expiry is None:
             return
         cutoff = time.monotonic() - self._expiry
-        stale = [name for name, mp in self._mountpoints.items() if mp.last_seen < cutoff]
-        for name in stale:
-            self.unregister(name)
+        stale = [identifier for identifier, mp in self._mountpoints.items() if mp.last_seen < cutoff]
+        for identifier in stale:
+            self.unregister(identifier)

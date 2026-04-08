@@ -6,7 +6,9 @@ from sanic import Sanic
 
 from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
-from corshub.services.v1.ntrip import blueprint as ntrip_blueprint
+from corshub.services.v1.ntrip import service as ntrip_service
+
+ntrip_blueprint = ntrip_service.blueprint("v1")
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -18,8 +20,9 @@ def enable_test_mode() -> None:
 def mountpoint() -> Mountpoint:
     return Mountpoint(
         name="BASE1",
-        password="s3cr3t",
         identifier="BASE1",
+        username="BASE1",
+        password="s3cr3t",
         format="RTCM 3.3",
         country="BEL",
         latitude=50.8503,

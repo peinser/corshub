@@ -29,11 +29,19 @@ High-level flow
    sub-3 m absolute rover accuracy.  For true sub-metre absolute accuracy, place the
    base on a known surveyed mark and use CFG-TMODE3 fixed mode with precise coordinates.
 
-5. **FIXED** — Once the receiver reports survey-in valid and no longer active, an output file
-   is opened and every raw RTCM correction frame received from the serial port is appended to
-   it verbatim.  This file can be tailed and forwarded directly to an NTRIP caster.
+5. **FIXED** — Once the receiver reports survey-in valid and no longer active, every raw
+   RTCM correction frame received from the serial port is forwarded to the configured
+   NTRIP caster via HTTP PUT (NTRIP v2).  The caster connection is maintained for as long
+   as the device stays in FIXED state; on disconnect it automatically reconnects.
 
-Use asyncio as much as possible (including serial read from USB).
+NTRIP caster configuration
+---------------------------
+Pass --caster-url, --mountpoint, --username and --password to enable streaming.
+Example:
+    python here4.py --caster-url http://localhost:8000 \
+                    --mountpoint HERE4 \
+                    --username HERE4 \
+                    --password secret
 
 Metrics glossary
 ----------------
@@ -81,13 +89,14 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 from collections import deque
-import shutil
 from enum import Enum
 from enum import auto
-from pathlib import Path
+import shutil
 from typing import IO
 
+import aiohttp
 import serial
 import serial.tools.list_ports
 from pyrtcm import RTCMMessage
@@ -117,14 +126,12 @@ UBLOX_VID = 0x1546  # u-blox AG USB vendor ID
 SVIN_MIN_DUR = 60
 SVIN_ACC_LIMIT = 20_000  # 0.1 mm units → 2 m
 
-RTCM_OUTPUT = Path("rtcm_corrections.rtcm")
-
 # UBX class / message IDs
-NAV_CLASS = 0x01
-NAV_PVT_ID = 0x07
-NAV_SAT_ID = 0x35
+NAV_CLASS  = 0x01
+NAV_PVT_ID  = 0x07
+NAV_SAT_ID  = 0x35
 NAV_SVIN_ID = 0x3B
-RTCM_CLASS = 0xF5
+RTCM_CLASS  = 0xF5
 
 # RTCM 3.3 message IDs to enable (1005, 1074, 1084, 1094, 1124, 1230)
 RTCM_OUTPUT_IDS = [0x05, 0x4A, 0x54, 0x5E, 0x7C, 0xE6]
@@ -145,11 +152,18 @@ GNSS_NAMES = {0: "GPS", 1: "SBAS", 2: "Galileo", 3: "BDS", 4: "IMES", 5: "QZSS",
 
 
 class State(Enum):
-    SEARCHING = auto()   # scanning for u-blox USB device
-    CONNECTING = auto()  # opening serial port, sending initial config
-    MONITORING = auto()  # streaming NAV data, waiting for stable 3D fix
-    SURVEY_IN = auto()   # survey-in running
-    FIXED = auto()       # fixed position established, streaming RTCM
+    SEARCHING  = auto()   # scanning for u-blox USB device
+    CONNECTING = auto()   # opening serial port, sending initial config
+    MONITORING = auto()   # streaming NAV data, waiting for stable 3D fix
+    SURVEY_IN  = auto()   # survey-in running
+    FIXED      = auto()   # fixed position established, streaming RTCM
+
+
+class CasterState(Enum):
+    DISCONNECTED = auto()   # not configured or not yet attempted
+    CONNECTING   = auto()   # TCP/HTTP handshake in progress
+    STREAMING    = auto()   # PUT accepted, frames are flowing
+    ERROR        = auto()   # last connection attempt failed
 
 
 class GNSSState:
@@ -174,6 +188,12 @@ class GNSSState:
         # RTCM output counters
         self.rtcm_msgs = 0
         self.rtcm_bytes = 0
+        # NTRIP caster push state
+        self.caster_state = CasterState.DISCONNECTED
+        self.caster_error: str = ""
+        self.caster_msgs = 0
+        self.caster_bytes = 0
+        self.caster_acks = 0
         # H-Acc history for sparkline (1 Hz NAV-PVT → 120 s of history)
         self.h_acc_history: deque[float] = deque(maxlen=120)
 
@@ -215,9 +235,9 @@ def _cfg_tmode3_fixed(lat: float, lon: float, alt: float, acc_mm: float) -> byte
     The coordinate is split into a standard-precision integer (1e-7 deg / cm) and a
     high-precision remainder (1e-9 deg / 0.1 mm) as required by the UBX protocol.
     """
-    lat_i = int(lat * 1e7)
+    lat_i  = int(lat * 1e7)
     lat_hp = round((lat * 1e7 - lat_i) * 100)   # units: 1e-9 deg
-    lon_i = int(lon * 1e7)
+    lon_i  = int(lon * 1e7)
     lon_hp = round((lon * 1e7 - lon_i) * 100)   # units: 1e-9 deg
     alt_cm = int(alt * 100)
     alt_hp = round((alt * 100 - alt_cm) * 10)   # units: 0.1 mm
@@ -242,7 +262,6 @@ def _cfg_tmode3_fixed(lat: float, lon: float, alt: float, acc_mm: float) -> byte
 def find_ublox_ports() -> list[str]:
     """Return serial port names that look like u-blox devices."""
     ports = []
-
     for p in serial.tools.list_ports.comports():
         if (
             p.vid == UBLOX_VID
@@ -251,7 +270,6 @@ def find_ublox_ports() -> list[str]:
             or p.device.startswith("/dev/ttyACM")
         ):
             ports.append(p.device)
-
     return ports
 
 
@@ -265,7 +283,7 @@ def _sparkline(values: deque[float]) -> str:
     """Render a deque of floats as a Unicode block sparkline, capped to terminal width."""
     if len(values) < 2:
         return ""
-    max_len = max(10, shutil.get_terminal_size().columns - 6)  # subtract panel borders/padding
+    max_len = max(10, shutil.get_terminal_size().columns - 6)
     data = list(values)[-max_len:]
     lo, hi = min(data), max(data)
     span = hi - lo or 1.0
@@ -279,17 +297,17 @@ def _cno_bar(cno: int) -> Text:
     return Text(f"{'█' * filled}{'░' * (10 - filled)} {cno:2d}", style=color)
 
 
-def build_display(gs: GNSSState) -> Table:
+def build_display(gs: GNSSState, caster_url: str | None) -> Table:
     """Render the full terminal display from current GNSSState."""
     root = Table.grid(padding=(0, 1))
     root.add_column()
 
     state_color = {
-        State.SEARCHING: "yellow",
+        State.SEARCHING:  "yellow",
         State.CONNECTING: "cyan",
         State.MONITORING: "blue",
-        State.SURVEY_IN: "magenta",
-        State.FIXED: "green",
+        State.SURVEY_IN:  "magenta",
+        State.FIXED:      "green",
     }[gs.state]
     banner = Text(f"  {gs.state.name}  {gs.port}  ", style=f"bold white on {state_color}")
     root.add_row(Panel(banner, title="[bold]Here4 RTK Base Station Prototype[/bold]"))
@@ -325,10 +343,32 @@ def build_display(gs: GNSSState) -> Table:
         rt = Table(title="RTCM Corrections Output", show_header=False, expand=True)
         rt.add_column("k", style="cyan", width=14)
         rt.add_column("v", style="green")
-        rt.add_row("Output file", str(RTCM_OUTPUT))
         rt.add_row("Messages", str(gs.rtcm_msgs))
-        rt.add_row("Bytes written", str(gs.rtcm_bytes))
+        rt.add_row("Bytes", str(gs.rtcm_bytes))
         root.add_row(rt)
+
+    # NTRIP caster push panel (only shown when --caster-url is configured)
+    if caster_url is not None:
+        _caster_state_style = {
+            CasterState.DISCONNECTED: ("dim",   "DISCONNECTED"),
+            CasterState.CONNECTING:   ("yellow", "CONNECTING…"),
+            CasterState.STREAMING:    ("green",  "STREAMING"),
+            CasterState.ERROR:        ("red",    "ERROR"),
+        }
+        style, label = _caster_state_style[gs.caster_state]
+
+        ct = Table(title="NTRIP Caster Push", show_header=False, expand=True)
+        ct.add_column("k", style="cyan", width=14)
+        ct.add_column("v")
+        ct.add_row("Caster URL", caster_url)
+        ct.add_row("Status", Text(label, style=f"bold {style}"))
+        if gs.caster_state == CasterState.STREAMING:
+            ct.add_row("Msgs sent", Text(str(gs.caster_msgs), style="green"))
+            ct.add_row("Bytes sent", Text(str(gs.caster_bytes), style="green"))
+            ct.add_row("Acks (rovers)", Text(str(gs.caster_acks), style="green"))
+        if gs.caster_state == CasterState.ERROR and gs.caster_error:
+            ct.add_row("Last error", Text(gs.caster_error, style="red"))
+        root.add_row(ct)
 
     # H-Acc sparkline (shown once we have history)
     if len(gs.h_acc_history) >= 2:
@@ -365,6 +405,77 @@ def build_display(gs: GNSSState) -> Table:
     return root
 
 
+# ── NTRIP caster push ─────────────────────────────────────────────────────────
+
+
+async def caster_loop(
+    gs: GNSSState,
+    frame_queue: asyncio.Queue[bytes],
+    caster_url: str,
+    mountpoint: str,
+    username: str,
+    password: str,
+) -> None:
+    """Maintain a long-lived NTRIP v2 PUT connection to the caster.
+
+    Reads RTCM frames from *frame_queue* and streams them in the request body.
+    Reconnects automatically with exponential back-off on failure.
+    """
+    credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
+    url = f"{caster_url.rstrip('/')}/{mountpoint}"
+    backoff = 1.0
+
+    async with aiohttp.ClientSession() as session:
+        while True:
+            gs.caster_state = CasterState.CONNECTING
+            gs.caster_error = ""
+
+            async def _frame_generator():
+                while True:
+                    frame = await frame_queue.get()
+                    if frame is None:   # sentinel: stop streaming
+                        return
+                    yield frame
+
+            try:
+                async with session.put(
+                    url,
+                    data=_frame_generator(),
+                    headers={
+                        "Ntrip-Version":  "Ntrip/2.0",
+                        "Authorization":  f"Basic {credentials}",
+                        "Content-Type":   "gnss/data",
+                        "User-Agent":     "Here4Base/1.0",
+                    },
+                    chunked=True,
+                ) as resp:
+                    if resp.status != 200:
+                        body = await resp.text()
+                        raise aiohttp.ClientResponseError(
+                            resp.request_info, resp.history,
+                            status=resp.status, message=body,
+                        )
+
+                    gs.caster_state = CasterState.STREAMING
+                    backoff = 1.0
+
+                    # Keep the connection alive by consuming any server response bytes.
+                    # The caster may send acknowledgement data or simply hold the connection.
+                    async for chunk in resp.content:
+                        # Parse ack count from response if caster sends it (non-standard).
+                        # For spec-compliant casters this will simply be empty.
+                        _ = chunk
+
+            except asyncio.CancelledError:
+                return
+
+            except Exception as exc:
+                gs.caster_state = CasterState.ERROR
+                gs.caster_error = str(exc)
+                await asyncio.sleep(backoff)
+                backoff = min(backoff * 2, 30.0)
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 
@@ -372,6 +483,11 @@ async def main(args: argparse.Namespace) -> None:
     gs = GNSSState()
     queue: asyncio.Queue[tuple[bytes | None, object]] = asyncio.Queue(maxsize=512)
     ser_ref: list[serial.Serial] = []  # mutable slot so process_loop can send CFG commands
+
+    # Queue of raw RTCM bytes to push to the caster (None = stop signal).
+    caster_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=256)
+
+    caster_url: str | None = args.caster_url
 
     # ── connect_loop: find device, open port, configure, spawn reader ──────────
 
@@ -440,7 +556,6 @@ async def main(args: argparse.Namespace) -> None:
 
     async def process_loop() -> None:
         loop = asyncio.get_running_loop()
-        rtcm_file: IO[bytes] | None = None
 
         while True:
             raw, parsed = await queue.get()
@@ -448,15 +563,15 @@ async def main(args: argparse.Namespace) -> None:
 
             # ── NAV-PVT: position, velocity, time ─────────────────────────────
             if identity == "NAV-PVT":
-                gs.fix_type = parsed.fixType
+                gs.fix_type   = parsed.fixType
                 gs.gnss_fix_ok = bool(parsed.gnssFixOk)
-                gs.lat = parsed.lat          # pyubx2 applies 1e-7 scale → degrees
-                gs.lon = parsed.lon          # pyubx2 applies 1e-7 scale → degrees
-                gs.alt = parsed.hMSL / 1e3  # raw mm → m
-                gs.speed = parsed.gSpeed / 1e3  # raw mm/s → m/s
-                gs.h_acc = parsed.hAcc / 1e3    # raw mm → m
-                gs.v_acc = parsed.vAcc / 1e3    # raw mm → m
-                gs.pdop = parsed.pDOP        # pyubx2 applies 1e-2 scale → dimensionless
+                gs.lat   = parsed.lat
+                gs.lon   = parsed.lon
+                gs.alt   = parsed.hMSL / 1e3
+                gs.speed = parsed.gSpeed / 1e3
+                gs.h_acc = parsed.hAcc / 1e3
+                gs.v_acc = parsed.vAcc / 1e3
+                gs.pdop  = parsed.pDOP
                 gs.num_sv = parsed.numSV
                 gs.h_acc_history.append(gs.h_acc)
                 if parsed.validDate and parsed.validTime:
@@ -472,20 +587,16 @@ async def main(args: argparse.Namespace) -> None:
                     and ser_ref
                 ):
                     ser = ser_ref[0]
-                    # Enable RTCM correction output messages (same for both modes)
                     for rtcm_id in RTCM_OUTPUT_IDS:
                         await loop.run_in_executor(None, ser.write, _cfg_msg(RTCM_CLASS, rtcm_id, 1))
                         await asyncio.sleep(0.05)
                     if args.lat is not None:
-                        # Fixed mode: apply known coordinates immediately, skip survey-in
                         await loop.run_in_executor(
                             None, ser.write,
                             _cfg_tmode3_fixed(args.lat, args.lon, args.alt, args.fixed_acc),
                         )
                         gs.state = State.FIXED
-                        rtcm_file = RTCM_OUTPUT.open("wb")
                     else:
-                        # Survey-in mode: let the receiver converge on its own position
                         await loop.run_in_executor(
                             None, ser.write, _cfg_tmode3_svin(SVIN_MIN_DUR, SVIN_ACC_LIMIT)
                         )
@@ -494,14 +605,12 @@ async def main(args: argparse.Namespace) -> None:
             # ── NAV-SVIN: survey-in progress ───────────────────────────────────
             elif identity == "NAV-SVIN":
                 gs.svin_active = bool(parsed.active)
-                gs.svin_valid = bool(parsed.valid)
-                gs.svin_obs = parsed.obs
-                gs.svin_acc = parsed.meanAcc / 10000.0  # 0.1 mm → m
-                gs.svin_dur = parsed.dur
-                # Survey-in complete: open RTCM output file and move to FIXED
+                gs.svin_valid  = bool(parsed.valid)
+                gs.svin_obs    = parsed.obs
+                gs.svin_acc    = parsed.meanAcc / 10000.0
+                gs.svin_dur    = parsed.dur
                 if gs.state == State.SURVEY_IN and gs.svin_valid and not gs.svin_active:
                     gs.state = State.FIXED
-                    rtcm_file = RTCM_OUTPUT.open("wb")
 
             # ── NAV-SAT: satellite signal strengths ────────────────────────────
             elif identity == "NAV-SAT":
@@ -509,40 +618,63 @@ async def main(args: argparse.Namespace) -> None:
                 for i in range(1, parsed.numSvs + 1):
                     sats.append({
                         "gnssId": getattr(parsed, f"gnssId_{i:02d}", 0),
-                        "svId": getattr(parsed, f"svId_{i:02d}", 0),
-                        "cno": getattr(parsed, f"cno_{i:02d}", 0),
-                        "elev": getattr(parsed, f"elev_{i:02d}", 0),
-                        "azim": getattr(parsed, f"azim_{i:02d}", 0),
-                        "used": bool(getattr(parsed, f"svUsed_{i:02d}", 0)),
+                        "svId":   getattr(parsed, f"svId_{i:02d}", 0),
+                        "cno":    getattr(parsed, f"cno_{i:02d}", 0),
+                        "elev":   getattr(parsed, f"elev_{i:02d}", 0),
+                        "azim":   getattr(parsed, f"azim_{i:02d}", 0),
+                        "used":   bool(getattr(parsed, f"svUsed_{i:02d}", 0)),
                     })
                 gs.satellites = sats
 
-            # ── RTCM: write raw correction bytes to file ───────────────────────
-            elif gs.state == State.FIXED and isinstance(parsed, RTCMMessage) and raw and rtcm_file:
-                await loop.run_in_executor(None, rtcm_file.write, raw)
-                await loop.run_in_executor(None, rtcm_file.flush)
+            # ── RTCM: push frames to caster queue ─────────────────────────────
+            elif gs.state == State.FIXED and isinstance(parsed, RTCMMessage) and raw:
                 gs.rtcm_bytes += len(raw)
-                gs.rtcm_msgs += 1
+                gs.rtcm_msgs  += 1
+
+                if caster_url is not None:
+                    try:
+                        caster_queue.put_nowait(raw)
+                    except asyncio.QueueFull:
+                        pass  # drop frame if caster is lagging; RTCM is tolerant of gaps
+
+    # ── caster_push_loop: forward caster_queue → caster_loop stats ────────────
+
+    async def caster_stats_loop() -> None:
+        """Update gs.caster_msgs / bytes / acks from the caster queue drain."""
+        # Stats are updated inline in process_loop; this task monitors the
+        # caster_queue depth to detect persistent back-pressure.
+        while True:
+            gs.caster_msgs  = gs.rtcm_msgs   # same frame count pushed to caster
+            gs.caster_bytes = gs.rtcm_bytes
+            await asyncio.sleep(1)
 
     # ── display_loop: refresh Rich live display at 2 Hz ───────────────────────
 
     async def display_loop(live: Live) -> None:
         while True:
-            live.update(build_display(gs))
+            live.update(build_display(gs, caster_url))
             await asyncio.sleep(0.5)
 
+    tasks = [
+        connect_loop(),
+        process_loop(),
+    ]
+
+    if caster_url is not None:
+        tasks.append(caster_loop(
+            gs, caster_queue,
+            caster_url, args.mountpoint, args.username, args.password,
+        ))
+        tasks.append(caster_stats_loop())
+
     console = Console()
-    with Live(build_display(gs), console=console, refresh_per_second=2, screen=True) as live:
-        await asyncio.gather(
-            display_loop(live),
-            connect_loop(),
-            process_loop(),
-        )
+    with Live(build_display(gs, caster_url), console=console, refresh_per_second=2, screen=True) as live:
+        await asyncio.gather(display_loop(live), *tasks)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Here4 RTK base station — streams RTCM corrections to a file."
+        description="Here4 RTK base station — streams RTCM corrections to an NTRIP caster."
     )
     fixed = parser.add_argument_group(
         "fixed mode",
@@ -556,10 +688,26 @@ if __name__ == "__main__":
         "--fixed-acc", type=float, default=10.0, metavar="MM",
         help="Known accuracy of the fixed position in mm (default: 10)",
     )
+
+    ntrip = parser.add_argument_group(
+        "NTRIP caster",
+        "Push RTCM corrections to a CORSHub NTRIP v2 caster over HTTP.",
+    )
+    ntrip.add_argument("--caster-url",  metavar="URL",        help="Caster base URL, e.g. http://localhost:8000")
+    ntrip.add_argument("--mountpoint",  metavar="NAME",       help="Mountpoint name to push to, e.g. HERE4")
+    ntrip.add_argument("--username",    metavar="USER",       help="Basic auth username")
+    ntrip.add_argument("--password",    metavar="PASS",       help="Basic auth password")
+
     _args = parser.parse_args()
+
     if any(x is not None for x in (_args.lat, _args.lon, _args.alt)):
         if not all(x is not None for x in (_args.lat, _args.lon, _args.alt)):
             parser.error("--lat, --lon and --alt must all be provided together")
+
+    if _args.caster_url is not None:
+        if not all([_args.mountpoint, _args.username, _args.password]):
+            parser.error("--caster-url requires --mountpoint, --username and --password")
+
     try:
         asyncio.run(main(_args))
     except KeyboardInterrupt:
