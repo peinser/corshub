@@ -44,7 +44,7 @@ jobs:
       id: meta
       uses: docker/metadata-action@v6
       with:
-        images: ${{ vars.OCI_REGISTRY }}/peinser/corshub
+        images: ${{ vars.OCI_REGISTRY }}/uas/corshub
         tags: |
           type=raw,value=${{ steps.version.outputs.value }}-{{sha}}
           type=sha,format=short
