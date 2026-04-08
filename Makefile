@@ -80,9 +80,9 @@ format: ## Auto-format code with ruff
 	@echo -e "$(OK_COLOR)Formatting complete$(NO_COLOR)"
 
 .PHONY: test
-test: ## Run tests
+test: ## Run tests with coverage
 	@echo -e "$(INFO_COLOR)Running tests...$(NO_COLOR)"
-	$(UV) run pytest
+	$(UV) run pytest --cov=src/corshub --cov-report=term-missing
 	@echo -e "$(OK_COLOR)Tests complete$(NO_COLOR)"
 
 .PHONY: dev

@@ -107,6 +107,10 @@ package_dir = "src"
 filename = "CHANGELOG.md"
 title_format = "{version} ({project_date})"
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
 [tool.coverage.run]
 branch = true
 omit = ["src/corshub/__init__.py", "src/corshub/__version__.py"]
