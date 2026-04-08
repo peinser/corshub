@@ -30,16 +30,16 @@ from typing import Final
 class Transport(ABC):
 
     @abstractmethod
-    async def publish(self, mountpoint: str, frame: bytes) -> int:
-        """Deliver *frame* to every active subscriber on *mountpoint*.
+    async def publish(self, frame: bytes) -> int:
+        """Deliver *frame* to every active subscriber on the mountpoint this transport belongs to.
 
-        Returns the number of subscribers that received the frame.
-        The method should NOT raise a KeyError if *mountpoint* is not known to this transport.
+        Returns the number of subscribers that received the frame, or 0 if
+        the mountpoint is not open or has no subscribers.  Never raises KeyError.
         """
         ...
 
     @abstractmethod
-    def subscribe(self, mountpoint: str) -> AbstractAsyncContextManager[TransportSubscriber]:
+    def subscribe(self) -> AbstractAsyncContextManager[TransportSubscriber]:
         """Return an async context manager that yields a TransportSubscriber.
 
         Cleanup is guaranteed in the __aexit__ path regardless of how the
@@ -53,23 +53,6 @@ class Transport(ABC):
                     ...  # process frame; sub.get() returns None on close
         """
         ...
-
-    @abstractmethod
-    async def open(self, mountpoint: str) -> None:
-        """Register *mountpoint* so it can accept publishers and subscribers.
-
-        Raises ValueError if *mountpoint* is already open.
-        """
-        ...
-
-    @abstractmethod
-    async def close(self, mountpoint: str) -> None:
-        """Deregister *mountpoint* and signal all active subscribers to stop.
-
-        Raises KeyError if *mountpoint* is not open.
-        """
-        ...
-
 
 class TransportSubscriber(ABC):
 
@@ -123,7 +106,7 @@ class QueueTransportSubscriber(TransportSubscriber):
             except:  # Safety net
                 break
 
-    async def cleanup(self) -> None:
+    def cleanup(self) -> None:
         """
         Mark this subscriber as cancelled and drain any remaining items.
 
@@ -142,8 +125,7 @@ class QueueTransportSubscriber(TransportSubscriber):
         if self.cancelled:
             return  # Already cancelled, no action needed
 
-        self.cancelled = True
-        self._signal_done()  # Signal any waiting producers to stop
+        self.cleanup()  # Perform cleanup and signal producers to stop
 
     async def publish(self, frame: bytes) -> bool:
         """Publish a frame to this subscriber's queue."""
@@ -182,46 +164,35 @@ class QueueTransportSubscriber(TransportSubscriber):
 
 
 class QueueTransport(Transport):
-    """In-process transport using asyncio.Queues for pub/sub.
+    """In-process transport for a mountpoint using asyncio.Queues for pub/sub.
 
     Suitable for single-server deployments, zero dependencies.
     """
 
     def __init__(self) -> None:
         super().__init__()
-        self._queues: dict[str, list[QueueTransportSubscriber]] = {}
-
-    async def open(self, mountpoint: str) -> None:
-        if mountpoint in self._queues:
-            raise ValueError(mountpoint)
-        self._queues[mountpoint] = []
-
-    async def close(self, mountpoint: str) -> None:
-        subscribers = self._queues.pop(mountpoint)  # raises KeyError if unknown
-        for subscriber in subscribers:
-            subscriber.shutdown()
+        self._queues: list[QueueTransportSubscriber] = []
 
     @asynccontextmanager
-    async def subscribe(self, mountpoint: str) -> AsyncGenerator[QueueTransportSubscriber, None]:
-        if mountpoint not in self._queues:
-            raise KeyError(mountpoint)
+    async def subscribe(self) -> AsyncGenerator[QueueTransportSubscriber, None]:
         subscriber = QueueTransportSubscriber()
-        self._queues[mountpoint].append(subscriber)
+        self._queues.append(subscriber)
+
         try:
             yield subscriber
         finally:
-            subscribers = self._queues.get(mountpoint, [])
+            subscribers = self._queues
             if subscriber in subscribers:
                 subscribers.remove(subscriber)
-            await subscriber.cleanup()
+            subscriber.cleanup()
 
-    async def publish(self, mountpoint: str, frame: bytes) -> int:
-        """Deliver *frame* to every active subscriber on *mountpoint*.
+    async def publish(self, frame: bytes) -> int:
+        """Deliver *frame* to every active subscriber on the mountpoint this transport belongs to.
 
         Returns the number of subscribers that received the frame.
-        Raises KeyError if *mountpoint* is not open.
+        Returns 0 if *mountpoint* is not open or has no subscribers.
         """
-        subscribers = self._queues[mountpoint]  # raises KeyError if unknown
+        subscribers = self._queues
         if not subscribers:
             return 0
 

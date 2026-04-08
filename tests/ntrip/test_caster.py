@@ -1,21 +1,18 @@
 """
 Unit tests for NTRIPCaster and Mountpoint.
 
-NTRIPCaster owns the mountpoint registry and credential validation.
-Frame delivery (publish / subscribe) is delegated to a Transport; those
-behaviours are covered in test_transport.py.
+NTRIPCaster owns the mountpoint registry, credential validation, and lifecycle.
+Frame delivery (publish / subscribe) is delegated to a Transport; the transport
+contract is covered in test_transport.py.  The tests here verify:
 
-    corshub.ntrip.v2.caster.Mountpoint  — dataclass holding per-mountpoint config
-    corshub.ntrip.v2.caster.NTRIPCaster — registry + auth, delegates I/O to Transport
-
-NTRIPCaster API contract tested here:
     caster.register(mp)               → None, raises ValueError on duplicate name
     caster.unregister(name)           → None, raises KeyError if not found
     caster.mountpoints                → dict[str, Mountpoint]
     caster.authenticate_source(n, pw) → bool
-    await caster.publish(name, data)  → int (subscriber count), raises KeyError if unknown
-    async for chunk in caster.subscribe(name): ...
-                                      → yields bytes, raises KeyError if unknown
+    await caster.publish(name, data)  → int, 0 if unknown, updates last_seen
+    caster.subscribe(name)            → async context manager, raises KeyError if unknown
+    await caster.start() / stop()     → reaper task lifecycle
+    caster._reap()                    → removes stale mountpoints
 """
 
 from __future__ import annotations
@@ -42,6 +39,80 @@ def extra_mountpoint() -> Mountpoint:
         latitude=52.3676,
         longitude=4.9041,
     )
+
+
+# ── Mountpoint validation ─────────────────────────────────────────────────────
+
+
+class TestMountpointValidation:
+    def _base(self, **overrides) -> dict:  # type: ignore[return]
+        defaults = dict(
+            name="BASE1", password="s3cr3t", identifier="BASE1",
+            format="RTCM 3.3", country="BEL", latitude=50.85, longitude=4.35,
+        )
+        defaults.update(overrides)
+        return defaults
+
+    def test_valid_mountpoint_constructs(self) -> None:
+        Mountpoint(**self._base())  # must not raise
+
+    def test_name_empty_raises(self) -> None:
+        with pytest.raises(ValueError, match="name"):
+            Mountpoint(**self._base(name=""))
+
+    def test_name_too_long_raises(self) -> None:
+        with pytest.raises(ValueError, match="name"):
+            Mountpoint(**self._base(name="A" * 101))
+
+    def test_name_with_special_chars_raises(self) -> None:
+        with pytest.raises(ValueError, match="name"):
+            Mountpoint(**self._base(name="BASE/1"))
+
+    def test_name_underscore_allowed(self) -> None:
+        Mountpoint(**self._base(name="BASE_1"))  # must not raise
+
+    def test_name_hyphen_allowed(self) -> None:
+        Mountpoint(**self._base(name="BASE-1"))  # must not raise
+
+    def test_empty_password_raises(self) -> None:
+        with pytest.raises(ValueError, match="password"):
+            Mountpoint(**self._base(password=""))
+
+    def test_country_two_letters_raises(self) -> None:
+        with pytest.raises(ValueError, match="[Cc]ountry"):
+            Mountpoint(**self._base(country="BE"))
+
+    def test_country_four_letters_raises(self) -> None:
+        with pytest.raises(ValueError, match="[Cc]ountry"):
+            Mountpoint(**self._base(country="BELG"))
+
+    def test_country_lowercase_raises(self) -> None:
+        with pytest.raises(ValueError, match="[Cc]ountry"):
+            Mountpoint(**self._base(country="bel"))
+
+    def test_latitude_above_90_raises(self) -> None:
+        with pytest.raises(ValueError, match="[Ll]atitude"):
+            Mountpoint(**self._base(latitude=90.1))
+
+    def test_latitude_below_minus_90_raises(self) -> None:
+        with pytest.raises(ValueError, match="[Ll]atitude"):
+            Mountpoint(**self._base(latitude=-90.1))
+
+    def test_latitude_boundary_values_accepted(self) -> None:
+        Mountpoint(**self._base(latitude=90.0))
+        Mountpoint(**self._base(latitude=-90.0))
+
+    def test_longitude_above_180_raises(self) -> None:
+        with pytest.raises(ValueError, match="[Ll]ongitude"):
+            Mountpoint(**self._base(longitude=180.1))
+
+    def test_longitude_below_minus_180_raises(self) -> None:
+        with pytest.raises(ValueError, match="[Ll]ongitude"):
+            Mountpoint(**self._base(longitude=-180.1))
+
+    def test_longitude_boundary_values_accepted(self) -> None:
+        Mountpoint(**self._base(longitude=180.0))
+        Mountpoint(**self._base(longitude=-180.0))
 
 
 # ── Registry ──────────────────────────────────────────────────────────────────
@@ -107,9 +178,8 @@ class TestFanOut:
         count = await caster.publish("BASE1", b"\xd3\x00\x13")
         assert count == 0
 
-    async def test_publish_to_unknown_mountpoint_raises_key_error(self, caster: NTRIPCaster) -> None:
-        with pytest.raises(KeyError):
-            await caster.publish("GHOST", b"\xd3\x00\x13")
+    async def test_publish_to_unknown_mountpoint_returns_zero(self, caster: NTRIPCaster) -> None:
+        assert await caster.publish("GHOST", b"\xd3\x00\x13") == 0
 
     async def test_subscribe_to_unknown_mountpoint_raises_key_error(self, caster: NTRIPCaster) -> None:
         with pytest.raises(KeyError):
@@ -212,3 +282,61 @@ class TestFanOut:
 
         assert received_base1 == [b"\xaa"]
         assert received_base2 == [b"\xbb"]
+
+
+# ── Lifecycle & reaper ────────────────────────────────────────────────────────
+
+
+class TestLifecycle:
+    async def test_start_creates_reaper_task(self) -> None:
+        c = NTRIPCaster(expiry=30.0)
+        assert c._reaper_task is None
+        await c.start()
+        assert c._reaper_task is not None
+        await c.stop()
+
+    async def test_stop_cancels_reaper_task(self) -> None:
+        c = NTRIPCaster(expiry=30.0)
+        await c.start()
+        await c.stop()
+        assert c._reaper_task is None
+
+    async def test_start_does_not_create_task_when_expiry_disabled(self) -> None:
+        c = NTRIPCaster(expiry=None)
+        await c.start()
+        assert c._reaper_task is None
+        await c.stop()
+
+    async def test_stop_is_safe_without_start(self) -> None:
+        c = NTRIPCaster()
+        await c.stop()  # must not raise
+
+
+class TestReaper:
+    def test_reap_removes_stale_mountpoint(self, mountpoint: Mountpoint) -> None:
+        c = NTRIPCaster(expiry=30.0)
+        c.register(mountpoint)
+        # Force last_seen into the past beyond the expiry window.
+        c.mountpoints["BASE1"].last_seen = 0.0
+        c._reap()
+        assert "BASE1" not in c.mountpoints
+
+    def test_reap_keeps_fresh_mountpoint(self, mountpoint: Mountpoint) -> None:
+        c = NTRIPCaster(expiry=30.0)
+        c.register(mountpoint)
+        c._reap()
+        assert "BASE1" in c.mountpoints
+
+    def test_reap_does_nothing_when_expiry_disabled(self, mountpoint: Mountpoint) -> None:
+        c = NTRIPCaster(expiry=None)
+        c.register(mountpoint)
+        c.mountpoints["BASE1"].last_seen = 0.0
+        c._reap()
+        assert "BASE1" in c.mountpoints
+
+    async def test_publish_updates_last_seen(self, caster: NTRIPCaster) -> None:
+        import time
+        before = time.monotonic()
+        caster.mountpoints["BASE1"].last_seen = 0.0
+        await caster.publish("BASE1", b"\xd3\x00\x00")
+        assert caster.mountpoints["BASE1"].last_seen >= before

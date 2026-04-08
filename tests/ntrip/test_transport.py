@@ -97,9 +97,8 @@ class TestPublish:
     async def test_no_subscribers_returns_zero(self, transport: QueueTransport) -> None:
         assert await transport.publish("BASE1", b"\xd3\x00\x00") == 0
 
-    async def test_unknown_mountpoint_raises_key_error(self, transport: QueueTransport) -> None:
-        with pytest.raises(KeyError):
-            await transport.publish("GHOST", b"\xd3\x00\x00")
+    async def test_unknown_mountpoint_returns_zero(self, transport: QueueTransport) -> None:
+        assert await transport.publish("GHOST", b"\xd3\x00\x00") == 0
 
     async def test_returns_subscriber_count(self, transport: QueueTransport) -> None:
         received: list[bytes] = []
