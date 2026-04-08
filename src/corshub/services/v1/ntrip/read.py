@@ -76,8 +76,7 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
             dist = haversine(mountpoint.latitude, mountpoint.longitude, rover_lat, rover_lon)
             if dist > mountpoint.mask:
                 raise BadRequestError(
-                    f"Rover is {dist:.1f} km from {mountpoint_id!r},"
-                    f" exceeds mask of {mountpoint.mask:.1f} km."
+                    f"Rover is {dist:.1f} km from {mountpoint_id!r}, exceeds mask of {mountpoint.mask:.1f} km."
                 )
 
     async def stream_frames(stream: HTTPResponse) -> None:

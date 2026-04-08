@@ -28,7 +28,6 @@ from typing import Final
 
 
 class Transport(ABC):
-
     @abstractmethod
     async def publish(self, frame: bytes) -> int:
         """Deliver *frame* to every active subscriber on the mountpoint this transport belongs to.
@@ -54,8 +53,8 @@ class Transport(ABC):
         """
         ...
 
-class TransportSubscriber(ABC):
 
+class TransportSubscriber(ABC):
     @abstractmethod
     async def cleanup(self) -> None:
         """Mark this subscriber as cancelled and drain any remaining items.
@@ -89,7 +88,7 @@ class QueueTransportSubscriber(TransportSubscriber):
         self.cancelled = True
         try:
             self.queue.put_nowait(self._sentinel)  # Signal any waiting producers to stop
-        except (asyncio.QueueFull, RuntimeError):
+        except asyncio.QueueFull, RuntimeError:
             pass  # If the queue is full or closed, we can ignore this
 
     def drain(self) -> None:
@@ -160,7 +159,6 @@ class QueueTransportSubscriber(TransportSubscriber):
         except asyncio.CancelledError:
             self.cancelled = True
             raise
-
 
 
 class QueueTransport(Transport):

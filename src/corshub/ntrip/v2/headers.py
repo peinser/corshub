@@ -18,10 +18,10 @@ import math
 from pynmeagps import NMEAReader
 
 
-NTRIP_VERSION   = "Ntrip-Version"
+NTRIP_VERSION = "Ntrip-Version"
 NTRIP_VERSION_2 = "Ntrip/2.0"
-NTRIP_STR       = "Ntrip-STR"
-NTRIP_GGA       = "Ntrip-GGA"
+NTRIP_STR = "Ntrip-STR"
+NTRIP_GGA = "Ntrip-GGA"
 
 CONTENT_TYPE_GNSS = "gnss/data"
 
@@ -29,25 +29,25 @@ CONTENT_TYPE_GNSS = "gnss/data"
 # but without the leading "STR;" prefix.  See RTCM 10410.1 §4.1 for the full
 # source table specification.
 
-STR_MOUNTPOINT    = 0   # mountpoint name (redundant with URL path)
-STR_IDENTIFIER    = 1   # human-readable label / location description (I hate this name, should have been NAME)
-STR_FORMAT        = 2   # message format, e.g. "RTCM 3.3"
-STR_FORMAT_DETAIL = 3   # message IDs and rates, e.g. "1004(1),1005(5)"
-STR_CARRIER       = 4   # 0=none, 1=L1, 2=L1+L2
-STR_NAV_SYSTEM    = 5   # e.g. "GPS+GLO+GAL+BDS"
-STR_NETWORK       = 6   # network / agency name
-STR_COUNTRY       = 7   # ISO 3166-1 alpha-3, e.g. "BEL"
-STR_LATITUDE      = 8   # WGS-84 latitude in decimal degrees
-STR_LONGITUDE     = 9   # WGS-84 longitude in decimal degrees
-STR_NMEA          = 10  # 0=no NMEA, 1=accepts NMEA GGA from rover
-STR_SOLUTION      = 11  # 0=single base, 1=network solution
-STR_GENERATOR     = 12  # software generating the stream
-STR_COMPRESSION   = 13  # compression/encryption identifier
-STR_AUTH          = 14  # N=none, B=basic, D=digest
-STR_FEE           = 15  # N=no fee, Y=fee required
-STR_BITRATE       = 16  # approximate bit rate in bits/s
+STR_MOUNTPOINT = 0  # mountpoint name (redundant with URL path)
+STR_IDENTIFIER = 1  # human-readable label / location description (I hate this name, should have been NAME)
+STR_FORMAT = 2  # message format, e.g. "RTCM 3.3"
+STR_FORMAT_DETAIL = 3  # message IDs and rates, e.g. "1004(1),1005(5)"
+STR_CARRIER = 4  # 0=none, 1=L1, 2=L1+L2
+STR_NAV_SYSTEM = 5  # e.g. "GPS+GLO+GAL+BDS"
+STR_NETWORK = 6  # network / agency name
+STR_COUNTRY = 7  # ISO 3166-1 alpha-3, e.g. "BEL"
+STR_LATITUDE = 8  # WGS-84 latitude in decimal degrees
+STR_LONGITUDE = 9  # WGS-84 longitude in decimal degrees
+STR_NMEA = 10  # 0=no NMEA, 1=accepts NMEA GGA from rover
+STR_SOLUTION = 11  # 0=single base, 1=network solution
+STR_GENERATOR = 12  # software generating the stream
+STR_COMPRESSION = 13  # compression/encryption identifier
+STR_AUTH = 14  # N=none, B=basic, D=digest
+STR_FEE = 15  # N=no fee, Y=fee required
+STR_BITRATE = 16  # approximate bit rate in bits/s
 
-STR_MIN_FIELDS = STR_LONGITUDE + 1   # minimum to extract coordinates
+STR_MIN_FIELDS = STR_LONGITUDE + 1  # minimum to extract coordinates
 
 
 def parse_ntrip_str(
@@ -68,22 +68,22 @@ def parse_ntrip_str(
         Dict of parsed metadata ready to be unpacked into ``Caster.register``.
     """
     defaults: dict[str, str | float | int | bool] = {
-        "name":         mountpoint_id,
-        "format":       "RTCM 3.3",
+        "name": mountpoint_id,
+        "format": "RTCM 3.3",
         "format_detail": "",
-        "carrier":      0,
-        "nav_system":   "",
-        "network":      "",
-        "country":      "UNK",
-        "latitude":     0.0,
-        "longitude":    0.0,
-        "nmea":         False,
-        "solution":     0,
-        "generator":    "",
-        "compression":  "",
-        "auth":         "B",
-        "fee":          "N",
-        "bitrate":      0,
+        "carrier": 0,
+        "nav_system": "",
+        "network": "",
+        "country": "UNK",
+        "latitude": 0.0,
+        "longitude": 0.0,
+        "nmea": False,
+        "solution": 0,
+        "generator": "",
+        "compression": "",
+        "auth": "B",
+        "fee": "N",
+        "bitrate": 0,
     }
 
     if not header:
@@ -98,13 +98,13 @@ def parse_ntrip_str(
     def _int(idx: int) -> int | None:
         try:
             return int(fields[idx]) if idx < len(fields) else None
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             return None
 
     def _float(idx: int) -> float | None:
         try:
             return float(fields[idx]) if idx < len(fields) else None
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             return None
 
     if (v := _str(STR_IDENTIFIER)) is not None:
@@ -162,11 +162,15 @@ def parse_ntrip_gga(header: str | None) -> tuple[float, float] | None:
         msg = NMEAReader.parse(header.strip())
         if msg is None or msg.msgID != "GGA":
             return None
+
         lat = msg.lat
         lon = msg.lon
+
         if lat is None or lon is None:
             return None
+
         return (float(lat), float(lon))
+
     except Exception:
         return None
 
@@ -184,8 +188,5 @@ def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     R = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlon = math.radians(lon2 - lon1)
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
-    )
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
     return R * 2 * math.asin(math.sqrt(a))

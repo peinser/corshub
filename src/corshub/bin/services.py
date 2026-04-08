@@ -30,8 +30,18 @@ parser.add_argument("--fast", action="store_true", default=False, help="Fast-mod
 parser.add_argument("--reload", action="store_true", default=False, help="Enable hot-reloading (default: false).")
 parser.add_argument("--workers", type=int, default=1, help="Workers to process incoming requests (default: 1).")
 parser.add_argument("--access-logs", action="store_true", help="Enable access logs (default: false).")
-parser.add_argument("--reverse-proxy-count", type=int, default=0, help="Defines whether a reverse proxy is being used, the value represents the number of entries expected in x-forwarded-for (default: false).")
-parser.add_argument("--header-real-ip", type=str, default="x-real-ip", help="Defines the header in which the true IP of the client is defined. Only has effect whenever `--reverse-proxy` is defined, i.e., > 0 (default: x-real-ip).")
+parser.add_argument(
+    "--reverse-proxy-count",
+    type=int,
+    default=0,
+    help="Defines whether a reverse proxy is being used, the value represents the number of entries expected in x-forwarded-for (default: false).",
+)
+parser.add_argument(
+    "--header-real-ip",
+    type=str,
+    default="x-real-ip",
+    help="Defines the header in which the true IP of the client is defined. Only has effect whenever `--reverse-proxy` is defined, i.e., > 0 (default: x-real-ip).",
+)
 
 arguments, _ = parser.parse_known_args()
 
@@ -48,10 +58,12 @@ for proposal in arguments.run:
     group = load(service)
 
     app.blueprint(group.blueprint(version=version))
-    _services.append({
-        "service": service,
-        "version": version,
-    })
+    _services.append(
+        {
+            "service": service,
+            "version": version,
+        }
+    )
 
 
 if not _services:

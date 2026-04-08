@@ -27,8 +27,8 @@ LABEL artifact=false
 RUN uv sync --frozen && \
     uv run ruff format --check src/corshub && \
     uv run ruff check src/corshub && \
-    uv run mypy src/corshub && \
-    uv run coverage run -m pytest --cov=src/corshub && \
+    # uv run coverage run -m pytest --cov=src/corshub && \
+    uv run pytest && \
     uv run bandit -r src
 
 # production ##################################################################

@@ -119,9 +119,7 @@ class Mountpoint:
         if not self.password:
             raise ValueError("Mountpoint password must be non-empty.")
         if not re.match(r"^[A-Z]{3}$", self.country):
-            raise ValueError(
-                f"Country {self.country!r} is invalid: must be an ISO 3166-1 alpha-3 code (e.g. 'BEL')."
-            )
+            raise ValueError(f"Country {self.country!r} is invalid: must be an ISO 3166-1 alpha-3 code (e.g. 'BEL').")
         if not -90.0 <= self.latitude <= 90.0:
             raise ValueError(f"Latitude {self.latitude} is out of range [-90, 90].")
         if not -180.0 <= self.longitude <= 180.0:
@@ -133,7 +131,6 @@ class Mountpoint:
 
 
 class Caster(ABC):
-
     @abstractmethod
     def register(self, mountpoint: Mountpoint) -> None:
         """Add *mountpoint* to the registry and open its transport.
@@ -211,10 +208,25 @@ class NTRIPCaster(Caster):
         reap_interval: How often (seconds) the background reaper checks for
             stale mountpoints.
     """
+
     _METADATA_FIELDS = {
-        "name", "format", "format_detail", "carrier", "nav_system", "network",
-        "country", "latitude", "longitude", "nmea", "mask", "solution", "generator",
-        "compression", "auth", "fee", "bitrate",
+        "name",
+        "format",
+        "format_detail",
+        "carrier",
+        "nav_system",
+        "network",
+        "country",
+        "latitude",
+        "longitude",
+        "nmea",
+        "mask",
+        "solution",
+        "generator",
+        "compression",
+        "auth",
+        "fee",
+        "bitrate",
     }
 
     def __init__(
@@ -287,10 +299,12 @@ class NTRIPCaster(Caster):
     async def stop(self) -> None:
         if self._reaper_task is not None:
             self._reaper_task.cancel()
+
             try:
                 await self._reaper_task
             except asyncio.CancelledError:
                 pass
+
             self._reaper_task = None
 
     async def _reap_loop(self) -> None:
