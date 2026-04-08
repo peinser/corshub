@@ -123,8 +123,8 @@ class TestMountpointRegistry:
         assert "BASE1" not in caster.mountpoints
 
     async def test_unregister_nonexistent_raises_key_error(self, caster: NTRIPCaster) -> None:
-        with pytest.raises(KeyError):
-            await caster.unregister("UNKNOWN")
+        await caster.unregister("UNKNOWN")
+        assert "UNKNOWN" not in caster.mountpoints  # Operation is idempotent, should not yield errors
 
     def test_mountpoints_is_mapping_of_name_to_mountpoint(
         self, caster: NTRIPCaster, mountpoint_metadata: dict

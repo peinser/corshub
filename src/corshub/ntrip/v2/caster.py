@@ -243,7 +243,7 @@ class NTRIPCaster(Caster):
 
     async def unregister(self, identifier: str) -> None:
         if identifier not in self._mountpoints:
-            raise KeyError(identifier)
+            return  # Idempotent
 
         del self._mountpoints[identifier]
         del self._transports[identifier]
