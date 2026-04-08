@@ -1,0 +1,198 @@
+# Default values for corshub.
+
+# -- Number of replicas.
+# NOTE: The default in-process QueueTransport is per-replica. For multi-replica
+# deployments, base stations and rovers must connect to the same replica, or you
+# must configure a shared transport backend (e.g. Redis). Use replicaCount: 1
+# with autoscaling disabled until a shared transport is deployed.
+replicaCount: 1
+
+image:
+  repository: harbor.peinser.com/peinser/corshub
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag; defaults to the chart's appVersion.
+  tag: ""
+
+imagePullSecrets: []
+  # - name: harbor-registry-credentials
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount for the pod.
+  create: true
+  # -- Do not automount the service-account token (the app never calls the k8s API).
+  automount: false
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1001
+  runAsGroup: 1001
+  fsGroup: 1001
+  seccompProfile:
+    type: RuntimeDefault
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: [ALL]
+  readOnlyRootFilesystem: true
+
+# -- Application-level settings passed to the service bootstrap manager.
+app:
+  # -- Comma-separated list of service=version pairs to enable.
+  # Example: "ntrip=v1" or "ntrip=v1,ntrip=v2"
+  services: "ntrip=v1"
+  # -- HTTP port the Sanic server listens on inside the container.
+  port: 8000
+  # -- Number of Sanic worker processes per pod.
+  workers: 1
+  # -- Enable HTTP access logging.
+  accessLogs: false
+  # -- Number of upstream reverse proxies (for correct client-IP detection).
+  reverseProxyCount: 0
+
+# -- Extra environment variables injected into the container.
+extraEnv: []
+  # - name: MY_VAR
+  #   value: "my-value"
+
+# -- Extra environment variables sourced from Secrets or ConfigMaps.
+extraEnvFrom: []
+  # - secretRef:
+  #     name: corshub-secrets
+
+service:
+  type: ClusterIP
+  port: 80
+  annotations: {}
+  # -- Set a fixed ClusterIP (leave empty for automatic assignment).
+  clusterIP: ""
+  # -- NodePort value (only effective when type=NodePort).
+  # nodePort: 32080
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+# -- Liveness probe — restarts the container if the server stops responding.
+livenessProbe:
+  httpGet:
+    path: /.info/healthz
+    port: http
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  failureThreshold: 3
+  timeoutSeconds: 2
+
+# -- Readiness probe — gates traffic until the server is ready.
+readinessProbe:
+  httpGet:
+    path: /.info/healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 3
+  timeoutSeconds: 2
+
+# -- Startup probe — gives the process extra time to start before liveness kicks in.
+startupProbe:
+  httpGet:
+    path: /.info/healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  failureThreshold: 12  # 12 * 5s = 60 s max startup time
+
+# -- Graceful shutdown: allow in-flight NTRIP streams to drain before the pod is killed.
+terminationGracePeriodSeconds: 30
+
+# -- Horizontal Pod Autoscaler.
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 70
+  # targetMemoryUtilizationPercentage: 80
+
+# -- Classic Kubernetes Ingress (networking.k8s.io/v1).
+# Suitable for clusters running nginx-ingress, traefik, or similar controllers.
+ingress:
+  enabled: false
+  # -- IngressClass name (e.g. "nginx", "traefik"). Leave empty to rely on
+  # the cluster default or a kubernetes.io/ingress.class annotation.
+  className: ""
+  annotations: {}
+    # -- Extend connection timeouts for long-lived NTRIP streams (seconds).
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    # -- TLS termination / certificate management.
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: corshub.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: corshub-tls
+    #   hosts:
+    #     - corshub.example.com
+
+# -- Gateway API HTTPRoute (gateway.networking.k8s.io/v1).
+# Suitable for clusters running Envoy Gateway, Istio, Cilium, or similar
+# Gateway API-compliant controllers.
+httpRoute:
+  enabled: false
+  # -- References to the parent Gateway objects that should serve this route.
+  parentRefs:
+    - name: gateway
+      namespace: gateway-system
+      # -- Bind to a specific listener (e.g. "https").
+      # sectionName: https
+  # -- Hostnames this route applies to.
+  hostnames:
+    - corshub.example.com
+  # -- Route rules. The default rule matches all paths with no timeout so that
+  # long-lived NTRIP streams (base stations and rovers) are never torn down by
+  # the gateway. Override or add rules as needed.
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      timeouts:
+        # -- 0s means no timeout. Required for persistent NTRIP streams.
+        request: "0s"
+        backendRequest: "0s"
+  # -- Additional annotations on the HTTPRoute resource.
+  annotations: {}
+
+# -- Spread pods across failure domains for high availability.
+topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: kubernetes.io/hostname
+  #   whenUnsatisfiable: DoNotSchedule
+  #   labelSelector:
+  #     matchLabels: {} # filled in automatically by the chart
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- Writable ephemeral directory mounted at /tmp (required when
+# readOnlyRootFilesystem=true).
+tmpDir:
+  # -- "" = node disk, "Memory" = tmpfs (faster, counts against memory limit).
+  medium: ""
+  sizeLimit: 64Mi

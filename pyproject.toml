@@ -14,6 +14,7 @@ dependencies = [
     "isodate>=0.7.2",
     "orjson>=3.11.7",
     "pyjwt>=2.12.1",
+    "pynmeagps>=1.1.2",
     "pyrtcm>=1.1.12",
     "pyserial>=3.5",
     "pyubx2>=1.2.60",

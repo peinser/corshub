@@ -13,6 +13,10 @@ so that route handlers stay focused on HTTP flow control.
 
 from __future__ import annotations
 
+import math
+
+from pynmeagps import NMEAReader
+
 
 NTRIP_VERSION   = "Ntrip-Version"
 NTRIP_VERSION_2 = "Ntrip/2.0"
@@ -45,8 +49,6 @@ STR_BITRATE       = 16  # approximate bit rate in bits/s
 
 STR_MIN_FIELDS = STR_LONGITUDE + 1   # minimum to extract coordinates
 
-
-# ── Ntrip-STR parser ──────────────────────────────────────────────────────────
 
 def parse_ntrip_str(
     header: str | None,
@@ -140,3 +142,50 @@ def parse_ntrip_str(
         defaults["bitrate"] = i
 
     return defaults
+
+
+def parse_ntrip_gga(header: str | None) -> tuple[float, float] | None:
+    """Parse an ``Ntrip-GGA`` header value as a NMEA GGA sentence.
+
+    Returns ``(latitude, longitude)`` in decimal degrees (WGS-84), or ``None``
+    if the header is absent, empty, or cannot be parsed as a valid GGA sentence.
+
+    Args:
+        header: Raw value of the ``Ntrip-GGA`` header, or ``None``.
+
+    Returns:
+        ``(latitude, longitude)`` tuple, or ``None`` on any parse failure.
+    """
+    if not header:
+        return None
+    try:
+        msg = NMEAReader.parse(header.strip())
+        if msg is None or msg.msgID != "GGA":
+            return None
+        lat = msg.lat
+        lon = msg.lon
+        if lat is None or lon is None:
+            return None
+        return (float(lat), float(lon))
+    except Exception:
+        return None
+
+
+def haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Return the great-circle distance in kilometres between two WGS-84 points.
+
+    Args:
+        lat1, lon1: First point in decimal degrees.
+        lat2, lon2: Second point in decimal degrees.
+
+    Returns:
+        Distance in km.
+    """
+    R = 6371.0
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    )
+    return R * 2 * math.asin(math.sqrt(a))

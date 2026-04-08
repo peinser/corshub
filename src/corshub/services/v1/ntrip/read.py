@@ -28,8 +28,11 @@ from sanic.response import ResponseStream
 
 from corshub.exceptions.http import BadRequestError
 from corshub.ntrip.v2.headers import CONTENT_TYPE_GNSS
+from corshub.ntrip.v2.headers import NTRIP_GGA
 from corshub.ntrip.v2.headers import NTRIP_VERSION
 from corshub.ntrip.v2.headers import NTRIP_VERSION_2
+from corshub.ntrip.v2.headers import haversine
+from corshub.ntrip.v2.headers import parse_ntrip_gga
 
 from .base import bp
 
@@ -60,13 +63,22 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
         raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist.")
 
     # TODO: use a separate rover user table; for now rovers share the mountpoint credentials.
-    if not caster.authenticate_source(request.credentials.username, request.credentials.password):
+    if not caster.authenticate(request.credentials.username, request.credentials.password):
         raise Unauthorized("Invalid credentials.", scheme="Basic")
 
-    # Check if NMEA validation needs to be done (GGA header by the rover needs to be present).
+    # When the mountpoint requires NMEA, validate the rover's Ntrip-GGA header.
     if mountpoint.nmea:
-        ...  # TODO Handle NMEA validation using the Ntrip-GGA header and the mountpoint's configured position and mask.
-        raise BadRequestError("NMEA validation requires Ntrip-GGA header, which is not present or invalid.")
+        position = parse_ntrip_gga(request.headers.get(NTRIP_GGA))
+        if position is None:
+            raise BadRequestError("Ntrip-GGA header is absent or not a valid GGA sentence.")
+        if mountpoint.mask > 0.0:
+            rover_lat, rover_lon = position
+            dist = haversine(mountpoint.latitude, mountpoint.longitude, rover_lat, rover_lon)
+            if dist > mountpoint.mask:
+                raise BadRequestError(
+                    f"Rover is {dist:.1f} km from {mountpoint_id!r},"
+                    f" exceeds mask of {mountpoint.mask:.1f} km."
+                )
 
     async def stream_frames(stream: HTTPResponse) -> None:
         async with caster.subscribe(mountpoint_id) as sub:

@@ -310,14 +310,14 @@ class TestReaper:
     async def test_reap_keeps_fresh_mountpoint(self, mountpoint_metadata: dict) -> None:
         c = NTRIPCaster(expiry=30.0)
         await c.register(**mountpoint_metadata)
-        c._reap()
+        await c._reap()
         assert "BASE1" in c.mountpoints
 
     async def test_reap_does_nothing_when_expiry_disabled(self, mountpoint_metadata: dict) -> None:
         c = NTRIPCaster(expiry=None)
         await c.register(**mountpoint_metadata)
         c.mountpoints["BASE1"].last_seen = 0.0
-        c._reap()
+        await c._reap()
         assert "BASE1" in c.mountpoints
 
     async def test_publish_updates_last_seen(self, caster: NTRIPCaster) -> None:

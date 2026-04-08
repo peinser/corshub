@@ -68,6 +68,9 @@ class Mountpoint:
             Source table renders this with 2 decimal places.
         nmea: Whether the caster accepts NMEA GGA sentences from rovers on
             this mountpoint.  ``False`` = no, ``True`` = yes.
+        mask: Maximum allowed distance in km between the rover's reported
+            position (from ``Ntrip-GGA``) and the mountpoint's configured
+            position.  ``0.0`` disables the distance check (unlimited range).
         solution: ``0`` = single base station, ``1`` = network/VRS solution.
         generator: Software or firmware generating the RTCM stream.
         compression: Compression or encryption in use, or empty string.
@@ -93,6 +96,7 @@ class Mountpoint:
     nav_system: str = ""
     network: str = ""
     nmea: bool = False
+    mask: float = 0.0
     solution: int = 0
     generator: str = ""
     compression: str = ""
@@ -122,6 +126,8 @@ class Mountpoint:
             raise ValueError(f"Latitude {self.latitude} is out of range [-90, 90].")
         if not -180.0 <= self.longitude <= 180.0:
             raise ValueError(f"Longitude {self.longitude} is out of range [-180, 180].")
+        if self.mask < 0.0:
+            raise ValueError(f"Mask {self.mask} must be >= 0.")
 
     dict = asdict  # for easy serialisation to STR fields in the source table
 
@@ -207,7 +213,7 @@ class NTRIPCaster(Caster):
     """
     _METADATA_FIELDS = {
         "name", "format", "format_detail", "carrier", "nav_system", "network",
-        "country", "latitude", "longitude", "nmea", "solution", "generator",
+        "country", "latitude", "longitude", "nmea", "mask", "solution", "generator",
         "compression", "auth", "fee", "bitrate",
     }
 
