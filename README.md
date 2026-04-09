@@ -6,7 +6,7 @@ Continuously Operating Reference Station Hub - Python-based NTRIP (V2) caster fo
 
 ## Table of Contents
 
-- [Features](#features)
+- [Tools](#tools)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
@@ -20,21 +20,50 @@ Continuously Operating Reference Station Hub - Python-based NTRIP (V2) caster fo
 
 ---
 
-## Features
+## Tools
 
-| Area | Tooling |
-|---|---|
-| Package manager | [uv](https://github.com/astral-sh/uv) — fast, lock-file-based |
-| Linting & formatting | [Ruff](https://github.com/astral-sh/ruff) |
-| Type checking | [MyPy](https://mypy-lang.org/) (strict mode) |
-| Testing | [pytest](https://pytest.org) + [pytest-asyncio](https://pytest-asyncio.readthedocs.io) + [pytest-cov](https://pytest-cov.readthedocs.io) |
-| Security scanning | [Bandit](https://bandit.readthedocs.io) |
-| Documentation | [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) with auto-generated API reference |
-| Changelog | [towncrier](https://towncrier.readthedocs.io) |
-| Build system | [Hatchling](https://hatch.pypa.io) |
-| Containerization | Multi-stage Docker build (validate → production) |
-| CI/CD | GitHub Actions (docs, Docker image, PyPI publish) |
-| Dev environment | VS Code Dev Container with `act` for local workflow testing |
+### Here4 Base Station Caster (`tools/here4-base-caster.py`)
+
+A terminal tool that turns a [Here4](https://docs.cubepilot.org/user-guides/here-4/here-4-manual) u-blox receiver into a live NTRIP v2 base station. It handles the full lifecycle automatically — device discovery, initial configuration, survey-in, and streaming RTCM corrections to a CORSHub caster.
+
+![Here4 Base Station Caster](.github/images/here4-caster.png)
+
+#### How it works
+
+| Phase | What happens |
+|-------|-------------|
+| **Searching** | Scans serial ports for a u-blox device (USB VID `0x1546` or `/dev/ttyACM*`). |
+| **Connecting** | Opens the port at 115 200 baud and enables NAV-PVT, NAV-SAT, and NAV-SVIN messages at 1 Hz. |
+| **Monitoring** | Streams live position, satellite C/N0, and accuracy data. Waits for a valid 3D GNSS fix. |
+| **Survey-In** | Starts survey-in (CFG-TMODE3). Accumulates observations until the mean position accuracy drops below 2 m for at least 60 s. Enables RTCM 3.3 output messages in parallel (1005, 1074, 1084, 1094, 1124, 1230). |
+| **Fixed** | Streams every RTCM correction frame from the serial port to the configured CORSHub mountpoint over NTRIP v2 HTTP PUT. |
+
+The live display refreshes at 2 Hz and shows position, velocity, pDOP, UTC time, survey-in progress, RTCM output statistics, NTRIP caster push status,  and a per-satellite C/N0 table.
+
+#### Usage
+
+```bash
+# Survey-in mode (automatic position estimation):
+python tools/here4-base-caster.py \
+    --caster-url https://corshub.peinser.com \
+    --mountpoint HERE4 \
+    --username HERE4 \
+    --password <password>
+
+# Fixed mode (known surveyed position — best absolute accuracy):
+python tools/here4-base-caster.py \
+    --lat 50.85034 --lon 4.35171 --alt 65.4 \
+    --caster-url https://corshub.peinser.com \
+    --mountpoint HERE4 \
+    --username HERE4 \
+    --password <password>
+```
+
+> **Survey-in vs. fixed mode** — Survey-in gives ~2 m absolute base accuracy, which translates to ~2 m absolute rover accuracy (RTK relative accuracy is always centimetre-level regardless). For sub-metre absolute accuracy, place the antenna on a surveyed mark and supply `--lat`, `--lon`, `--alt`.
+
+#### Dependencies
+
+All required packages are included in the project's main dependency set (`aiohttp`, `pyubx2`, `pyrtcm`, `pyserial`, `rich`). No separate install step is needed if the project virtualenv is active.
 
 ---
 
