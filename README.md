@@ -16,7 +16,6 @@ Continuously Operating Reference Station Hub - Python-based NTRIP (V2) caster fo
 - [Documentation](#documentation)
 - [Docker](#docker)
 - [CI/CD](#cicd)
-- [Publishing to PyPI](#publishing-to-pypi)
 - [Contributing](#contributing)
 
 ---
@@ -115,15 +114,14 @@ corshub/
 │   ├── dependabot.yml   # Automated dependency updates (weekly)
 │   └── workflows/
 │       ├── docs.yml     # Build and deploy documentation to GitHub Pages
-│       ├── image.yml    # Build and push Docker image to registry
-│       └── pypi.yml     # Build and publish package to PyPI
+│       └── image.yml    # Build and push Docker image to registry
 ├── docker/
 │   ├── Dockerfile       # Multi-stage build: builder → validate → production
 │   └── entrypoint.sh    # Container entrypoint
 ├── docs/                # MkDocs source
-├── examples/            # Usage examples (add yours here)
+├── tools/               # Tools (e.g., here4 base NTRIP caster)
 ├── src/
-│   └── corshub/   # Package source code
+│   └── corshub/         # Package source code
 │       ├── __init__.py
 │       └── __version__.py
 ├── tests/               # pytest test suite
