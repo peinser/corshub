@@ -482,12 +482,12 @@ async def caster_loop(
                     backoff = 1.0
                     log(f"[green]Caster connected[/green] — streaming to {url}")
 
-                    # # Keep the connection alive by consuming any server response bytes.
-                    # # The caster may send acknowledgement data or simply hold the connection.
-                    # async for chunk in resp.content:
-                    #     # Parse ack count from response if caster sends it (non-standard).
-                    #     # For spec-compliant casters this will simply be empty.
-                    #     _ = chunk
+                    # Keep the connection alive by consuming any server response bytes.
+                    # The caster may send acknowledgement data or simply hold the connection.
+                    async for chunk in resp.content:
+                        # Parse ack count from response if caster sends it (non-standard).
+                        # For spec-compliant casters this will simply be empty.
+                        _ = chunk
 
             except asyncio.CancelledError:
                 return

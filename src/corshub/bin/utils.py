@@ -25,7 +25,7 @@ def create_app(name: str, arguments: Namespace | None = None) -> Sanic:
     # Check if special arguments have been specified.
     if arguments and arguments.reverse_proxy_count > 0:
         app.config.PROXIES_COUNT = arguments.reverse_proxy_count
-        app.config.REAL_IP_HEADER = arguments.header_real_ip
+        app.config.REAL_IP_HEADER = arguments.header_real_ip or "X-Real-IP"
 
     # Initialize the HTTP context.
     http.initialize_http_sessions(app)

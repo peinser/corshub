@@ -120,11 +120,13 @@ ingress:
   # -- IngressClass name (e.g. "nginx", "traefik"). Leave empty to rely on
   # the cluster default or a kubernetes.io/ingress.class annotation.
   className: ""
-  annotations: {}
-    # -- Extend connection timeouts for long-lived NTRIP streams (seconds).
-    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    # nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    # nginx.ingress.kubernetes.io/proxy-body-size: "0"
+  annotations:
+    # -- Extend connection timeouts for long-lived NTRIP streams (seconds) and enable RCTM streaming (disable buffering).
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
     # -- TLS termination / certificate management.
     # cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
