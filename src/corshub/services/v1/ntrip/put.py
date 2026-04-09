@@ -108,7 +108,7 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
                     )
 
                     acks = await caster.publish(mountpoint_id, chunk)
-                    logger.info(f"Dispatched to %d rovers for mountpoint %r.", acks, mountpoint_id)
+                    logger.info("Dispatched to %d rovers for mountpoint %r.", acks, mountpoint_id)
                     await resp.send(data=str(acks))  # Send back the number of ACKs from the rovers for now.
 
         finally:

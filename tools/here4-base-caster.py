@@ -1,4 +1,4 @@
-r"""
+"""
 A prototype to dissipate RTK corrections from a Here4 Base Station to a NTRIP caster.
 
 High-level flow
@@ -89,23 +89,24 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import base64
+import shutil
+
 from collections import deque
 from datetime import datetime
 from enum import Enum
 from enum import auto
-import shutil
-from typing import IO
 
 import aiohttp
 import serial
 import serial.tools.list_ports
+
 from pyrtcm import RTCMMessage
 from pyubx2 import RTCM3_PROTOCOL
 from pyubx2 import SET
 from pyubx2 import UBX_PROTOCOL
 from pyubx2 import UBXMessage
 from pyubx2 import UBXReader
+
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
@@ -113,11 +114,8 @@ from rich.table import Table
 from rich.text import Text
 
 
-# ── Logging ───────────────────────────────────────────────────────────────────
-
-# record=True enables .export_html() / .export_text() if needed later.
 _log_console = Console(
-    record=True,
+    # record=True,  record=True enables .export_html() / .export_text() if needed later.
     log_time=True,
     log_path=False,
 )
@@ -132,8 +130,6 @@ def log(msg: str, style: str = "") -> None:
     _log_lines.append(entry)
     _log_console.log(msg, style=style)
 
-
-# ── Configuration ─────────────────────────────────────────────────────────────
 
 BAUD_RATE = 115200
 UBLOX_VID = 0x1546  # u-blox AG USB vendor ID
@@ -173,18 +169,18 @@ GNSS_NAMES = {0: "GPS", 1: "SBAS", 2: "Galileo", 3: "BDS", 4: "IMES", 5: "QZSS",
 
 
 class State(Enum):
-    SEARCHING  = auto()   # scanning for u-blox USB device
-    CONNECTING = auto()   # opening serial port, sending initial config
-    MONITORING = auto()   # streaming NAV data, waiting for stable 3D fix
-    SURVEY_IN  = auto()   # survey-in running
-    FIXED      = auto()   # fixed position established, streaming RTCM
+    SEARCHING  = auto()   # Scanning for u-blox USB device
+    CONNECTING = auto()   # Opening serial port, sending initial config
+    MONITORING = auto()   # Streaming NAV data, waiting for stable 3D fix
+    SURVEY_IN  = auto()   # Survey-in running
+    FIXED      = auto()   # Fixed position established, streaming RTCM
 
 
 class CasterState(Enum):
     DISCONNECTED = auto()   # not configured or not yet attempted
     CONNECTING   = auto()   # TCP/HTTP handshake in progress
     STREAMING    = auto()   # PUT accepted, frames are flowing
-    ERROR        = auto()   # last connection attempt failed
+    ERROR        = auto()   # Last connection attempt failed
 
 
 class GNSSState:
@@ -239,7 +235,7 @@ def _cfg_tmode3_svin(min_dur: int, acc_limit: int) -> bytes:
     return UBXMessage(
         "CFG", "CFG-TMODE3", SET,
         version=0,
-        rcvrMode=1,  # survey-in
+        rcvrMode=1,  # Survey-in
         svinMinDur=min_dur,
         svinAccLimit=acc_limit,
     ).serialize()
@@ -253,16 +249,17 @@ def _cfg_tmode3_fixed(lat: float, lon: float, alt: float, acc_mm: float) -> byte
     high-precision remainder (1e-9 deg / 0.1 mm) as required by the UBX protocol.
     """
     lat_i  = int(lat * 1e7)
-    lat_hp = round((lat * 1e7 - lat_i) * 100)   # units: 1e-9 deg
+    lat_hp = round((lat * 1e7 - lat_i) * 100)   # Units: 1e-9 deg
     lon_i  = int(lon * 1e7)
-    lon_hp = round((lon * 1e7 - lon_i) * 100)   # units: 1e-9 deg
+    lon_hp = round((lon * 1e7 - lon_i) * 100)   # Units: 1e-9 deg
     alt_cm = int(alt * 100)
-    alt_hp = round((alt * 100 - alt_cm) * 10)   # units: 0.1 mm
+    alt_hp = round((alt * 100 - alt_cm) * 10)   # Units: 0.1 mm
+
     return UBXMessage(
         "CFG", "CFG-TMODE3", SET,
         version=0,
-        rcvrMode=2,             # fixed mode
-        lla=1,                  # coordinates are LLA, not ECEF
+        rcvrMode=2,             # Fixed mode
+        lla=1,                  # Coordinates are LLA, not ECEF
         ecefXOrLat=lat_i,
         ecefYOrLon=lon_i,
         ecefZOrAlt=alt_cm,
@@ -540,9 +537,6 @@ async def caster_loop(
                 backoff = min(backoff * 2, 30.0)
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-
-
 async def main(args: argparse.Namespace) -> None:
     gs = GNSSState()
     queue: asyncio.Queue[tuple[bytes | None, object]] = asyncio.Queue(maxsize=512)
@@ -552,8 +546,6 @@ async def main(args: argparse.Namespace) -> None:
     caster_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=256)
 
     caster_url: str | None = args.caster_url
-
-    # ── connect_loop: find device, open port, configure, spawn reader ──────────
 
     async def connect_loop() -> None:
         while True:
@@ -597,8 +589,6 @@ async def main(args: argparse.Namespace) -> None:
             log(f"Connected to [bold]{port_name}[/bold] at {BAUD_RATE} baud — monitoring")
             asyncio.create_task(read_loop(ser, ubr))
 
-    # ── read_loop: blocking serial read in thread executor → queue ─────────────
-
     async def read_loop(ser: serial.Serial, ubr: UBXReader) -> None:
         loop = asyncio.get_running_loop()
         while True:
@@ -608,7 +598,7 @@ async def main(args: argparse.Namespace) -> None:
                     try:
                         queue.put_nowait((raw, parsed))
                     except asyncio.QueueFull:
-                        pass  # drop oldest-unprocessed message under load
+                        pass  # Drop oldest-unprocessed message under load
             except Exception:
                 # Serial error — trigger reconnect
                 if ser_ref and ser_ref[0] is ser:
@@ -617,8 +607,6 @@ async def main(args: argparse.Namespace) -> None:
                     gs.satellites = []
                 break
 
-    # ── process_loop: dispatch parsed messages, drive state machine ────────────
-
     async def process_loop() -> None:
         loop = asyncio.get_running_loop()
 
@@ -626,7 +614,6 @@ async def main(args: argparse.Namespace) -> None:
             raw, parsed = await queue.get()
             identity = getattr(parsed, "identity", None)
 
-            # ── NAV-PVT: position, velocity, time ─────────────────────────────
             if identity == "NAV-PVT":
                 gs.fix_type   = parsed.fixType
                 gs.gnss_fix_ok = bool(parsed.gnssFixOk)
@@ -669,7 +656,6 @@ async def main(args: argparse.Namespace) -> None:
                         gs.state = State.SURVEY_IN
                         log(f"Survey-in started — min {SVIN_MIN_DUR} s, acc limit {SVIN_ACC_LIMIT / 10000:.1f} m")
 
-            # ── NAV-SVIN: survey-in progress ───────────────────────────────────
             elif identity == "NAV-SVIN":
                 gs.svin_active = bool(parsed.active)
                 gs.svin_valid  = bool(parsed.valid)
@@ -680,7 +666,6 @@ async def main(args: argparse.Namespace) -> None:
                     gs.state = State.FIXED
                     log(f"Survey-in complete — mean acc {gs.svin_acc:.3f} m after {gs.svin_dur} s, streaming RTCM")
 
-            # ── NAV-SAT: satellite signal strengths ────────────────────────────
             elif identity == "NAV-SAT":
                 sats = []
                 for i in range(1, parsed.numSvs + 1):
@@ -694,7 +679,6 @@ async def main(args: argparse.Namespace) -> None:
                     })
                 gs.satellites = sats
 
-            # ── RTCM: push frames to caster queue ─────────────────────────────
             elif gs.state == State.FIXED and isinstance(parsed, RTCMMessage) and raw:
                 gs.rtcm_bytes += len(raw)
                 gs.rtcm_msgs  += 1
@@ -703,9 +687,7 @@ async def main(args: argparse.Namespace) -> None:
                     try:
                         caster_queue.put_nowait(raw)
                     except asyncio.QueueFull:
-                        pass  # drop frame if caster is lagging; RTCM is tolerant of gaps
-
-    # ── caster_push_loop: forward caster_queue → caster_loop stats ────────────
+                        pass  # Drop frame if caster is lagging; RTCM is tolerant of gaps
 
     async def caster_stats_loop() -> None:
         """Update gs.caster_msgs / bytes / acks from the caster queue drain."""
@@ -715,8 +697,6 @@ async def main(args: argparse.Namespace) -> None:
             gs.caster_msgs  = gs.rtcm_msgs   # same frame count pushed to caster
             gs.caster_bytes = gs.rtcm_bytes
             await asyncio.sleep(1)
-
-    # ── display_loop: refresh Rich live display at 2 Hz ───────────────────────
 
     async def display_loop(live: Live) -> None:
         while True:
