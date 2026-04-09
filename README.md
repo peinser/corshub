@@ -9,7 +9,6 @@ Continuously Operating Reference Station Hub - Python-based NTRIP (V2) caster fo
 - [Tools](#tools)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
 - [Running Tests](#running-tests)
 - [Code Quality](#code-quality)
@@ -130,37 +129,6 @@ All required packages are included in the project's main dependency set (`aiohtt
    ```bash
    make help
    ```
-
----
-
-## Project Structure
-
-```
-corshub/
-├── .changelog/          # Pending changelog entries (towncrier)
-├── .devcontainer/       # VS Code dev container definition
-├── .github/
-│   ├── dependabot.yml   # Automated dependency updates (weekly)
-│   └── workflows/
-│       ├── docs.yml     # Build and deploy documentation to GitHub Pages
-│       └── image.yml    # Build and push Docker image to registry
-├── docker/
-│   ├── Dockerfile       # Multi-stage build: builder → validate → production
-│   └── entrypoint.sh    # Container entrypoint
-├── docs/                # MkDocs source
-├── tools/               # Tools (e.g., here4 base NTRIP caster)
-├── src/
-│   └── corshub/         # Package source code
-│       ├── __init__.py
-│       └── __version__.py
-├── tests/               # pytest test suite
-├── CHANGELOG.md         # Auto-generated changelog
-├── CONTRIBUTING.md      # Contribution guidelines
-├── Makefile             # Common development tasks
-├── mkdocs.yml           # Documentation configuration
-├── pyproject.toml       # Project metadata, dependencies, and tool config
-└── uv.lock              # Locked dependency versions (do not edit manually)
-```
 
 ---
 
