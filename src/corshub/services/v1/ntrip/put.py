@@ -84,7 +84,8 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         async for chunk in request.stream:
             if chunk:
                 logger.info(
-                    "Received chunk of %d bytes for mountpoint %r from IP %s", len(chunk),
+                    "Received chunk of %d bytes for mountpoint %r from IP %s",
+                    len(chunk),
                     mountpoint_id,
                     request.remote_addr or request.ip,
                 )
