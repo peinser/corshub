@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+import pytest
+
+from sanic import Sanic
+
+from corshub.ntrip.v2.caster import Mountpoint
+from corshub.ntrip.v2.caster import NTRIPCaster
+from corshub.services.v1.ntrip import service as ntrip_service
+
+ntrip_blueprint = ntrip_service.blueprint()
+
+
+@pytest.fixture(autouse=True, scope="session")
+def enable_test_mode() -> None:
+    Sanic.test_mode = True
+
+
+_metadata = {
+    "name": "BASE1",
+    "identifier": "BASE1",
+    "format": "RTCM 3.3",
+    "country": "BEL",
+    "latitude": 50.8503,
+    "longitude": 4.3517,
+}
+
+
+@pytest.fixture
+def mountpoint_metadata() -> dict:
+    return _metadata
+
+
+@pytest.fixture
+async def caster() -> NTRIPCaster:
+    c = NTRIPCaster()
+    await c.register(**_metadata)
+    return c
+
+
+@pytest.fixture
+def app(caster: NTRIPCaster) -> Sanic:
+    _app = Sanic("test_ntrip")
+    _app.blueprint(ntrip_blueprint)
+
+    @_app.before_server_start
+    async def setup_caster(app: Sanic, _: object) -> None:
+        app.ctx.ntrip_caster = caster
+
+    return _app

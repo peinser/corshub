@@ -1,0 +1,62 @@
+CORSHub {{ .Chart.AppVersion }} has been deployed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Services running: {{ .Values.app.services }}
+  Replicas:         {{ .Values.replicaCount }}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Get the application URL:
+
+{{- if .Values.httpRoute.enabled }}
+  HTTPRoute hostnames:
+  {{- range .Values.httpRoute.hostnames }}
+    https://{{ . }}
+  {{- end }}
+
+{{- else if .Values.ingress.enabled }}
+  Ingress:
+  {{- range .Values.ingress.tls }}
+  {{- range .hosts }}
+    https://{{ . }}
+  {{- end }}
+  {{- end }}
+  {{- range .Values.ingress.hosts }}
+    http://{{ .host }}
+  {{- end }}
+
+{{- else if eq .Values.service.type "NodePort" }}
+  export NODE_PORT=$(kubectl get svc {{ include "corshub.fullname" . }} \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath="{.spec.ports[0].nodePort}")
+  export NODE_IP=$(kubectl get nodes \
+    -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "http://${NODE_IP}:${NODE_PORT}"
+
+{{- else if eq .Values.service.type "LoadBalancer" }}
+  NOTE: It may take a few minutes for the LoadBalancer IP to become available.
+  export LB_IP=$(kubectl get svc {{ include "corshub.fullname" . }} \
+    -n {{ .Release.Namespace }} \
+    -o jsonpath="{.status.loadBalancer.ingress[0].ip}")
+  echo "http://${LB_IP}"
+
+{{- else }}
+  # Port-forward for local access:
+  kubectl port-forward svc/{{ include "corshub.fullname" . }} \
+    -n {{ .Release.Namespace }} \
+    8080:{{ .Values.service.port }}
+  echo "http://localhost:8080"
+{{- end }}
+
+Health check:
+  curl http://<host>/.info/healthz
+
+Source table (NTRIP v2):
+  curl -H "Ntrip-Version: Ntrip/2.0" http://<host>/
+
+{{- if gt (.Values.replicaCount | int) 1 }}
+
+⚠  MULTI-REPLICA WARNING
+   The default QueueTransport is in-process. With {{ .Values.replicaCount }} replicas,
+   base stations and rovers that connect to different pods will not exchange
+   corrections. Pin sessions to a single pod or configure a shared transport.
+{{- end }}

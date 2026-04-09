@@ -1,0 +1,17 @@
+apiVersion: v2
+name: corshub
+description: >
+  NTRIP v2 caster — aggregates RTCM corrections from a network of CORS base
+  stations and distributes them to GNSS rovers over HTTP.
+type: application
+version: 0.0.1
+appVersion: "0.0.1"
+keywords:
+  - ntrip
+  - gnss
+  - rtk
+  - rtcm
+  - corrections
+  - cors
+maintainers:
+  - name: Joeri Hermans

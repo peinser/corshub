@@ -1,0 +1,43 @@
+# Production value overrides for the corshub Helm chart.
+#
+# Only values that differ from the chart defaults are listed here.
+# For the full set of tunables see helm/values.yaml.
+
+# -- Pin to an explicit image tag in production; never use "latest".
+image:
+  repository: docker.io/peinser/corshub
+  tag: 0.0.1.dev0-33c34e4
+
+# -- Increase for higher throughput; see the multi-replica warning in the chart
+# README before scaling beyond 1 (in-process QueueTransport is per-pod).
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+  limits:
+    memory: 512Mi
+
+# Classic Ingress (nginx-ingress or similar):
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    # NTRIP streams are long-lived — raise timeouts well above the default 60 s.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+    cert-manager.io/cluster-issuer: letsencrypt-production
+  hosts:
+    - host: corshub.peinser.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: corshub-tls
+      hosts:
+        - corshub.peinser.com
+

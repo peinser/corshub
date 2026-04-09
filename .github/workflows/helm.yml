@@ -1,0 +1,56 @@
+name: Helm
+run-name: ${{ github.actor }} is publishing the Helm chart
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - main
+    - development
+    paths:
+    - helm/**
+
+jobs:
+
+  publish:
+    runs-on:
+      group: on-prem
+    steps:
+    - name: Git Checkout
+      uses: actions/checkout@v6
+
+    - name: Install Helm
+      uses: azure/setup-helm@v4
+      with:
+        version: "3.17.3"
+
+    - name: Authenticate with the remote Container Registry
+      run: |
+        echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
+
+    - name: Determine chart version
+      id: version
+      run: |
+        # Strip any Python pre-release suffix (.devN, .aN, .bN, .rcN) to get a
+        # clean SemVer base, then append the short commit SHA as a pre-release
+        # identifier so every push produces a unique, valid Helm chart version.
+        BASE=$(python3 -c "
+        import re, tomllib
+        v = tomllib.load(open('pyproject.toml', 'rb'))['project']['version']
+        print(re.sub(r'(\.(dev|a|b|rc)\d+)+$', '', v))
+        ")
+        echo "value=${BASE}-${GITHUB_SHA:0:7}" >> $GITHUB_OUTPUT
+
+    - name: Set chart version and appVersion
+      run: |
+        sed -i "s/^version:.*/version: ${{ steps.version.outputs.value }}/" helm/Chart.yaml
+        sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.value }}\"/" helm/Chart.yaml
+
+    - name: Package chart
+      run: helm package helm --destination /tmp/helm-package
+
+    - name: Push chart to OCI registry
+      run: |
+        helm push \
+          /tmp/helm-package/corshub-${{ steps.version.outputs.value }}.tgz \
+          oci://${{ vars.OCI_REGISTRY }}/uas/charts
