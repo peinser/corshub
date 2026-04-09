@@ -34,12 +34,12 @@ def _str_record(mp: Mountpoint) -> str:
             "STR",
             mp.name,  # [0]  mountpoint name
             mp.identifier,  # [1]  human-readable label
-            mp.format,  # [2]  message format
+            mp.format if mp.format is not None else "",  # [2]  message format
             mp.format_detail,  # [3]  message IDs and rates
             str(mp.carrier),  # [4]  carrier: 0/1/2
             mp.nav_system,  # [5]  nav systems e.g. GPS+GLO
             mp.network,  # [6]  network / agency
-            mp.country,  # [7]  ISO 3166-1 alpha-3
+            mp.country if mp.country is not None else "",  # [7]  ISO 3166-1 alpha-3
             f"{mp.latitude:.2f}" if mp.latitude is not None else "",  # [8]  latitude  (2 d.p. per spec)
             f"{mp.longitude:.2f}" if mp.longitude is not None else "",  # [9]  longitude (2 d.p. per spec)
             "1" if mp.nmea else "0",  # [10] NMEA accepted

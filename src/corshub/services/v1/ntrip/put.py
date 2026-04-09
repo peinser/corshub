@@ -77,7 +77,7 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         logger.info("Starting RTCM stream for mountpoint %r", mountpoint_id)
 
         # Send 200 immediately so the client knows we're ready to receive.
-        resp = await request.respond(status=200, headers={"Content-Length": "0"})
+        resp = await request.respond(status=200)
         async for chunk in request.stream:
             if chunk:
                 logger.info(
