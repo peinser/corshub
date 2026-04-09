@@ -57,8 +57,6 @@ class TestSourceTableStructure:
         c = await _make_caster(
             {
                 "name": "A",
-                "username": "u",
-                "password": "p",
                 "identifier": "A",
                 "format": "RTCM 3.3",
                 "country": "BEL",
@@ -67,8 +65,6 @@ class TestSourceTableStructure:
             },
             {
                 "name": "B",
-                "username": "u",
-                "password": "p",
                 "identifier": "B",
                 "format": "RTCM 3.3",
                 "country": "NLD",
@@ -77,8 +73,6 @@ class TestSourceTableStructure:
             },
             {
                 "name": "C",
-                "username": "u",
-                "password": "p",
                 "identifier": "C",
                 "format": "RTCM 3.3",
                 "country": "DEU",
@@ -128,8 +122,6 @@ class TestSourceTableContent:
         c = await _make_caster(
             {
                 "name": "ALPHA",
-                "username": "u",
-                "password": "p",
                 "identifier": "ALPHA",
                 "format": "RTCM 3.3",
                 "country": "BEL",
@@ -138,8 +130,6 @@ class TestSourceTableContent:
             },
             {
                 "name": "BETA",
-                "username": "u",
-                "password": "p",
                 "identifier": "BETA",
                 "format": "RTCM 3.3",
                 "country": "NLD",
@@ -150,8 +140,3 @@ class TestSourceTableContent:
         str_lines = _str_lines(format_sourcetable(c))
         names = {line.split(";")[1] for line in str_lines}
         assert names == {"ALPHA", "BETA"}
-
-    def test_password_not_included_in_sourcetable(self, caster: NTRIPCaster) -> None:
-        # Passwords must never be leaked in the source table.
-        table = format_sourcetable(caster)
-        assert "s3cr3t" not in table

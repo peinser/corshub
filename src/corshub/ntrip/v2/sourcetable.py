@@ -11,8 +11,6 @@ STR record field order (19 fields, semicolon-separated):
 
 The table is terminated by the mandatory ``ENDSOURCETABLE`` sentinel.
 All lines use CRLF (\\r\\n) as required by the spec.
-
-Passwords and usernames are never included in the source table output.
 """
 
 from __future__ import annotations
@@ -61,8 +59,6 @@ def format_sourcetable(caster: Caster) -> str:
 
     Returns a string with CRLF line endings, terminated by
     ``ENDSOURCETABLE\\r\\n``, as required by RTCM 10410.1 §4.1.
-
-    Passwords and usernames are intentionally excluded.
     """
     lines = [_str_record(mp) for mp in caster.mountpoints.values()]
     lines.append("ENDSOURCETABLE")

@@ -19,8 +19,6 @@ def enable_test_mode() -> None:
 _metadata = {
     "name": "BASE1",
     "identifier": "BASE1",
-    "username": "BASE1",
-    "password": "s3cr3t",
     "format": "RTCM 3.3",
     "country": "BEL",
     "latitude": 50.8503,

@@ -29,8 +29,6 @@ from corshub.ntrip.v2.caster import NTRIPCaster
 def extra_mountpoint() -> dict:
     return {
         "name": "BASE2",
-        "username": "BASE2",
-        "password": "other",
         "identifier": "BASE2",
         "format": "RTCM 3.3",
         "country": "NLD",
@@ -42,7 +40,7 @@ def extra_mountpoint() -> dict:
 class TestMountpointValidation:
     def _base(self, **overrides) -> dict:  # type: ignore[return]
         defaults = dict(
-            name="BASE1", username="BASE1", password="s3cr3t", identifier="BASE1",
+            name="BASE1", identifier="BASE1",
             format="RTCM 3.3", country="BEL", latitude=50.85, longitude=4.35,
         )
         defaults.update(overrides)
@@ -68,10 +66,6 @@ class TestMountpointValidation:
 
     def test_name_hyphen_allowed(self) -> None:
         Mountpoint(**self._base(name="BASE-1"))  # Must not raise
-
-    def test_empty_password_raises(self) -> None:
-        with pytest.raises(ValueError, match="password"):
-            Mountpoint(**self._base(password=""))
 
     def test_country_two_letters_raises(self) -> None:
         with pytest.raises(ValueError, match="[Cc]ountry"):

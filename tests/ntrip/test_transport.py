@@ -107,9 +107,6 @@ class TestPublish:
         assert results[0] == results[1] == [b"\xd3\x00\x00"]
 
 
-# ── subscribe ─────────────────────────────────────────────────────────────────
-
-
 # class TestSubscribe:
 #     async def test_unknown_mountpoint_raises_key_error(self, transport: QueueTransport) -> None:
 #         with pytest.raises(KeyError):

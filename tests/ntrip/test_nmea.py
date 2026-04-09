@@ -111,7 +111,7 @@ async def nmea_caster() -> NTRIPCaster:
     """Single mountpoint at Brussels with nmea=True and no mask."""
     c = NTRIPCaster()
     await c.register(
-        name="BASE1", identifier="BASE1", username="BASE1", password="s3cr3t",
+        name="BASE1", identifier="BASE1",
         format="RTCM 3.3", country="BEL", latitude=MP_LAT, longitude=MP_LON,
         nmea=True,
     )
@@ -123,7 +123,7 @@ async def masked_caster() -> NTRIPCaster:
     """Single mountpoint at Brussels with nmea=True and a 50 km mask."""
     c = NTRIPCaster()
     await c.register(
-        name="BASE1", identifier="BASE1", username="BASE1", password="s3cr3t",
+        name="BASE1", identifier="BASE1",
         format="RTCM 3.3", country="BEL", latitude=MP_LAT, longitude=MP_LON,
         nmea=True, mask=50.0,
     )
@@ -262,7 +262,7 @@ class TestMountpointMaskField:
     def test_default_mask_is_zero(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
         mp = Mountpoint(
-            name="X", identifier="X", username="u", password="p",
+            name="X", identifier="X",
             format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
         )
         assert mp.mask == 0.0
@@ -270,7 +270,7 @@ class TestMountpointMaskField:
     def test_positive_mask_is_accepted(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
         mp = Mountpoint(
-            name="X", identifier="X", username="u", password="p",
+            name="X", identifier="X",
             format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
             mask=100.0,
         )
@@ -279,7 +279,7 @@ class TestMountpointMaskField:
     def test_zero_mask_is_accepted(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
         Mountpoint(
-            name="X", identifier="X", username="u", password="p",
+            name="X", identifier="X",
             format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
             mask=0.0,
         )  # must not raise
@@ -288,7 +288,7 @@ class TestMountpointMaskField:
         from corshub.ntrip.v2.caster import Mountpoint
         with pytest.raises(ValueError, match="[Mm]ask"):
             Mountpoint(
-                name="X", identifier="X", username="u", password="p",
+                name="X", identifier="X",
                 format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
                 mask=-1.0,
             )
@@ -299,11 +299,11 @@ async def two_mountpoint_caster() -> NTRIPCaster:
     """Two mountpoints: BASE1 near (50.0, 4.0), BASE2 far (52.0, 4.0)."""
     c = NTRIPCaster()
     await c.register(
-        name="BASE1", identifier="BASE1", username="BASE1", password="s3cr3t",
+        name="BASE1", identifier="BASE1",
         format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
     )
     await c.register(
-        name="BASE2", identifier="BASE2", username="BASE2", password="s3cr3t",
+        name="BASE2", identifier="BASE2",
         format="RTCM 3.3", country="NLD", latitude=52.0, longitude=4.0,
     )
     return c
@@ -314,11 +314,11 @@ async def masked_two_caster() -> NTRIPCaster:
     """Two mountpoints each with a 30 km mask; BASE1 south, BASE2 north."""
     c = NTRIPCaster()
     await c.register(
-        name="BASE1", identifier="BASE1", username="BASE1", password="s3cr3t",
+        name="BASE1", identifier="BASE1",
         format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0, mask=30.0,
     )
     await c.register(
-        name="BASE2", identifier="BASE2", username="BASE2", password="s3cr3t",
+        name="BASE2", identifier="BASE2",
         format="RTCM 3.3", country="NLD", latitude=52.0, longitude=4.0, mask=30.0,
     )
     return c

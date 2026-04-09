@@ -51,10 +51,6 @@ class Mountpoint:
             Alphanumeric, hyphens, and underscores, 1/100 characters (per spec).
         identifier: Human-readable label for the source table STR record,
             typically describing the physical location.
-        username: Username the base station must supply via HTTP Basic auth.
-            Must be non-empty.
-        password: Password the base station must supply via HTTP Basic auth.
-            Must be non-empty.
         format: RTCM message format, e.g. ``"RTCM 3.3"``.
         format_detail: Comma-separated list of message IDs and rates,
             e.g. ``"1004(1),1005(5),1012(1)"``.  Empty string if unknown.
@@ -87,12 +83,10 @@ class Mountpoint:
 
     name: str
     identifier: str
-    username: str
-    password: str
-    format: str
-    country: str
-    latitude: float
-    longitude: float
+    format: str | None = None
+    country: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     format_detail: str = ""
     carrier: int = 0
     nav_system: str = ""
@@ -116,15 +110,11 @@ class Mountpoint:
             raise ValueError(
                 f"Mountpoint identifier {self.identifier!r} is invalid: must be 1/100 characters, alphanumeric, underscore, or hyphen."
             )
-        if not self.username:
-            raise ValueError("Mountpoint username must be non-empty.")
-        if not self.password:
-            raise ValueError("Mountpoint password must be non-empty.")
         if not re.match(r"^[A-Z]{3}$", self.country):
             raise ValueError(f"Country {self.country!r} is invalid: must be an ISO 3166-1 alpha-3 code (e.g. 'BEL').")
-        if not -90.0 <= self.latitude <= 90.0:
+        if self.latitude and not -90.0 <= self.latitude <= 90.0:
             raise ValueError(f"Latitude {self.latitude} is out of range [-90, 90].")
-        if not -180.0 <= self.longitude <= 180.0:
+        if self.longitude and not -180.0 <= self.longitude <= 180.0:
             raise ValueError(f"Longitude {self.longitude} is out of range [-180, 180].")
         if self.mask < 0.0:
             raise ValueError(f"Mask {self.mask} must be >= 0.")
@@ -254,6 +244,10 @@ class NTRIPCaster(Caster):
                     setattr(instance, key, value)
 
             return instance
+
+        # Check if a name has been provided in the kwargs, otherwise use the identifier as the name
+        if "name" not in kwargs or not kwargs["name"]:
+            kwargs["name"] = identifier
 
         mountpoint = Mountpoint(identifier=identifier, **kwargs)
         self._mountpoints[identifier] = mountpoint
