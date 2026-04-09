@@ -91,6 +91,7 @@ import argparse
 import asyncio
 import base64
 from collections import deque
+from datetime import datetime
 from enum import Enum
 from enum import auto
 import shutil
@@ -110,6 +111,26 @@ from rich.live import Live
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+
+
+# ── Logging ───────────────────────────────────────────────────────────────────
+
+# record=True enables .export_html() / .export_text() if needed later.
+_log_console = Console(
+    record=True,
+    log_time=True,
+    log_path=False,
+)
+
+_log_lines: deque[str] = deque(maxlen=20)
+
+
+def log(msg: str, style: str = "") -> None:
+    """Append a timestamped entry to the in-UI log panel and to _log_console."""
+    ts = datetime.now().strftime("%H:%M:%S")
+    entry = f"[dim]{ts}[/dim] {msg}"
+    _log_lines.append(entry)
+    _log_console.log(msg, style=style)
 
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -146,9 +167,6 @@ FIX_NAMES = {
 }
 
 GNSS_NAMES = {0: "GPS", 1: "SBAS", 2: "Galileo", 3: "BDS", 4: "IMES", 5: "QZSS", 6: "GLONASS"}
-
-
-# ── State ─────────────────────────────────────────────────────────────────────
 
 
 class State(Enum):
@@ -196,9 +214,6 @@ class GNSSState:
         self.caster_acks = 0
         # H-Acc history for sparkline (1 Hz NAV-PVT → 120 s of history)
         self.h_acc_history: deque[float] = deque(maxlen=120)
-
-
-# ── UBX helpers ───────────────────────────────────────────────────────────────
 
 
 def _cfg_msg(msg_class: int, msg_id: int, rate: int) -> bytes:
@@ -256,9 +271,6 @@ def _cfg_tmode3_fixed(lat: float, lon: float, alt: float, acc_mm: float) -> byte
     ).serialize()
 
 
-# ── Device detection ──────────────────────────────────────────────────────────
-
-
 def find_ublox_ports() -> list[str]:
     """Return serial port names that look like u-blox devices."""
     ports = []
@@ -271,9 +283,6 @@ def find_ublox_ports() -> list[str]:
         ):
             ports.append(p.device)
     return ports
-
-
-# ── Display ───────────────────────────────────────────────────────────────────
 
 
 _SPARK = "▁▂▃▄▅▆▇█"
@@ -382,6 +391,14 @@ def build_display(gs: GNSSState, caster_url: str | None) -> Table:
             expand=True,
         ))
 
+    # Log panel
+    if _log_lines:
+        root.add_row(Panel(
+            "\n".join(_log_lines),
+            title="Logs",
+            expand=True,
+        ))
+
     # Satellite table (top 16 by C/N0)
     if gs.satellites:
         st = Table(title=f"Satellites ({len(gs.satellites)} tracked)", show_header=True, expand=True)
@@ -405,9 +422,6 @@ def build_display(gs: GNSSState, caster_url: str | None) -> Table:
     return root
 
 
-# ── NTRIP caster push ─────────────────────────────────────────────────────────
-
-
 async def caster_loop(
     gs: GNSSState,
     frame_queue: asyncio.Queue[bytes],
@@ -421,7 +435,6 @@ async def caster_loop(
     Reads RTCM frames from *frame_queue* and streams them in the request body.
     Reconnects automatically with exponential back-off on failure.
     """
-    credentials = base64.b64encode(f"{username}:{password}".encode()).decode()
     url = f"{caster_url.rstrip('/')}/{mountpoint}"
     backoff = 1.0
 
@@ -435,19 +448,28 @@ async def caster_loop(
                     frame = await frame_queue.get()
                     if frame is None:   # sentinel: stop streaming
                         return
+
+                    log(f"Yielding frame to NTRIP with {len(frame)} bytes")
+
                     yield frame
 
             try:
                 async with session.put(
                     url,
                     data=_frame_generator(),
+                    auth=aiohttp.BasicAuth(username, password),
                     headers={
                         "Ntrip-Version":  "Ntrip/2.0",
-                        "Authorization":  f"Basic {credentials}",
                         "Content-Type":   "gnss/data",
                         "User-Agent":     "Here4Base/1.0",
                     },
                     chunked=True,
+                    # timeout=aiohttp.ClientTimeout(
+                    #     total=None,      # no overall timeout (we want the stream to live forever)
+                    #     connect=15.0,    # generous but finite time to connect + receive 200 OK
+                    #     sock_connect=10.0,
+                    #     sock_read=None,  # once connected, let the stream run indefinitely
+                    # ),
                 ) as resp:
                     if resp.status != 200:
                         body = await resp.text()
@@ -458,13 +480,14 @@ async def caster_loop(
 
                     gs.caster_state = CasterState.STREAMING
                     backoff = 1.0
+                    log(f"[green]Caster connected[/green] — streaming to {url}")
 
-                    # Keep the connection alive by consuming any server response bytes.
-                    # The caster may send acknowledgement data or simply hold the connection.
-                    async for chunk in resp.content:
-                        # Parse ack count from response if caster sends it (non-standard).
-                        # For spec-compliant casters this will simply be empty.
-                        _ = chunk
+                    # # Keep the connection alive by consuming any server response bytes.
+                    # # The caster may send acknowledgement data or simply hold the connection.
+                    # async for chunk in resp.content:
+                    #     # Parse ack count from response if caster sends it (non-standard).
+                    #     # For spec-compliant casters this will simply be empty.
+                    #     _ = chunk
 
             except asyncio.CancelledError:
                 return
@@ -472,6 +495,7 @@ async def caster_loop(
             except Exception as exc:
                 gs.caster_state = CasterState.ERROR
                 gs.caster_error = str(exc)
+                log(f"[red]Caster error[/red] (retry in {backoff:.0f} s): {exc}")
                 await asyncio.sleep(backoff)
                 backoff = min(backoff * 2, 30.0)
 
@@ -530,6 +554,7 @@ async def main(args: argparse.Namespace) -> None:
                 await asyncio.sleep(0.05)
 
             gs.state = State.MONITORING
+            log(f"Connected to [bold]{port_name}[/bold] at {BAUD_RATE} baud — monitoring")
             asyncio.create_task(read_loop(ser, ubr))
 
     # ── read_loop: blocking serial read in thread executor → queue ─────────────
@@ -596,11 +621,13 @@ async def main(args: argparse.Namespace) -> None:
                             _cfg_tmode3_fixed(args.lat, args.lon, args.alt, args.fixed_acc),
                         )
                         gs.state = State.FIXED
+                        log(f"Fixed mode activated at {args.lat:.8f}°, {args.lon:.8f}°, {args.alt:.3f} m")
                     else:
                         await loop.run_in_executor(
                             None, ser.write, _cfg_tmode3_svin(SVIN_MIN_DUR, SVIN_ACC_LIMIT)
                         )
                         gs.state = State.SURVEY_IN
+                        log(f"Survey-in started — min {SVIN_MIN_DUR} s, acc limit {SVIN_ACC_LIMIT / 10000:.1f} m")
 
             # ── NAV-SVIN: survey-in progress ───────────────────────────────────
             elif identity == "NAV-SVIN":
@@ -611,6 +638,7 @@ async def main(args: argparse.Namespace) -> None:
                 gs.svin_dur    = parsed.dur
                 if gs.state == State.SURVEY_IN and gs.svin_valid and not gs.svin_active:
                     gs.state = State.FIXED
+                    log(f"Survey-in complete — mean acc {gs.svin_acc:.3f} m after {gs.svin_dur} s, streaming RTCM")
 
             # ── NAV-SAT: satellite signal strengths ────────────────────────────
             elif identity == "NAV-SAT":
