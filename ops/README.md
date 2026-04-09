@@ -22,7 +22,7 @@ helm registry login harbor.peinser.com \
 ## Render the chart locally
 
 ```bash
-helm template corshub \
+helm template production \
   oci://harbor.peinser.com/uas/charts/corshub \
   --version <version> \
   --values ops/values.yaml
@@ -31,7 +31,7 @@ helm template corshub \
 ## Install / upgrade
 
 ```bash
-helm upgrade --install corshub \
+helm upgrade --install production \
   oci://harbor.peinser.com/uas/charts/corshub \
   --version <version> \
   --values ops/values.yaml \

@@ -273,11 +273,7 @@ class NTRIPCaster(Caster):
         return self._mountpoints
 
     def authenticate(self, username: str, password: str) -> bool:
-        mp = self._mountpoints.get(username)
-        if mp is None:
-            return False
-
-        return mp.password == password
+        return True  # TODO Implement. Seperate mechanism for rover / base-station?
 
     async def publish(self, identifier: str, frame: bytes) -> int:
         transport = self._transports.get(identifier)
