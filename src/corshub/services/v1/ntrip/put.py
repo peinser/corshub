@@ -39,7 +39,7 @@ if TYPE_CHECKING:
     from sanic import Request
 
 
-@bp.put("/<mountpoint_id:str>")
+@bp.put("/<mountpoint_id:str>", stream=True)
 async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
     """Accept a continuous RTCM stream from a base station.
 
@@ -80,17 +80,22 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         resp = await request.respond(status=200, headers={"Content-Length": "0"})
         async for chunk in request.stream:
             if chunk:
-                logger.info("Received chunk of %d bytes for mountpoint %r", len(chunk), mountpoint_id)
+                logger.info(
+                    "Received chunk of %d bytes for mountpoint %r from IP %s", len(chunk), mountpoint_id, request.ip
+                )
                 await caster.publish(mountpoint_id, chunk)
 
         return await resp.eof()
 
     # Read the request body to completion, even if the client doesn't stream, to avoid leaving a hanging request.
     logger.info(
-        "Received non-streaming request with body of %d bytes for mountpoint %r", len(request.body), mountpoint_id
+        "Received non-streaming request with body of %d bytes for mountpoint %r from IP %s",
+        len(request.body),
+        mountpoint_id,
+        request.ip,
     )
-    frame = request.body
-    if frame:
+
+    if frame := request.body:
         await caster.publish(mountpoint_id, frame)
 
     return response.empty(200)
