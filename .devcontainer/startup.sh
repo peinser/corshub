@@ -11,4 +11,10 @@ uv sync --locked
 echo "Setting up the devcontainer..."
 make setup
 
+echo "Setting up SSH/GPG commit signing..."
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/id.github.pub
+git config --global commit.gpgsign true
+git config --global tag.gpgsign true
+
 echo "Startup complete."
