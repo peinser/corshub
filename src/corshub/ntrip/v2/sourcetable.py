@@ -40,8 +40,8 @@ def _str_record(mp: Mountpoint) -> str:
             mp.nav_system,  # [5]  nav systems e.g. GPS+GLO
             mp.network,  # [6]  network / agency
             mp.country,  # [7]  ISO 3166-1 alpha-3
-            f"{mp.latitude:.2f}",  # [8]  latitude  (2 d.p. per spec)
-            f"{mp.longitude:.2f}",  # [9]  longitude (2 d.p. per spec)
+            f"{mp.latitude:.2f}" if mp.latitude is not None else "",  # [8]  latitude  (2 d.p. per spec)
+            f"{mp.longitude:.2f}" if mp.longitude is not None else "",  # [9]  longitude (2 d.p. per spec)
             "1" if mp.nmea else "0",  # [10] NMEA accepted
             str(mp.solution),  # [11] 0=single base, 1=network
             mp.generator,  # [12] generator software
