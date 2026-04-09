@@ -29,6 +29,7 @@ from corshub.ntrip.v2.headers import NTRIP_STR
 from corshub.ntrip.v2.headers import NTRIP_VERSION
 from corshub.ntrip.v2.headers import NTRIP_VERSION_2
 from corshub.ntrip.v2.headers import parse_ntrip_str
+from corshub.logging import logger
 
 from .base import bp
 
@@ -76,6 +77,7 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         resp = await request.respond(status=200, headers={"Content-Length": "0"})
         async for chunk in request.stream:
             if chunk:
+                logger.info("Received chunk of %d bytes for mountpoint %r", len(chunk), mountpoint_id)
                 await caster.publish(mountpoint_id, chunk)
 
         return await resp.eof()

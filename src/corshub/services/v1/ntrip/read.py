@@ -53,8 +53,7 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
     if request.headers.get(NTRIP_VERSION, "").lower() != NTRIP_VERSION_2.lower():
         raise BadRequestError(f"{NTRIP_VERSION}: {NTRIP_VERSION_2} header is required.")
 
-    if not request.credentials:
-        raise Unauthorized("Basic credentials required.", scheme="Basic")
+    # TODO Check presence of Basic Auth.
 
     caster = request.app.ctx.ntrip_caster
 
