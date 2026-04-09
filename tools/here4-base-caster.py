@@ -462,15 +462,8 @@ async def caster_loop(
                         "Ntrip-Version":  "Ntrip/2.0",
                         "Content-Type":   "gnss/data",
                         "User-Agent":     "Here4Base/1.0",
-                        "X-Real-IP":      "10.0.40.1",
                     },
                     chunked=True,
-                    # timeout=aiohttp.ClientTimeout(
-                    #     total=None,      # no overall timeout (we want the stream to live forever)
-                    #     connect=15.0,    # generous but finite time to connect + receive 200 OK
-                    #     sock_connect=10.0,
-                    #     sock_read=None,  # once connected, let the stream run indefinitely
-                    # ),
                 ) as resp:
                     if resp.status != 200:
                         body = await resp.text()
@@ -488,7 +481,10 @@ async def caster_loop(
                     async for chunk in resp.content:
                         # Parse ack count from response if caster sends it (non-standard).
                         # For spec-compliant casters this will simply be empty.
-                        _ = chunk
+                        if chunk:
+                            # Attempt to parse the caster ACK's.
+                            gs.caster_acks = int(chunk.decode())
+
 
             except asyncio.CancelledError:
                 return

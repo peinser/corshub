@@ -86,7 +86,8 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
                     mountpoint_id,
                     request.remote_addr or request.ip,
                 )
-                await caster.publish(mountpoint_id, chunk)
+                acks = await caster.publish(mountpoint_id, chunk)
+                await resp.send(data=str(acks))  # Send back the number of ACKs from the rovers for now.
 
         return await resp.eof()
 
@@ -99,6 +100,8 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
     )
 
     if frame := request.body:
-        await caster.publish(mountpoint_id, frame)
+        acks = await caster.publish(mountpoint_id, frame)
+    else:
+        acks = 0
 
-    return response.empty(200)
+    return response.text(status=200, body=str(acks))
