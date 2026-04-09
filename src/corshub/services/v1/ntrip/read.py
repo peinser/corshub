@@ -63,8 +63,6 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
         raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist.")
 
     # TODO: use a separate rover user table; for now rovers share the mountpoint credentials.
-    # if not caster.authenticate(request.credentials.username, request.credentials.password):
-    #    raise Unauthorized("Invalid credentials.", scheme="Basic")
 
     # When the mountpoint requires NMEA, validate the rover's Ntrip-GGA header.
     if mountpoint.nmea:
