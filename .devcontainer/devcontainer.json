@@ -12,7 +12,8 @@
 		}
 	},
 	"mounts": [
-    	"source=${localEnv:HOME}/.gnupg,target=${localEnv:HOME}/.gnupg,type=bind,consistency=cached"
+    	"source=${localEnv:HOME}/.gnupg,target=${localEnv:HOME}/.gnupg,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached"
   	],
 	"customizations": {
 		"vscode": {

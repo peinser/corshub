@@ -29,7 +29,8 @@ RUN apt-get update && \
         autoconf \
         automake \
         libtool \
-        pkg-config
+        pkg-config \
+        openssh-client
 
         # Libraries
         # zlib1g-dev \

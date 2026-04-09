@@ -6,7 +6,7 @@
 # -- Pin to an explicit image tag in production; never use "latest".
 image:
   repository: harbor.peinser.com/uas/corshub
-  tag: 0.0.1.dev0-5661fcd
+  tag: 0.0.1.dev0-cec5ca1
 
 # -- Increase for higher throughput; see the multi-replica warning in the chart
 # README before scaling beyond 1 (in-process QueueTransport is per-pod).
