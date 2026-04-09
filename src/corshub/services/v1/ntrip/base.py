@@ -52,5 +52,5 @@ async def setup(app: Sanic) -> None:
     """
     app.ctx.ntrip_caster = NTRIPCaster(
         expiry=300.0,
-        reap_interval=60.0,
+        reap_interval=30.0,
     )

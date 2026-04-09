@@ -53,6 +53,10 @@ class Transport(ABC):
         """
         ...
 
+    @abstractmethod
+    async def shutdown(self) -> None:
+        """Shuts down the transport and the associated subscribers."""
+
 
 class TransportSubscriber(ABC):
     @abstractmethod
@@ -116,7 +120,7 @@ class QueueTransportSubscriber(TransportSubscriber):
         self.drain()
         self._signal_done()  # Ensure any waiting producers are signaled to stop
 
-    def shutdown(self) -> None:
+    async def shutdown(self) -> None:
         """
         Signal this subscriber to stop consuming frames immediately.
         Call this from the task that is consuming frames to break out of the loop and perform cleanup. Safe to call multiple times.
@@ -178,11 +182,22 @@ class QueueTransport(Transport):
 
         try:
             yield subscriber
+
         finally:
             subscribers = self._queues
             if subscriber in subscribers:
                 subscribers.remove(subscriber)
-            subscriber.cleanup()
+
+            await subscriber.shutdown()
+
+    async def shutdown(self) -> None:
+        """"
+        Shuts down the transport and the connected subscribers.
+        """
+        subscribers = self._queues
+        self._queues = []
+
+        await asyncio.gather(*(sub.shutdown() for sub in subscribers))
 
     async def publish(self, frame: bytes) -> int:
         """Deliver *frame* to every active subscriber on the mountpoint this transport belongs to.

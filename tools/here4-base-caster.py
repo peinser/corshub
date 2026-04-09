@@ -157,6 +157,9 @@ RTCM_CLASS  = 0xF5
 # RTCM 3.3 message IDs to enable (1005, 1074, 1084, 1094, 1124, 1230)
 RTCM_OUTPUT_IDS = [0x05, 0x4A, 0x54, 0x5E, 0x7C, 0xE6]
 
+RTCM_FORMAT_DETAIL = "1005(1),1074(1),1084(1),1094(1),1124(1),1230(1)"
+RTCM_NAV_SYSTEM    = "GPS+GLO+GAL+BDS"
+
 FIX_NAMES = {
     0: "No fix",
     1: "Dead reckoning",
@@ -211,7 +214,6 @@ class GNSSState:
         self.caster_error: str = ""
         self.caster_msgs = 0
         self.caster_bytes = 0
-        self.caster_acks = 0
         # H-Acc history for sparkline (1 Hz NAV-PVT → 120 s of history)
         self.h_acc_history: deque[float] = deque(maxlen=120)
 
@@ -269,6 +271,39 @@ def _cfg_tmode3_fixed(lat: float, lon: float, alt: float, acc_mm: float) -> byte
         ecefZOrAltHP=alt_hp,
         fixedPosAcc=int(acc_mm * 10),  # 0.1 mm units
     ).serialize()
+
+
+def _build_ntrip_str(
+    mountpoint: str,
+    label: str,
+    lat: float,
+    lon: float,
+    country: str,
+    network: str,
+) -> str:
+    """Build an Ntrip-STR header value describing this base station.
+
+    Field order matches RTCM 10410.1 §4.1 (without the leading ``STR;`` token).
+    """
+    return ";".join([
+        mountpoint,           # [0]  mountpoint name
+        label,                # [1]  human-readable label
+        "RTCM 3.3",           # [2]  message format
+        RTCM_FORMAT_DETAIL,   # [3]  message IDs and rates
+        "2",                  # [4]  carrier: L1+L2
+        RTCM_NAV_SYSTEM,      # [5]  nav systems
+        network,              # [6]  network / agency
+        country,              # [7]  ISO 3166-1 alpha-3
+        f"{lat:.2f}",         # [8]  latitude
+        f"{lon:.2f}",         # [9]  longitude
+        "0",                  # [10] NMEA not accepted
+        "0",                  # [11] single base station
+        "Here4Base/1.0",      # [12] generator
+        "",                   # [13] no compression
+        "B",                  # [14] Basic auth required
+        "N",                  # [15] no fee
+        "0",                  # [16] bitrate unknown
+    ])
 
 
 def find_ublox_ports() -> list[str]:
@@ -374,7 +409,6 @@ def build_display(gs: GNSSState, caster_url: str | None) -> Table:
         if gs.caster_state == CasterState.STREAMING:
             ct.add_row("Msgs sent", Text(str(gs.caster_msgs), style="green"))
             ct.add_row("Bytes sent", Text(str(gs.caster_bytes), style="green"))
-            ct.add_row("Acks (rovers)", Text(str(gs.caster_acks), style="green"))
         if gs.caster_state == CasterState.ERROR and gs.caster_error:
             ct.add_row("Last error", Text(gs.caster_error, style="red"))
         root.add_row(ct)
@@ -429,19 +463,31 @@ async def caster_loop(
     mountpoint: str,
     username: str,
     password: str,
+    country: str,
+    network: str,
+    label: str,
 ) -> None:
     """Maintain a long-lived NTRIP v2 PUT connection to the caster.
 
     Reads RTCM frames from *frame_queue* and streams them in the request body.
-    Reconnects automatically with exponential back-off on failure.
+    Waits for FIXED state before connecting; reconnects automatically with
+    exponential back-off on failure.
     """
     url = f"{caster_url.rstrip('/')}/{mountpoint}"
     backoff = 1.0
 
     async with aiohttp.ClientSession() as session:
         while True:
+            # Don't attempt to connect until we have a fixed position.
+            while gs.state != State.FIXED:
+                await asyncio.sleep(0.5)
+
             gs.caster_state = CasterState.CONNECTING
             gs.caster_error = ""
+
+            ntrip_str = _build_ntrip_str(
+                mountpoint, label or mountpoint, gs.lat, gs.lon, country, network
+            )
 
             async def _frame_generator():
                 while True:
@@ -449,7 +495,7 @@ async def caster_loop(
                     if frame is None:   # sentinel: stop streaming
                         return
 
-                    log(f"Yielding frame to NTRIP with {len(frame)} bytes")
+                    await asyncio.sleep(0)  # Ensure other tasks get scheduled.
 
                     yield frame
 
@@ -459,9 +505,10 @@ async def caster_loop(
                     data=_frame_generator(),
                     auth=aiohttp.BasicAuth(username, password),
                     headers={
-                        "Ntrip-Version":  "Ntrip/2.0",
-                        "Content-Type":   "gnss/data",
-                        "User-Agent":     "Here4Base/1.0",
+                        "Ntrip-Version": "Ntrip/2.0",
+                        "Ntrip-STR":     ntrip_str,
+                        "Content-Type":  "gnss/data",
+                        "User-Agent":    "Here4Base/1.0",
                     },
                     chunked=True,
                 ) as resp:
@@ -479,12 +526,8 @@ async def caster_loop(
                     # Keep the connection alive by consuming any server response bytes.
                     # The caster may send acknowledgement data or simply hold the connection.
                     async for chunk in resp.content:
-                        # Parse ack count from response if caster sends it (non-standard).
-                        # For spec-compliant casters this will simply be empty.
-                        if chunk:
-                            # Attempt to parse the caster ACK's.
-                            gs.caster_acks = int(chunk.decode())
-
+                        if not chunk:
+                            break
 
             except asyncio.CancelledError:
                 return
@@ -689,6 +732,9 @@ async def main(args: argparse.Namespace) -> None:
         tasks.append(caster_loop(
             gs, caster_queue,
             caster_url, args.mountpoint, args.username, args.password,
+            country=args.country or "",
+            network=args.network or "",
+            label=args.label or "",
         ))
         tasks.append(caster_stats_loop())
 
@@ -722,6 +768,9 @@ if __name__ == "__main__":
     ntrip.add_argument("--mountpoint",  metavar="NAME",       help="Mountpoint name to push to, e.g. HERE4")
     ntrip.add_argument("--username",    metavar="USER",       help="Basic auth username")
     ntrip.add_argument("--password",    metavar="PASS",       help="Basic auth password")
+    ntrip.add_argument("--label",       metavar="TEXT",       help="Human-readable label for the mountpoint (defaults to mountpoint name)")
+    ntrip.add_argument("--country",     metavar="ISO3",       help="ISO 3166-1 alpha-3 country code, e.g. BEL")
+    ntrip.add_argument("--network",     metavar="NAME",       help="Network or agency name")
 
     _args = parser.parse_args()
 
@@ -732,6 +781,9 @@ if __name__ == "__main__":
     if _args.caster_url is not None:
         if not all([_args.mountpoint, _args.username, _args.password]):
             parser.error("--caster-url requires --mountpoint, --username and --password")
+
+    if _args.country and not (len(_args.country) == 3 and _args.country.isalpha() and _args.country.isupper()):
+        parser.error("--country must be an ISO 3166-1 alpha-3 code, e.g. BEL")
 
     try:
         asyncio.run(main(_args))

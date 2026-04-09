@@ -259,6 +259,9 @@ class NTRIPCaster(Caster):
         if identifier not in self._mountpoints:
             return  # Idempotent
 
+        transport = self._transports[identifier]
+        await transport.shutdown()  # Signal the subscribers the base-station is leaving.
+
         del self._mountpoints[identifier]
         del self._transports[identifier]
 
