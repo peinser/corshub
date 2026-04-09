@@ -86,7 +86,9 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         return await resp.eof()
 
     # Read the request body to completion, even if the client doesn't stream, to avoid leaving a hanging request.
-    logger.info("Received non-streaming request with body of %d bytes for mountpoint %r", len(request.body), mountpoint_id)
+    logger.info(
+        "Received non-streaming request with body of %d bytes for mountpoint %r", len(request.body), mountpoint_id
+    )
     frame = request.body
     if frame:
         await caster.publish(mountpoint_id, frame)
