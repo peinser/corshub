@@ -24,7 +24,7 @@ helm registry login harbor.peinser.com \
 ```bash
 helm template production \
   oci://harbor.peinser.com/uas/charts/corshub \
-  --version <version> \
+  --version $VERSION \
   --values ops/values.yaml
 ```
 
@@ -33,7 +33,7 @@ helm template production \
 ```bash
 helm upgrade --install production \
   oci://harbor.peinser.com/uas/charts/corshub \
-  --version <version> \
+  --version $VERSION \
   --values ops/values.yaml \
   --namespace corshub \
   --create-namespace \

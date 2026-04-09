@@ -110,7 +110,7 @@ class Mountpoint:
             raise ValueError(
                 f"Mountpoint identifier {self.identifier!r} is invalid: must be 1/100 characters, alphanumeric, underscore, or hyphen."
             )
-        if not re.match(r"^[A-Z]{3}$", self.country):
+        if self.country and not re.match(r"^[A-Z]{3}$", self.country):
             raise ValueError(f"Country {self.country!r} is invalid: must be an ISO 3166-1 alpha-3 code (e.g. 'BEL').")
         if self.latitude and not -90.0 <= self.latitude <= 90.0:
             raise ValueError(f"Latitude {self.latitude} is out of range [-90, 90].")
