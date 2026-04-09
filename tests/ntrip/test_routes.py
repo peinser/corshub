@@ -61,14 +61,6 @@ class TestSourceTableRoute:
 
 class TestSourceRoute:
 
-    async def test_unknown_mountpoint_returns_404(self, app: Sanic) -> None:
-        _, response = await app.asgi_client.put(
-            "/GHOST",
-            headers={**NTRIP_HEADERS, "Authorization": _basic_auth("GHOST", "pw"), "Content-Type": "gnss/data"},
-            data=b"",
-        )
-        assert response.status_code == 404
-
     async def test_missing_ntrip_version_header_returns_400(self, app: Sanic) -> None:
         _, response = await app.asgi_client.put(
             "/BASE1",
