@@ -70,9 +70,12 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
 
     # Register the mountpoint with the available metadata.
     await caster.register(identifier=mountpoint_id, **meta)
+    logger.info("Registered mountpoint %r with metadata: %s", mountpoint_id, meta)
 
     # Stream RTCM frames from the request body and publish to subscribers.
     if request.stream:
+        logger.info("Starting RTCM stream for mountpoint %r", mountpoint_id)
+
         # Send 200 immediately so the client knows we're ready to receive.
         resp = await request.respond(status=200, headers={"Content-Length": "0"})
         async for chunk in request.stream:
@@ -83,6 +86,7 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         return await resp.eof()
 
     # Read the request body to completion, even if the client doesn't stream, to avoid leaving a hanging request.
+    logger.info("Received non-streaming request with body of %d bytes for mountpoint %r", len(request.body), mountpoint_id)
     frame = request.body
     if frame:
         await caster.publish(mountpoint_id, frame)
