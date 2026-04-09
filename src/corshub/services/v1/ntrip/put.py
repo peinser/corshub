@@ -21,7 +21,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sanic import response
-from sanic.exceptions import NotFound
 from sanic.exceptions import Unauthorized
 
 from corshub.exceptions.http import BadRequestError
