@@ -31,9 +31,7 @@ parser = argparse.ArgumentParser("Service Bootstrap Manager")
 parser.add_argument("--host", type=str, default=None, help="IP address to run the host on (default: none).")
 parser.add_argument("--port", type=int, default=8000, help="The port to run the Sanic service on (default: 8000).")
 parser.add_argument("--debug", action="store_true", default=False, help="Run in debug mode (default: false).")
-parser.add_argument("--fast", action="store_true", default=False, help="Fast-mode, disables logging (default: false).")
 parser.add_argument("--reload", action="store_true", default=False, help="Enable hot-reloading (default: false).")
-parser.add_argument("--workers", type=int, default=1, help="Workers to process incoming requests (default: 1).")
 parser.add_argument("--access-logs", action="store_true", help="Enable access logs (default: false).")
 parser.add_argument(
     "--reverse-proxy-count",
@@ -67,3 +65,14 @@ for _, module_name, is_pkg in pkgutil.iter_modules(path):
 @app.route("/.info/healthz", methods=["GET"])
 async def healthz(_: Request) -> HTTPResponse:
     return response.empty()
+
+
+if __name__ == "__main__":
+    app.run(
+        host=arguments.host,
+        port=arguments.port,
+        debug=arguments.debug,
+        auto_reload=arguments.reload,
+        access_log=arguments.access_logs,
+        workers=1,
+    )

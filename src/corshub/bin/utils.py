@@ -32,9 +32,6 @@ def create_app(name: str, arguments: Namespace | None = None) -> Sanic:
         app.config.PROXIES_COUNT = arguments.reverse_proxy_count
         app.config.REAL_IP_HEADER = arguments.header_real_ip
 
-    app.config.ACCESS_LOG = arguments.access_logs if arguments else False
-    app.config.AUTO_RELOAD = arguments.reload if arguments else False
-
     # Initialize the HTTP context.
     http.initialize_http_sessions(app)
 

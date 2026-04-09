@@ -87,8 +87,7 @@ test: ## Run tests with coverage
 
 .PHONY: dev
 dev: ## Run the application in development mode (if applicable)
-	@echo -e "$(WARN_COLOR)No 'dev' target defined yet. Customize this target if needed.$(NO_COLOR)"
-	uv run sanic -1 --debug --reload --host 0.0.0.0 corshub.bin.standalone:app
+	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload
 
 .PHONY: all
 all: clean install lint test ## Run the full CI-like pipeline locally
