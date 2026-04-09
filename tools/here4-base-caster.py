@@ -350,7 +350,7 @@ def build_display(gs: GNSSState, caster_url: str | None) -> Table:
     # NTRIP caster push panel (only shown when --caster-url is configured)
     if caster_url is not None:
         _caster_state_style = {
-            CasterState.DISCONNECTED: ("dim",   "DISCONNECTED"),
+            CasterState.DISCONNECTED: ("dim",    "DISCONNECTED"),
             CasterState.CONNECTING:   ("yellow", "CONNECTING…"),
             CasterState.STREAMING:    ("green",  "STREAMING"),
             CasterState.ERROR:        ("red",    "ERROR"),

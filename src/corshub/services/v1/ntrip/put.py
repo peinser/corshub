@@ -56,9 +56,6 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         raise Unauthorized("Basic credentials required.", scheme="Basic")
 
     caster = request.app.ctx.ntrip_caster
-    if mountpoint_id not in caster.mountpoints:
-        raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist.")
-
     if not caster.authenticate(request.credentials.username, request.credentials.password):
         raise Unauthorized("Invalid mountpoint credentials.", scheme="Basic")
 
