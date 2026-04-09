@@ -72,9 +72,6 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
     await caster.register(identifier=mountpoint_id, **meta)
     logger.info("Registered mountpoint %r with metadata: %s", mountpoint_id, meta)
 
-    logger.info(request.headers)
-    logger.info(request.raw_headers)
-
     # Stream RTCM frames from the request body and publish to subscribers.
     if request.stream:
         logger.info("Starting RTCM stream for mountpoint %r", mountpoint_id)

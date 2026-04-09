@@ -11,6 +11,9 @@
 			"installDockerBuildx": true
 		}
 	},
+	"mounts": [
+    	"source=${localEnv:HOME}/.gnupg,target=${localEnv:HOME}/.gnupg,type=bind,consistency=cached"
+  	],
 	"customizations": {
 		"vscode": {
 			"extensions": [
