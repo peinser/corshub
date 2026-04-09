@@ -24,7 +24,7 @@ Continuously Operating Reference Station Hub - Python-based NTRIP (V2) caster fo
 
 ### Here4 Base Station Caster (`tools/here4-base-caster.py`)
 
-A terminal tool that turns a [Here4](https://docs.cubepilot.org/user-guides/here-4/here-4-manual) u-blox receiver into a live NTRIP v2 base station. It handles the full lifecycle automatically — device discovery, initial configuration, survey-in, and streaming RTCM corrections to a CORSHub caster.
+A terminal tool that turns a [Here4](https://docs.cubepilot.org/user-guides/here-4/here-4-base) u-blox receiver into a live NTRIP v2 base station. It handles the full lifecycle automatically — device discovery, initial configuration, survey-in, and streaming RTCM corrections to a CORSHub caster.
 
 ![Here4 Base Station Caster](.github/images/here4-caster.png)
 
