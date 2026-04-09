@@ -2,9 +2,9 @@
 
 set -e
 
-delay=5 # Wait for K8S stdout flush :)
-
-exec python -m sanic corshub.bin.standalone:app \
-    --host 0.0.0.0 \
-    --port "${CORSHUB_PORT:-8000}" \
-    --single-process
+exec python -m corshub.bin.standalone \
+     --host=0.0.0.0 \
+     --access-log \
+     --proxies-count=1 \
+     --real-ip-header=X-Real-IP \
+     --workers=1 $@

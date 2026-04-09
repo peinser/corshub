@@ -462,6 +462,7 @@ async def caster_loop(
                         "Ntrip-Version":  "Ntrip/2.0",
                         "Content-Type":   "gnss/data",
                         "User-Agent":     "Here4Base/1.0",
+                        "X-Real-IP":      "10.0.40.1",
                     },
                     chunked=True,
                     # timeout=aiohttp.ClientTimeout(

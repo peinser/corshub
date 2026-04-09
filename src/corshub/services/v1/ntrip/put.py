@@ -84,7 +84,9 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         async for chunk in request.stream:
             if chunk:
                 logger.info(
-                    "Received chunk of %d bytes for mountpoint %r from IP %s", len(chunk), mountpoint_id, request.ip
+                    "Received chunk of %d bytes for mountpoint %r from IP %s", len(chunk),
+                    mountpoint_id,
+                    request.remote_addr or request.ip,
                 )
                 await caster.publish(mountpoint_id, chunk)
 
@@ -95,7 +97,7 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         "Received non-streaming request with body of %d bytes for mountpoint %r from IP %s",
         len(request.body),
         mountpoint_id,
-        request.ip,
+        request.remote_addr or request.ip,
     )
 
     if frame := request.body:
