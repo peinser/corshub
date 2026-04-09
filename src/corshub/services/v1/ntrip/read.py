@@ -23,7 +23,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sanic.exceptions import NotFound
-from sanic.exceptions import Unauthorized
 from sanic.response import ResponseStream
 
 from corshub.exceptions.http import BadRequestError
