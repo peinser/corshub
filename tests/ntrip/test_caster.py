@@ -112,6 +112,23 @@ class TestMountpointRegistry:
         mp = await caster.register(**mountpoint_metadata)
         assert mp is not None
 
+    async def test_no_raise_country_empty(self, caster: NTRIPCaster) -> None:
+        metadata = {
+            "name": "BASE3",
+            "identifier": "BASE3",
+        }
+
+        assert await caster.register(**metadata) is not None
+        await caster.unregister("BASE3")
+
+    async def test_raise_invalid_country(self, caster: NTRIPCaster) -> None:
+        with pytest.raises(ValueError):
+            await caster.register(**{
+                "name": "BASE3",
+                "identifier": "BASE3",
+                "country": "INVALID",
+            })
+
     async def test_unregister_removes_mountpoint(self, caster: NTRIPCaster) -> None:
         await caster.unregister("BASE1")
         assert "BASE1" not in caster.mountpoints
