@@ -186,3 +186,47 @@ tmpDir:
   # -- "" = node disk, "Memory" = tmpfs (faster, counts against memory limit).
   medium: ""
   sizeLimit: 64Mi
+
+# -- Open Policy Agent sidecar for authorization.
+# When enabled, OPA runs as a localhost sidecar and the application routes all
+# policy queries to http://localhost:<port> (fail-closed: unreachable OPA → deny).
+opa:
+  # -- Deploy the OPA sidecar alongside the application container.
+  # Disable only when running OPA out-of-cluster or supplying OPA_URL via extraEnv.
+  enabled: true
+
+  image:
+    repository: docker.io/openpolicyagent/opa
+    # -- Static build: single binary, no shell, minimal attack surface.
+    # Pin this to a specific release in production.
+    tag: "1.4.2-static"
+    pullPolicy: IfNotPresent
+
+  # -- Port OPA listens on inside the pod. Must match the OPA_URL used by the app.
+  port: 8181
+
+  # -- OPA log verbosity: error | warn | info | debug.
+  logLevel: info
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+  # -- Base-station and rover registry loaded into OPA as static data.
+  # Changes here re-roll pods via the checksum/opa annotation on the Deployment.
+  # For zero-downtime registry updates, migrate to OPA bundles and a bundle server.
+  registry:
+    # -- Map of base stations keyed by username / mountpoint.
+    base_stations: {}
+      # HERE4:
+      #   mountpoint: HERE4
+      #   password_hash: "$2a$12$..."
+
+    # -- Map of rovers keyed by username.
+    rovers: {}
+      # demo:
+      #   password_hash: "$2b$12$..."
+      #   mountpoints: ["*"]  # "*" grants access to every mountpoint

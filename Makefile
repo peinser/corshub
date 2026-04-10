@@ -89,6 +89,13 @@ test: ## Run tests with coverage
 dev: ## Run the application in development mode (if applicable)
 	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload
 
+.PHONY: helm-sync-policies
+helm-sync-policies: ## Copy OPA Rego policies from src/opa/policies into helm/files/opa/policies/ (run before helm package / chart distribution)
+	@echo -e "$(INFO_COLOR)Syncing OPA policies into Helm chart files...$(NO_COLOR)"
+	find helm/files/opa/policies -maxdepth 1 -name '*.rego' -delete
+	cp src/opa/policies/corshub/*.rego helm/files/opa/policies/
+	@echo -e "$(OK_COLOR)OPA policies synced$(NO_COLOR)"
+
 .PHONY: all
 all: clean install lint test ## Run the full CI-like pipeline locally
 

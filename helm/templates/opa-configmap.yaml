@@ -1,0 +1,38 @@
+{{- if .Values.opa.enabled -}}
+---
+# ConfigMap: Rego policy files.
+# Content is sourced from files/opa/policies/ via Helm's .Files.Get so that
+# the chart and src/opa/policies/corshub/ stay in sync through symlinks.
+# Changing any key triggers a pod re-roll via the checksum/opa annotation on
+# the Deployment.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "corshub.opa.policiesConfigMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "corshub.labels" . | nindent 4 }}
+data:
+  base_station.rego: |
+    {{- .Files.Get "files/opa/policies/base_station.rego" | nindent 4 }}
+  rover.rego: |
+    {{- .Files.Get "files/opa/policies/rover.rego" | nindent 4 }}
+---
+# ConfigMap: OPA registry data.
+# Loaded by the OPA sidecar from /data/corshub/ so that policy rules can
+# reference data.corshub.base_stations and data.corshub.rovers.
+#
+# IMPORTANT: this ConfigMap stores credentials (bcrypt password hashes).
+# In production, consider replacing it with an OPA bundle served from an
+# authenticated registry, or use an ExternalSecret referencing a secrets store.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "corshub.opa.dataConfigMapName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "corshub.labels" . | nindent 4 }}
+data:
+  stations.json: {{ dict "base_stations" .Values.opa.registry.base_stations | toJson | quote }}
+  rovers.json: {{ dict "rovers" .Values.opa.registry.rovers | toJson | quote }}
+{{- end }}

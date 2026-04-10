@@ -1,0 +1,1 @@
+Upon building the Helm charts, the policies will be copied from `src/opa`.

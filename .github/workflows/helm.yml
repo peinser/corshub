@@ -12,6 +12,7 @@ on:
     - development
     paths:
     - helm/**
+    - src/opa/**
 
 jobs:
 
@@ -48,6 +49,11 @@ jobs:
       run: |
         sed -i "s/^version:.*/version: ${{ steps.version.outputs.value }}/" helm/Chart.yaml
         sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.value }}\"/" helm/Chart.yaml
+
+    - name: Sync OPA policies into Helm chart
+      # Replaces the dev-time symlinks in helm/files/opa/policies/ with real
+      # file copies so the packaged chart is self-contained and portable.
+      run: make helm-sync-policies
 
     - name: Package chart
       run: helm package helm --destination /tmp/helm-package

@@ -68,3 +68,24 @@ The tag defaults to the chart appVersion when left empty.
 {{- $tag := .Values.image.tag | default .Chart.AppVersion }}
 {{- printf "%s:%s" .Values.image.repository $tag }}
 {{- end }}
+
+{{/*
+OPA sidecar image reference (repository:tag).
+*/}}
+{{- define "corshub.opa.image" -}}
+{{- printf "%s:%s" .Values.opa.image.repository .Values.opa.image.tag }}
+{{- end }}
+
+{{/*
+Name of the ConfigMap that holds the OPA Rego policy files.
+*/}}
+{{- define "corshub.opa.policiesConfigMapName" -}}
+{{- printf "%s-opa-policies" (include "corshub.fullname" .) }}
+{{- end }}
+
+{{/*
+Name of the ConfigMap that holds the OPA registry data (base stations and rovers).
+*/}}
+{{- define "corshub.opa.dataConfigMapName" -}}
+{{- printf "%s-opa-data" (include "corshub.fullname" .) }}
+{{- end }}

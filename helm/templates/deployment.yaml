@@ -15,8 +15,11 @@ spec:
   template:
     metadata:
       annotations:
-        # Re-roll pods when the chart values change (covers env-var ConfigMap changes).
-        checksum/values: {{ toJson .Values.app | sha256sum }}
+        # Re-roll pods when app config or OPA config (registry / policies) changes.
+        checksum/app: {{ toJson .Values.app | sha256sum }}
+        {{- if .Values.opa.enabled }}
+        checksum/opa: {{ toJson .Values.opa | sha256sum }}
+        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -45,8 +48,10 @@ spec:
               containerPort: {{ .Values.app.port }}
               protocol: TCP
           env:
-            - name: CORSHUB_PORT
-              value: {{ .Values.app.port | quote }}
+            {{- if .Values.opa.enabled }}
+            - name: OPA_URL
+              value: {{ printf "http://localhost:%d" (int .Values.opa.port) | quote }}
+            {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -76,11 +81,74 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+        {{- if .Values.opa.enabled }}
+        - name: opa
+          # OPA sidecar — policy engine running on localhost.
+          # The main container routes all authorization queries to
+          # http://localhost:<port> (fail-closed: unreachable OPA → deny).
+          image: {{ include "corshub.opa.image" . }}
+          imagePullPolicy: {{ .Values.opa.image.pullPolicy }}
+          args:
+            - run
+            - --server
+            - --addr=:{{ .Values.opa.port }}
+            - --log-level={{ .Values.opa.logLevel }}
+            - --log-format=json
+            - /policies
+            - /data
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - name: opa-http
+              containerPort: {{ .Values.opa.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: opa-http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health?plugins
+              port: opa-http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 2
+          resources:
+            {{- toYaml .Values.opa.resources | nindent 12 }}
+          volumeMounts:
+            - name: opa-policies
+              mountPath: /policies
+              readOnly: true
+            - name: opa-data
+              mountPath: /data/corshub
+              readOnly: true
+        {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             medium: {{ .Values.tmpDir.medium | quote }}
             sizeLimit: {{ .Values.tmpDir.sizeLimit }}
+        {{- if .Values.opa.enabled }}
+        - name: opa-policies
+          configMap:
+            name: {{ include "corshub.opa.policiesConfigMapName" . }}
+        - name: opa-data
+          configMap:
+            name: {{ include "corshub.opa.dataConfigMapName" . }}
+        {{- end }}
       {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- range . }}
