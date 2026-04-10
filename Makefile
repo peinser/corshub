@@ -143,7 +143,7 @@ simulate-base: ## Run the base station simulator against the local dev server. O
 		$(SIMULATE_ARGS)
 
 # ───────────────────────────────────────────────
-# NTRIP Client
+# 3th Party NTRIP Client
 # ───────────────────────────────────────────────
 
 .PHONY: gnssntripclient
@@ -157,4 +157,4 @@ NTRIP_PASSWORD   ?= test
 NTRIP_ARGS       ?=
 gnssntripclient: ## Run the NTRIP client (SEMU Consulting). Override vars or pass NTRIP_ARGS. Example: make gnssntripclient NTRIP_SERVER=localhost NTRIP_PORT=8000 NTRIP_HTTPS=0
 	@echo -e "$(INFO_COLOR)Running external NTRIP client...$(NO_COLOR)"
-	gnssntripclient -S $(NTRIP_SERVER) -P $(NTRIP_PORT) --https $(NTRIP_HTTPS) -M $(NTRIP_MOUNTPOINT) --ntripversion $(NTRIP_VERSION) --ntripuser $(NTRIP_USER) --ntrippassword $(NTRIP_PASSWORD) $(NTRIP_ARGS)
+	gnssntripclient -S $(NTRIP_SERVER) -P $(NTRIP_PORT) --https $(NTRIP_HTTPS) -M $(NTRIP_MOUNTPOINT) --ntripversion $(NTRIP_VERSION) --ntripuser $(NTRIP_USER) --ntrippassword $(NTRIP_PASSWORD) $(NTRIP_ARGS) --verbosity 3

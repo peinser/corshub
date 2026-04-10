@@ -150,10 +150,11 @@ NAV_SAT_ID  = 0x35
 NAV_SVIN_ID = 0x3B
 RTCM_CLASS  = 0xF5
 
-# RTCM 3.3 message IDs to enable (1005, 1074, 1084, 1094, 1124, 1230)
-RTCM_OUTPUT_IDS = [0x05, 0x4A, 0x54, 0x5E, 0x7C, 0xE6]
+# RTCM 3.3 message IDs to enable (1005, 1077, 1087, 1097, 1127, 1230)
+# u-blox CFG-MSG ID = message_number - 1000 (lower byte of the RTCM message number)
+RTCM_OUTPUT_IDS = [0x05, 0x4D, 0x57, 0x61, 0x7F, 0xE6]
 
-RTCM_FORMAT_DETAIL = "1005(1),1074(1),1084(1),1094(1),1124(1),1230(1)"
+RTCM_FORMAT_DETAIL = "1005(1),1077(1),1087(1),1097(1),1127(1),1230(1)"
 RTCM_NAV_SYSTEM    = "GPS+GLO+GAL+BDS"
 
 FIX_NAMES = {
