@@ -129,11 +129,26 @@ spec:
           resources:
             {{- toYaml .Values.opa.resources | nindent 12 }}
           volumeMounts:
+            # subPath mounts bypass Kubernetes' ConfigMap symlink structure
+            # (the hidden ..timestamp/ directory). Without subPath, OPA walks
+            # the mount recursively and loads every .rego file twice — once via
+            # the named symlink and once from the raw timestamped path — which
+            # triggers "multiple default rules" errors at startup.
             - name: opa-policies
-              mountPath: /policies
+              mountPath: /policies/base_station.rego
+              subPath: base_station.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/rover.rego
+              subPath: rover.rego
               readOnly: true
             - name: opa-data
-              mountPath: /data/corshub
+              mountPath: /data/corshub/stations.json
+              subPath: stations.json
+              readOnly: true
+            - name: opa-data
+              mountPath: /data/corshub/rovers.json
+              subPath: rovers.json
               readOnly: true
         {{- end }}
       volumes:

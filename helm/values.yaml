@@ -199,7 +199,7 @@ opa:
     repository: docker.io/openpolicyagent/opa
     # -- Static build: single binary, no shell, minimal attack surface.
     # Pin this to a specific release in production.
-    tag: "1.4.2-static"
+    tag: 1.15.2-static
     pullPolicy: IfNotPresent
 
   # -- Port OPA listens on inside the pod. Must match the OPA_URL used by the app.
@@ -211,7 +211,7 @@ opa:
   resources:
     requests:
       cpu: 50m
-      memory: 64Mi
+      memory: 128Mi
     limits:
       memory: 128Mi
 
