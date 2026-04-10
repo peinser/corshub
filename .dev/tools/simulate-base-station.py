@@ -102,8 +102,6 @@ def _build_rtcm1005(station_id: int, x_m: float, y_m: float, z_m: float) -> byte
     return frame_no_crc + bytes([(crc >> 16) & 0xFF, (crc >> 8) & 0xFF, crc & 0xFF])
 
 
-# ── GPS time helpers ──────────────────────────────────────────────────────────
-
 _GPS_EPOCH_UNIX  = 315_964_800  # 1980-01-06T00:00:00Z as Unix timestamp
 _GPS_LEAP_SECONDS = 18          # GPS–UTC offset (current as of 2017)
 
@@ -114,7 +112,7 @@ def _gps_tow_ms() -> int:
     return int(t * 1000) % 604_800_000
 
 
-# ── Synthetic satellite data ──────────────────────────────────────────────────
+# Synthetic satellite data
 #
 # Each tuple: (prn, rough_range_int_ms, rough_range_frac_1024ms, cnr_dbhz)
 #   rough_range_int_ms      — integer milliseconds part of pseudorange (DF397)
@@ -240,7 +238,6 @@ def _build_rtcm_msm7(
     for _ in sats:
         push_s(0, 14)        # DF399: rough phase range rate (m/s)
 
-    # ── Per-cell signal data ──────────────────────────────────────────────────
     # With nSig=1 the cell order matches the satellite order.
     # Field order and widths per pyrtcm MSM_SIG_7 / RTCM 10403.3:
     #   DF405 (INT 20) → DF406 (INT 24) → DF407 (UINT 10) →
