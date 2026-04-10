@@ -32,15 +32,17 @@ import rego.v1
 
 default allow := false
 
+rover := data.corshub.rovers[input.username]
+
 # Explicit mountpoint match.
 allow if {
-	rover := data.corshub.rovers[input.username]
+	rover
 	input.mountpoint in rover.mountpoints
 }
 
 # Wildcard: rover is granted access to every mountpoint.
 allow if {
-	rover := data.corshub.rovers[input.username]
+	rover
 	"*" in rover.mountpoints
 }
 

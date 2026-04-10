@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-from corshub.crypto.secrets import verify
+from corshub.crypto import secrets
 
 
 if TYPE_CHECKING:
@@ -311,16 +311,26 @@ class NTRIPCaster(Caster):
     def mountpoints(self) -> dict[str, Mountpoint]:
         return self._mountpoints
 
-    async def authenticate_base_station(self, username: str, password: str) -> bool:
+    async def authenticate_base_station(
+        self, username: str, password: str, mountpoint: str
+    ) -> bool:
         if self._opa is None:
             return False
 
-        result = await self._opa.query("corshub/base_station", {"username": username})
+        input = {
+            "username": username,
+            "mountpoint": mountpoint,
+            "transport": {
+                "available": await self.available(mountpoint),
+            },
+        }
+
+        result = await self._opa.query("corshub/base_station", input)
         if not result.get("allow"):
             return False
 
         stored_hash: str = result.get("password_hash", "")
-        return bool(stored_hash) and await verify(password, stored_hash)
+        return bool(stored_hash) and await secrets.verify(password, stored_hash)
 
     async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> bool:
         if self._opa is None:
@@ -331,7 +341,7 @@ class NTRIPCaster(Caster):
             return False
 
         stored_hash: str = result.get("password_hash", "")
-        return bool(stored_hash) and await verify(password, stored_hash)
+        return bool(stored_hash) and await secrets.verify(password, stored_hash)
 
     async def publish(self, identifier: str, frame: bytes) -> int:
         transport = self._transports.get(identifier)

@@ -113,6 +113,29 @@ act-job: ## Run a specific job from the workflows via act. Usage: make act-job J
 	act -P "$$PLATFORM" -j "$(JOB)" -s GITHUB_TOKEN="$$GITHUB_TOKEN"
 
 # ───────────────────────────────────────────────
+# Development tools
+# ───────────────────────────────────────────────
+
+.PHONY: simulate-base
+SIMULATE_SERVER     ?= http://localhost:8000
+SIMULATE_MOUNTPOINT ?= HERE4
+SIMULATE_USERNAME   ?= HERE4
+SIMULATE_PASSWORD   ?= secret
+SIMULATE_LAT        ?= 50.8503
+SIMULATE_LON        ?= 4.3517
+SIMULATE_ARGS       ?=
+simulate-base: ## Run the base station simulator against the local dev server. Override vars or pass SIMULATE_ARGS. Example: make simulate-base SIMULATE_PASSWORD=mypass
+	@echo -e "$(INFO_COLOR)Starting base station simulator...$(NO_COLOR)"
+	$(UV) run python .dev/tools/simulate-base-station.py \
+		--server $(SIMULATE_SERVER) \
+		--mountpoint $(SIMULATE_MOUNTPOINT) \
+		--username $(SIMULATE_USERNAME) \
+		--password $(SIMULATE_PASSWORD) \
+		--lat $(SIMULATE_LAT) \
+		--lon $(SIMULATE_LON) \
+		$(SIMULATE_ARGS)
+
+# ───────────────────────────────────────────────
 # NTRIP Client
 # ───────────────────────────────────────────────
 

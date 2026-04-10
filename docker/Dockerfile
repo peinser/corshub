@@ -25,6 +25,7 @@ FROM builder-base AS validate
 LABEL artifact=false
 
 # The following is necessary for running the unit tests
+# For now, OPA responses are mocked in the unit tests.
 ENV OPA_URL=http://opa:8181
 
 RUN uv sync --frozen && \

@@ -30,12 +30,18 @@ import rego.v1
 
 default allow := false
 
+station := data.corshub.base_stations[input.username]
+
 # Grant access when the station exists in the registry.
 allow if {
-	data.corshub.base_stations[input.username]
+	station
+	station.mountpoint == input.mountpoint
+	# There shouldn't be a transport present, else it would imply that the base-station is already connected.
+	input.transport.available == false
 }
 
 # Expose the stored bcrypt hash so the caller can verify the supplied password.
 # This rule is *undefined* (absent from the result) when the username is
 # unknown, which the caller must treat as an authentication failure.
-password_hash := data.corshub.base_stations[input.username].password_hash
+password_hash := station.password_hash
+

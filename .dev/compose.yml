@@ -8,7 +8,7 @@ services:
       dockerfile: .devcontainer/Dockerfile
     command: sleep infinity
     environment:
-    - OPA_URL="http://opa:8181"
+    - OPA_URL=http://opa:8181
     ports: []
     volumes:
     - ..:/workspace:cached

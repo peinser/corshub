@@ -1,0 +1,8 @@
+{
+    "base_stations": {
+        "HERE4": {
+            "mountpoint": "HERE4",
+            "password_hash": "$2a$12$A7aOt0EZ6f1SDeQfFf2uWOfOnSHJAflr3ns0EetImaEqo6vvUbnam"
+        }
+    }
+}
