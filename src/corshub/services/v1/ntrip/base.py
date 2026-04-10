@@ -14,6 +14,7 @@ from sanic.exceptions import SanicException
 
 from corshub import env
 from corshub.ntrip.v2.caster import NTRIPCaster
+from corshub.opa import OPAClient
 
 
 if TYPE_CHECKING:
@@ -28,7 +29,9 @@ bp: Blueprint = Blueprint(
 
 env.verify(
     blueprint=bp,
-    required={},  # No environment requirements, yet.
+    required={
+        "OPA_URL"
+    },
 )
 
 
@@ -45,12 +48,12 @@ async def ntrip_error(_: Request, exc: SanicException) -> HTTPResponse:
 
 @bp.before_server_start
 async def setup(app: Sanic) -> None:
-    """
-    Initialize the shared NTRIP caster  before the server starts accepting requests.
+    """Initialize the shared NTRIP caster before the server starts accepting requests."""
+    opa_url: str = env.extract("OPA_URL", default="http://opa:8181")
+    opa = OPAClient(base_url=opa_url, session=app.ctx.http_client_session)
 
-    Shared caster instance for NTRIP services.
-    """
     app.ctx.ntrip_caster = NTRIPCaster(
+        opa=opa,
         expiry=3600.0,
         reap_interval=30.0,
     )

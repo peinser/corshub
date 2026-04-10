@@ -23,6 +23,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from sanic.exceptions import NotFound
+from sanic.exceptions import Unauthorized
 from sanic.response import ResponseStream
 
 from corshub.exceptions.http import BadRequestError
@@ -52,15 +53,17 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
     if request.headers.get(NTRIP_VERSION, "").lower() != NTRIP_VERSION_2.lower():
         raise BadRequestError(f"{NTRIP_VERSION}: {NTRIP_VERSION_2} header is required.")
 
-    # TODO Check presence of Basic Auth.
+    if not request.credentials:
+        raise Unauthorized("Basic credentials required.", scheme="Basic")
 
     caster = request.app.ctx.ntrip_caster
+
+    if not await caster.authenticate_rover(request.credentials.username, request.credentials.password, mountpoint_id):
+        raise Unauthorized("Invalid credentials.", scheme="Basic")
 
     mountpoint = caster.mountpoints.get(mountpoint_id)
     if not mountpoint or not await caster.available(mountpoint_id):
         raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist or is not available.")
-
-    # TODO: use a separate rover user table; for now rovers share the mountpoint credentials.
 
     # When the mountpoint requires NMEA, validate the rover's Ntrip-GGA header.
     if mountpoint.nmea:

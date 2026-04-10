@@ -7,12 +7,34 @@ services:
       context: ..
       dockerfile: .devcontainer/Dockerfile
     command: sleep infinity
-    environment: []
+    environment:
+    - OPA_URL="http://opa:8181"
     ports: []
     volumes:
     - ..:/workspace:cached
     networks:
     - dev
+
+  opa:
+    image: docker.io/openpolicyagent/opa:latest
+    container_name: opa
+    command:
+    - "run"
+    - "--server"
+    - "--addr=0.0.0.0:8181"
+    - "--log-level=info"
+    - "--watch"
+    - "/policies"
+    - "--watch"
+    - "/data"
+    ports:
+    - "8181:8181"
+    volumes:
+    - ../src/opa/policies:/policies:ro
+    - ../src/opa/data:/data:ro
+    networks:
+    - dev
+    restart: unless-stopped
 
 networks:
   dev:

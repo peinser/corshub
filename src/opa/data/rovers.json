@@ -1,0 +1,10 @@
+{
+    "rovers": {
+        "demo": {
+            "password_hash": "$2b$12$O7..ZHXLJ5v1rgEjg9LbNumMjSVS31sumzHqbc94UqRCdpfds4Pha",
+            "mountpoints": [
+                "*"
+            ]
+        }
+    }
+}

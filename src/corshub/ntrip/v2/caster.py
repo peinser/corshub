@@ -27,12 +27,15 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
 
+from corshub.crypto.secrets import verify
+
 
 if TYPE_CHECKING:
     from typing import Final
 
     from corshub.ntrip.v2.transport import Transport
     from corshub.ntrip.v2.transport import TransportSubscriber
+    from corshub.opa.client import OPAClient
 
 
 _IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -151,10 +154,19 @@ class Caster(ABC):
         """Read-only view of currently registered mountpoints."""
 
     @abstractmethod
-    def authenticate(self, username: str, password: str) -> bool:
-        """Return True if *password* is valid for the base station associated with *username*.
+    async def authenticate_base_station(self, username: str, password: str) -> bool:
+        """Return True if *username*/*password* identify a valid base station.
 
-        Raises no exception — returns False for unknown mountpoints.
+        The username maps directly to a mountpoint by convention, so no
+        separate mountpoint argument is required.
+        Raises no exception — returns False on any auth failure or error.
+        """
+
+    @abstractmethod
+    async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> bool:
+        """Return True if *username*/*password* may subscribe to *mountpoint*.
+
+        Raises no exception — returns False on any auth failure or error.
         """
 
     @abstractmethod
@@ -231,12 +243,14 @@ class NTRIPCaster(Caster):
 
     def __init__(
         self,
+        opa: OPAClient | None = None,
         transport_factory: type[Transport] | None = None,
         expiry: float | None = 3600.0,
         reap_interval: float = 10.0,
     ) -> None:
         from corshub.ntrip.v2.transport import QueueTransport
 
+        self._opa = opa
         self._transport_factory: type[Transport] = transport_factory or QueueTransport
         self._expiry = expiry
         self._reap_interval = reap_interval
@@ -297,8 +311,27 @@ class NTRIPCaster(Caster):
     def mountpoints(self) -> dict[str, Mountpoint]:
         return self._mountpoints
 
-    def authenticate(self, username: str, password: str) -> bool:
-        return True  # TODO Implement. Seperate mechanism for rover / base-station?
+    async def authenticate_base_station(self, username: str, password: str) -> bool:
+        if self._opa is None:
+            return False
+
+        result = await self._opa.query("corshub/base_station", {"username": username})
+        if not result.get("allow"):
+            return False
+
+        stored_hash: str = result.get("password_hash", "")
+        return bool(stored_hash) and await verify(password, stored_hash)
+
+    async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> bool:
+        if self._opa is None:
+            return False
+
+        result = await self._opa.query("corshub/rover", {"username": username, "mountpoint": mountpoint})
+        if not result.get("allow"):
+            return False
+
+        stored_hash: str = result.get("password_hash", "")
+        return bool(stored_hash) and await verify(password, stored_hash)
 
     async def publish(self, identifier: str, frame: bytes) -> int:
         transport = self._transports.get(identifier)

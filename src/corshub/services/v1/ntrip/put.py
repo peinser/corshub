@@ -58,7 +58,7 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
         raise Unauthorized("Basic credentials required.", scheme="Basic")
 
     caster = request.app.ctx.ntrip_caster
-    if not caster.authenticate(request.credentials.username, request.credentials.password):
+    if not await caster.authenticate_base_station(request.credentials.username, request.credentials.password):
         raise Unauthorized("Invalid mountpoint credentials.", scheme="Basic")
 
     # TODO Check if caster is already connected (NOT REGISTERED! -> is transport available or not).

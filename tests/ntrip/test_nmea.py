@@ -27,7 +27,9 @@ import base64
 import pytest
 
 from sanic import Sanic
+from unittest.mock import AsyncMock
 
+from corshub import http
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.services.v1.ntrip import service as ntrip_service
 
@@ -95,7 +97,15 @@ FAR_LAT, FAR_LON = 48.8566, 2.3522
 
 def _make_app(caster: NTRIPCaster) -> Sanic:
     app = Sanic(f"test_{id(caster)}")
+
+    # Ensure an HTTP session is registered like we do in the application startup.
+    # This needs to happen first!
+    http.initialize_http_sessions(app)
+
     app.blueprint(ntrip_blueprint)
+
+    caster.authenticate_base_station = AsyncMock(return_value=True)
+    caster.authenticate_rover = AsyncMock(return_value=True)
 
     @app.before_server_start
     async def _set_caster(app: Sanic, _: object) -> None:

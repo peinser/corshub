@@ -1,5 +1,6 @@
 # Claude
 .claude/
+.coverage
 
 # Python
 __pycache__/

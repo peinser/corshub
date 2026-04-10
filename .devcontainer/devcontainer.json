@@ -17,7 +17,7 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				// Your existing Python/Jupyter/GitHub extensions
+				// Your extensions
 				"anthropic.claude-code",
 				"ms-python.python",
 				"ms-python.vscode-pylance",
@@ -25,7 +25,8 @@
 				"github.vscode-github-actions",
 				"github.vscode-pull-request-github",
 				"sanjulaganepola.github-local-actions",
-				"ms-azuretools.vscode-docker"
+				"ms-azuretools.vscode-docker",
+				"tsandall.opa"
 
 				// ── C/C++ core support ──
 				// "ms-vscode.cpptools", // IntelliSense, debugging, code navigation

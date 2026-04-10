@@ -29,6 +29,7 @@ This module is intended for use in authentication, API key generation, and other
 
 from __future__ import annotations
 
+import asyncio
 import secrets
 
 from typing import TYPE_CHECKING
@@ -95,3 +96,29 @@ def generate_and_hash(num_bytes: int = 16) -> tuple[str, bytes]:
     hashed = bcrypt.hashpw(secret.encode(), bcrypt.gensalt())
 
     return secret, hashed
+
+
+async def verify(provided: str, stored_hash: str | bytes) -> bool:
+    """Verify *provided* against a bcrypt *stored_hash* without blocking the event loop.
+
+    Running it directly on the event-loop thread
+    would stall all other coroutines for the duration of the computation.  This
+    helper offloads the work to the default thread-pool executor.
+
+    Args:
+        provided:    Plain-text password supplied by the caller.
+        stored_hash: bcrypt hash, either as a UTF-8 ``str`` (e.g. from JSON
+                     data) or raw ``bytes`` (e.g. from :func:`generate_and_hash`).
+
+    Returns:
+        ``True`` if *provided* matches *stored_hash*, ``False`` otherwise,
+        including on any unexpected error from bcrypt.
+    """
+    hash_bytes: bytes = stored_hash.encode() if isinstance(stored_hash, str) else stored_hash
+    loop = asyncio.get_running_loop()
+
+    try:
+        return await loop.run_in_executor(None, bcrypt.checkpw, provided.encode(), hash_bytes)
+
+    except Exception:
+        return False

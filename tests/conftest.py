@@ -4,6 +4,9 @@ import pytest
 
 from sanic import Sanic
 
+from unittest.mock import AsyncMock
+
+from corshub import http
 from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.services.v1.ntrip import service as ntrip_service
@@ -41,7 +44,15 @@ async def caster() -> NTRIPCaster:
 @pytest.fixture
 def app(caster: NTRIPCaster) -> Sanic:
     _app = Sanic("test_ntrip")
+
+    # Ensure an HTTP session is registered like we do in the application startup.
+    # This needs to happen first!
+    http.initialize_http_sessions(_app)
+
     _app.blueprint(ntrip_blueprint)
+
+    caster.authenticate_base_station = AsyncMock(return_value=True)
+    caster.authenticate_rover = AsyncMock(return_value=True)
 
     @_app.before_server_start
     async def setup_caster(app: Sanic, _: object) -> None:

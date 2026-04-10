@@ -24,6 +24,7 @@ import base64
 import socket
 import threading
 from queue import Queue
+from unittest.mock import AsyncMock
 
 import pytest
 from pygnssutils.gnssntripclient import GNSSNTRIPClient
@@ -143,6 +144,8 @@ def server_port() -> int:  # type: ignore[return]
         async def _serve() -> None:
             blueprint = ntrip_service.blueprint()
             caster = NTRIPCaster()
+            caster.authenticate_base_station = AsyncMock(return_value=True)
+            caster.authenticate_rover = AsyncMock(return_value=True)
             await caster.register(
                 name=MOUNTPOINT,
                 identifier=MOUNTPOINT,
