@@ -225,3 +225,11 @@ docker run --rm corshub:local
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution guide.
+
+---
+
+## Attribution
+
+Thanks to [text](https://github.com/semuconsulting) for their excellent GEO Python libraries.
+
+---
