@@ -311,9 +311,7 @@ class NTRIPCaster(Caster):
     def mountpoints(self) -> dict[str, Mountpoint]:
         return self._mountpoints
 
-    async def authenticate_base_station(
-        self, username: str, password: str, mountpoint: str
-    ) -> bool:
+    async def authenticate_base_station(self, username: str, password: str, mountpoint: str) -> bool:
         if self._opa is None:
             return False
 
