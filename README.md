@@ -230,6 +230,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full contribution guide.
 
 ## Attribution
 
-Thanks to [text](https://github.com/semuconsulting) for their excellent GEO Python libraries.
+Thanks to [SEMU Consulting](https://github.com/semuconsulting) for their excellent GEO Python libraries.
 
 ---

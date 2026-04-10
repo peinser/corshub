@@ -16,6 +16,9 @@
 #   "input": {
 #     "username":   string,   // Basic-auth username
 #     "mountpoint": string    // URL path segment the rover is subscribing to
+#     "transport": {
+#		"available": boolean  // Indicates whether a transport for the mountpoint is already allocated
+#	  }
 #   }
 # }
 #
