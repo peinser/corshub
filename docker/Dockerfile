@@ -24,6 +24,9 @@ FROM builder-base AS validate
 
 LABEL artifact=false
 
+# The following is necessary for running the unit tests
+ENV OPA_URL=http://opa:8181
+
 RUN uv sync --frozen && \
     uv run ruff format --check src/corshub && \
     uv run ruff check src/corshub && \
