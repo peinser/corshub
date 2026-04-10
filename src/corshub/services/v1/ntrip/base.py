@@ -29,9 +29,7 @@ bp: Blueprint = Blueprint(
 
 env.verify(
     blueprint=bp,
-    required={
-        "OPA_URL"
-    },
+    required={"OPA_URL"},
 )
 
 

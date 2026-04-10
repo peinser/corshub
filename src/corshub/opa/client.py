@@ -15,9 +15,9 @@ default for a security-critical sidecar.
 
 from __future__ import annotations
 
-import aiohttp
-
 from typing import TYPE_CHECKING
+
+import aiohttp
 
 from corshub.logging import logger
 
