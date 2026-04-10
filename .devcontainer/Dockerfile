@@ -1,6 +1,6 @@
 # builder-base ################################################################
 
-FROM harbor.peinser.com/ghcr/astral-sh/uv:python3.14-bookworm-slim AS builder-base
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder-base
 
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
