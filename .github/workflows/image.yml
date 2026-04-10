@@ -1,6 +1,9 @@
 name: Image
 run-name: ${{ github.actor }} is building a new image
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   push:

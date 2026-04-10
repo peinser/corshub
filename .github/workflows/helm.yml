@@ -1,6 +1,9 @@
 name: Helm
 run-name: ${{ github.actor }} is publishing the Helm chart
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
   push:
@@ -49,7 +52,7 @@ jobs:
     - name: Package chart
       run: helm package helm --destination /tmp/helm-package
 
-    - name: Push chart to OCI registry
+    - name: Push chart to on-prem OCI registry
       run: |
         helm push \
           /tmp/helm-package/corshub-${{ steps.version.outputs.value }}.tgz \

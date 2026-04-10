@@ -33,19 +33,10 @@ from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.services.v1.ntrip import service as ntrip_service
 
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
 HOST = "127.0.0.1"
 MOUNTPOINT = "BASE1"
 USER = "test"
 PASSWORD = "test"
-
-
-# ---------------------------------------------------------------------------
-# RTCM helpers
-# ---------------------------------------------------------------------------
 
 
 def _crc24q(data: bytes) -> bytes:
@@ -84,11 +75,6 @@ def _rtcm1005(station_id: int = 0) -> bytes:
     header = bytes([0xD3, 0x00, 0x13])  # D3 preamble + 10-bit length = 19
     frame = header + bytes(body)
     return frame + _crc24q(frame)
-
-
-# ---------------------------------------------------------------------------
-# Client helpers
-# ---------------------------------------------------------------------------
 
 
 def _start_client(
@@ -136,11 +122,6 @@ async def _await_done(client: GNSSNTRIPClient, timeout: float = 5.0) -> None:
             pytest.fail("GNSSNTRIPClient: did not finish within timeout")
 
 
-# ---------------------------------------------------------------------------
-# Live server fixture (module-scoped)
-# ---------------------------------------------------------------------------
-
-
 def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("", 0))
@@ -173,7 +154,7 @@ def server_port() -> int:  # type: ignore[return]
 
             app = Sanic(f"live_{port}")
             app.blueprint(blueprint)
-            app.ctx.ntrip_caster = caster  # set directly; before_server_start doesn't fire for create_server
+            app.ctx.ntrip_caster = caster  # Set directly; before_server_start doesn't fire for create_server
 
             server = await app.create_server(
                 host=HOST, port=port, return_asyncio_server=True
@@ -198,11 +179,6 @@ def server_port() -> int:  # type: ignore[return]
 
     stop.set()
     thread.join(timeout=5)
-
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
 
 
 class TestSourceTable:
