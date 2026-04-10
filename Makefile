@@ -113,10 +113,18 @@ act-job: ## Run a specific job from the workflows via act. Usage: make act-job J
 	act -P "$$PLATFORM" -j "$(JOB)" -s GITHUB_TOKEN="$$GITHUB_TOKEN"
 
 # ───────────────────────────────────────────────
-# NTRIP / Caster / Stations server
+# NTRIP Client
 # ───────────────────────────────────────────────
 
-.PHONY: server
-server: ## Run the NTRIP and Caster server.
-	@echo -e "$(INFO_COLOR)Starting server...$(NO_COLOR)"
-	sanic -1 --debug --reload --host '0.0.0.0' corshub.bin.standalone:app
+.PHONY: gnssntripclient
+NTRIP_SERVER     ?= corshub.peinser.com
+NTRIP_PORT       ?= 443
+NTRIP_HTTPS      ?= 1
+NTRIP_MOUNTPOINT ?= BE-VLA-EPPEGEM
+NTRIP_VERSION    ?= 2.0
+NTRIP_USER       ?= test
+NTRIP_PASSWORD   ?= test
+NTRIP_ARGS       ?=
+gnssntripclient: ## Run the NTRIP client (SEMU Consulting). Override vars or pass NTRIP_ARGS. Example: make gnssntripclient NTRIP_SERVER=localhost NTRIP_PORT=8000 NTRIP_HTTPS=0
+	@echo -e "$(INFO_COLOR)Running external NTRIP client...$(NO_COLOR)"
+	gnssntripclient -S $(NTRIP_SERVER) -P $(NTRIP_PORT) --https $(NTRIP_HTTPS) -M $(NTRIP_MOUNTPOINT) --ntripversion $(NTRIP_VERSION) --ntripuser $(NTRIP_USER) --ntrippassword $(NTRIP_PASSWORD) $(NTRIP_ARGS)
