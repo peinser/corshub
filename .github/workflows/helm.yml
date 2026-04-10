@@ -13,8 +13,8 @@ on:
 jobs:
 
   publish:
-    runs-on:
-      group: on-prem
+    runs-on: ubuntu-latest
+
     steps:
     - name: Git Checkout
       uses: actions/checkout@v6

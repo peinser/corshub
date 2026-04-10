@@ -1,6 +1,6 @@
 # builder-base ################################################################
 
-FROM harbor.peinser.com/ghcr/astral-sh/uv:python3.14-bookworm-slim AS builder-base
+FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder-base
 
 LABEL artifact=false
 
@@ -33,7 +33,7 @@ RUN uv sync --frozen && \
 
 # production ##################################################################
 
-FROM harbor.peinser.com/dockerhub/python:3.14-slim AS production
+FROM docker.io/python:3.14-slim AS production
 
 LABEL artifact=true
 
