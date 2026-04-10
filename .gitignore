@@ -2,6 +2,9 @@
 .claude/
 .coverage
 
+# Ops directory
+ops
+
 # Python
 __pycache__/
 *.py[cod]
