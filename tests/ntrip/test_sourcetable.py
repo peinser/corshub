@@ -61,7 +61,7 @@ class TestSourceTableStructure:
     async def test_multiple_mountpoints_produce_multiple_str_lines(self) -> None:
         c = await _make_caster(
             {
-                "name": "A",
+                "mountpoint": "A",
                 "identifier": "A",
                 "format": "RTCM 3.3",
                 "country": "BEL",
@@ -69,7 +69,7 @@ class TestSourceTableStructure:
                 "longitude": 4.0
             },
             {
-                "name": "B",
+                "mountpoint": "B",
                 "identifier": "B",
                 "format": "RTCM 3.3",
                 "country": "NLD",
@@ -77,7 +77,7 @@ class TestSourceTableStructure:
                 "longitude": 5.0
             },
             {
-                "name": "C",
+                "mountpoint": "C",
                 "identifier": "C",
                 "format": "RTCM 3.3",
                 "country": "DEU",
@@ -127,7 +127,7 @@ class TestSourceTableContent:
     async def test_each_mountpoint_name_appears_in_own_str_line(self) -> None:
         c = await _make_caster(
             {
-                "name": "ALPHA",
+                "mountpoint": "ALPHA",
                 "identifier": "ALPHA",
                 "format": "RTCM 3.3",
                 "country": "BEL",
@@ -135,7 +135,7 @@ class TestSourceTableContent:
                 "longitude": 4.0
             },
             {
-                "name": "BETA",
+                "mountpoint": "BETA",
                 "identifier": "BETA",
                 "format": "RTCM 3.3",
                 "country": "NLD",
@@ -152,7 +152,7 @@ class TestSourceTableContent:
 
         c = await _make_caster(
             {
-                "name": "ALPHA",
+                "mountpoint": "ALPHA",
                 "identifier": "ALPHA",
                 "format": "RTCM 3.3",
                 "country": "BEL",

@@ -42,13 +42,13 @@ if TYPE_CHECKING:
     from sanic import Request
 
 
-@bp.get("/<mountpoint_id:str>")
-async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
+@bp.get("/<mountpoint:str>")
+async def read(request: Request, mountpoint: str) -> HTTPResponse:
     """Stream RTCM correction frames to a rover.
 
     Validates the Ntrip-Version header and Basic credentials, then opens a
     chunked streaming response that forwards every frame published on
-    *mountpoint_id* until the rover disconnects.
+    *mountpoint* until the rover disconnects.
     """
     if request.headers.get(NTRIP_VERSION, "").lower() != NTRIP_VERSION_2.lower():
         raise BadRequestError(f"{NTRIP_VERSION}: {NTRIP_VERSION_2} header is required.")
@@ -58,32 +58,30 @@ async def read(request: Request, mountpoint_id: str) -> HTTPResponse:
 
     caster = request.app.ctx.ntrip_caster
 
-    if not await caster.authenticate_rover(request.credentials.username, request.credentials.password, mountpoint_id):
+    if not await caster.authenticate_rover(request.credentials.username, request.credentials.password, mountpoint):
         raise Unauthorized("Invalid credentials.", scheme="Basic")
 
-    mountpoint = caster.mountpoints.get(mountpoint_id)
-    if not mountpoint or not await caster.available(mountpoint_id):
-        raise NotFound(f"Mountpoint {mountpoint_id!r} does not exist or is not available.")
+    mp = caster.mountpoints.get(mountpoint)
+    if not mp or not await caster.available(mountpoint):
+        raise NotFound(f"Mountpoint {mountpoint!r} does not exist or is not available.")
 
     # When the mountpoint requires NMEA, validate the rover's Ntrip-GGA header.
-    if mountpoint.nmea:
+    if mp.nmea:
         position = parse_ntrip_gga(request.headers.get(NTRIP_GGA))
         if position is None:
             raise BadRequestError("Ntrip-GGA header is absent or not a valid GGA sentence.")
-        if mountpoint.mask > 0.0:
+        if mp.mask > 0.0:
             rover_lat, rover_lon = position
-            dist = haversine(mountpoint.latitude, mountpoint.longitude, rover_lat, rover_lon)
-            if dist > mountpoint.mask:
-                raise BadRequestError(
-                    f"Rover is {dist:.1f} km from {mountpoint_id!r}, exceeds mask of {mountpoint.mask:.1f} km."
-                )
+            dist = haversine(mp.latitude, mp.longitude, rover_lat, rover_lon)
+            if dist > mp.mask:
+                raise BadRequestError(f"Rover is {dist:.1f} km from {mountpoint!r}, exceeds mask of {mp.mask:.1f} km.")
 
     async def stream_frames(stream: HTTPResponse) -> None:
         # The transport may disappear between the availability check above and this
         # point if the base station disconnects concurrently.  Treat that as a
         # normal end-of-stream rather than a server error.
         try:
-            async with caster.subscribe(mountpoint_id) as sub:
+            async with caster.subscribe(mountpoint) as sub:
                 while (frame := await sub.get()) is not None:
                     await stream.write(frame)
         except KeyError:

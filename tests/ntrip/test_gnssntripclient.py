@@ -100,6 +100,7 @@ def _start_client(
         ggainterval=-1,
         output=output,
     )
+
     return client
 
 
@@ -147,8 +148,8 @@ def server_port() -> int:  # type: ignore[return]
             caster.authenticate_base_station = AsyncMock(return_value=True)
             caster.authenticate_rover = AsyncMock(return_value=True)
             await caster.register(
-                name=MOUNTPOINT,
-                identifier=MOUNTPOINT,
+                mountpoint=MOUNTPOINT,
+                identifier="My Own String",
                 format="RTCM 3.3",
                 country="BEL",
                 latitude=50.8503,
@@ -248,9 +249,15 @@ class TestRtcmDelivery:
         ).encode()
         chunk = f"{len(frame):x}\r\n".encode() + frame + b"\r\n"
 
+        print("Opening connection")
         _, writer = await asyncio.open_connection(HOST, server_port)
+
+        print("Writing")
+
         writer.write(put_headers)
         await writer.drain()
+
+        print("Drained")
 
         while not stop.is_set():
             writer.write(chunk)
@@ -259,6 +266,7 @@ class TestRtcmDelivery:
 
         writer.write(b"0\r\n\r\n")
         await writer.drain()
+
         writer.close()
         await writer.wait_closed()
 
@@ -271,6 +279,7 @@ class TestRtcmDelivery:
         bs_task = asyncio.create_task(
             self._run_base_station(server_port, frame, stop)
         )
+
         await asyncio.sleep(0.3)  # Give the base station time to register and start sending.
 
         client = _start_client(server_port, mountpoint=MOUNTPOINT, output=output)

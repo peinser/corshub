@@ -97,6 +97,9 @@ def parse_ntrip_str(
 
     fields = header.split(";")
 
+    # Remove leading 'STR'
+    del fields[0]
+
     def _str(idx: int) -> str | None:
         v = fields[idx].strip() if idx < len(fields) else None
         return v or None
@@ -113,8 +116,8 @@ def parse_ntrip_str(
         except ValueError, IndexError:
             return None
 
-    if (v := _str(STR_IDENTIFIER)) is not None:
-        defaults["name"] = v
+    if (v := _str(STR_MOUNTPOINT)) is not None:
+        defaults["identifier"] = v
     if (v := _str(STR_FORMAT)) is not None:
         defaults["format"] = v
     if (v := _str(STR_FORMAT_DETAIL)) is not None:

@@ -29,7 +29,8 @@ from corshub.ntrip.v2.caster import NTRIPCaster
 def extra_mountpoint() -> dict:
     return {
         "name": "BASE2",
-        "identifier": "BASE2",
+        "identifier": "My Own String",
+        "mountpoint": "BASE2",
         "format": "RTCM 3.3",
         "country": "NLD",
         "latitude": 52.3676,
@@ -115,7 +116,7 @@ class TestMountpointRegistry:
     async def test_no_raise_country_empty(self, caster: NTRIPCaster) -> None:
         metadata = {
             "name": "BASE3",
-            "identifier": "BASE3",
+            "mountpoint": "BASE3",
         }
 
         assert await caster.register(**metadata) is not None
@@ -125,7 +126,7 @@ class TestMountpointRegistry:
         with pytest.raises(ValueError):
             await caster.register(**{
                 "name": "BASE3",
-                "identifier": "BASE3",
+                "mountpoint": "BASE3",
                 "country": "INVALID",
             })
 

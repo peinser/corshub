@@ -33,7 +33,7 @@ def _str_record(mp: Mountpoint) -> str:
         [
             "STR",
             mp.name,  # [0]  mountpoint name
-            mp.identifier,  # [1]  human-readable label
+            mp.identifier if mp.identifier is not None else "",  # [1]  human-readable label
             mp.format if mp.format is not None else "",  # [2]  message format
             mp.format_detail,  # [3]  message IDs and rates
             str(mp.carrier),  # [4]  carrier: 0/1/2

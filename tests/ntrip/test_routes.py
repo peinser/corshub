@@ -35,9 +35,17 @@ def _basic_auth(username: str, password: str) -> str:
     return "Basic " + base64.b64encode(f"{username}:{password}".encode()).decode()
 
 
-NTRIP_HEADERS = {"Ntrip-Version": "Ntrip/2.0"}
+NTRIP_HEADERS = {
+    "Ntrip-Version": "Ntrip/2.0",
+}
+
 VALID_AUTH = _basic_auth("BASE1", "s3cr3t")
 WRONG_AUTH = _basic_auth("BASE1", "wrong")
+
+VALID_NTRIP_STR = "STR;RTCM3EPH;RTCM 3.x Ephemeris;RTCM 3.2;1004(1),1012(1),1021(1),1022(1),1023(1),1024(1),1033(1);GNSS;GPS+GLO+BDS+GAL;QZSS;0.00;0.00;0.00;0.00;IGS;0;RTCM;none;B;N;9600;none"
+
+# Note: the name in the NTRIP-STR header will be ignored, the mountpoint name will always be taken.
+INVALID_NTRIP_STR = "STR;Quelfes, PT;RTCM 3.x Ephemeris;RTCM 3.2;1004(1),1012(1);GNSS;GPS+GLO;0.00;0.00;0.00;0.00;IGS;0;RTCM;none;B;N;9600;none;EXTRA_FIELD"
 
 
 class TestSourceTableRoute:
@@ -76,3 +84,30 @@ class TestSourceRoute:
             data=b"",
         )
         assert response.status_code == 400
+
+    async def test_incorrect_gga(self, app: Sanic) -> None:
+        _, response = await app.asgi_client.put(
+            "/this is not correct",
+            headers={
+                **NTRIP_HEADERS,
+                "Authorization": VALID_AUTH,
+                "Content-Type": "gnss/data",
+                "Ntrip-STR": INVALID_NTRIP_STR,
+            },
+            data=b"",
+        )
+        assert response.status_code == 400
+
+    async def test_correct_gga(self, app: Sanic) -> None:
+        _, response = await app.asgi_client.put(
+            "/BASE1",
+            headers={
+                **NTRIP_HEADERS,
+                "Authorization": VALID_AUTH,
+                "Content-Type": "gnss/data",
+                "Ntrip-STR": VALID_NTRIP_STR,
+            },
+            data=b"",
+        )
+
+        assert response.status_code == 200

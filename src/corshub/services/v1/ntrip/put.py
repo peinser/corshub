@@ -41,8 +41,8 @@ if TYPE_CHECKING:
     from sanic import Request
 
 
-@bp.put("/<mountpoint_id:str>", stream=True)
-async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
+@bp.put("/<mountpoint:str>", stream=True)
+async def put(request: Request, mountpoint: str) -> HTTPResponse:
     """Accept a continuous RTCM stream from a base station.
 
     The mountpoint must already be provisioned.  Validates Basic credentials,
@@ -62,7 +62,7 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
     if not await caster.authenticate_base_station(
         username=request.credentials.username,
         password=request.credentials.password,
-        mountpoint=mountpoint_id,
+        mountpoint=mountpoint,
     ):
         raise Unauthorized("Invalid mountpoint credentials.", scheme="Basic")
 
@@ -71,17 +71,23 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
     ntrip_str_header = request.headers.get(NTRIP_STR)
     if ntrip_str_header:
         try:
-            meta = parse_ntrip_str(ntrip_str_header, mountpoint_id)
+            meta = parse_ntrip_str(ntrip_str_header, mountpoint)
+        except ValueError as ex:
+            raise BadRequestError(f"Invalid Ntrip-STR: {ex}") from ex
         except Exception:
             pass  # Malformed Ntrip-STR is not fatal; we already have a registered mountpoint.
 
     # Register the mountpoint with the available metadata.
-    await caster.register(identifier=mountpoint_id, **meta)
-    logger.info("Registered mountpoint %r with metadata: %s", mountpoint_id, meta)
+    try:
+        await caster.register(mountpoint=mountpoint, **meta)
+        logger.info("Registered mountpoint %r with metadata: %s", mountpoint, meta)
+    except ValueError as ex:
+        logger.exception(ex)
+        raise BadRequestError(f"Invalid mountpoint name: {ex}") from ex
 
     # Stream RTCM frames from the request body and publish to subscribers.
     if request.stream:
-        logger.info("Starting RTCM stream for mountpoint %r", mountpoint_id)
+        logger.info("Starting RTCM stream for mountpoint %r", mountpoint)
 
         # Disable Nagle's algorithm during a stream, disable buffering.
         sock = request.transport.get_extra_info("socket")
@@ -104,16 +110,16 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
                     logger.info(
                         "Received chunk of %d bytes for mountpoint %r from IP %s",
                         len(chunk),
-                        mountpoint_id,
+                        mountpoint,
                         request.remote_addr or request.ip,
                     )
 
-                    acks = await caster.publish(mountpoint_id, chunk)
-                    logger.info("Dispatched to %d rovers for mountpoint %r.", acks, mountpoint_id)
+                    acks = await caster.publish(mountpoint, chunk)
+                    logger.info("Dispatched to %d rovers for mountpoint %r.", acks, mountpoint)
                     await resp.send(data=str(acks))  # Send back the number of ACKs from the rovers for now.
 
         finally:
-            await caster.close(mountpoint_id)
+            await caster.close(mountpoint)
 
         return await resp.eof()
 
@@ -121,11 +127,11 @@ async def put(request: Request, mountpoint_id: str) -> HTTPResponse:
     logger.info(
         "Received non-streaming request with body of %d bytes for mountpoint %r from IP %s",
         len(request.body),
-        mountpoint_id,
+        mountpoint,
         request.remote_addr or request.ip,
     )
 
-    acks = await caster.publish(mountpoint_id, request.body) if request.body else 0
-    await caster.close(mountpoint_id)
+    acks = await caster.publish(mountpoint, request.body) if request.body else 0
+    await caster.close(mountpoint)
 
     return response.text(status=200, body=str(acks))

@@ -38,7 +38,8 @@ if TYPE_CHECKING:
     from corshub.opa.client import OPAClient
 
 
-_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
+_MOUNTPOINT_RE = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
+_IDENTIFIER_RE = re.compile(r"[^;]+")
 
 
 @dataclass
@@ -85,7 +86,7 @@ class Mountpoint:
     """
 
     name: str
-    identifier: str
+    identifier: str | None = None
     format: str | None = None
     country: str | None = None
     latitude: float | None = None
@@ -105,11 +106,11 @@ class Mountpoint:
     last_seen: float = field(default_factory=time.monotonic, compare=False)
 
     def __post_init__(self) -> None:
-        if not _IDENTIFIER_RE.match(self.name):
+        if not _MOUNTPOINT_RE.match(self.name):
             raise ValueError(
                 f"Mountpoint name {self.name!r} is invalid: must be 1/100 characters, alphanumeric, underscore, or hyphen."
             )
-        if not _IDENTIFIER_RE.match(self.identifier):
+        if self.identifier and not _IDENTIFIER_RE.match(self.identifier):
             raise ValueError(
                 f"Mountpoint identifier {self.identifier!r} is invalid: must be 1/100 characters, alphanumeric, underscore, or hyphen."
             )
@@ -258,52 +259,52 @@ class NTRIPCaster(Caster):
         self._transports: dict[str, Transport] = {}
         self._reaper_task: asyncio.Task[None] | None = None
 
-    async def register(self, identifier: str, **kwargs: dict) -> Mountpoint:
-        if identifier in self._mountpoints:
-            instance = self._mountpoints[identifier]
+    async def register(self, mountpoint: str, **kwargs: dict) -> Mountpoint:
+        if mountpoint in self._mountpoints:
+            instance = self._mountpoints[mountpoint]
             for key, value in kwargs.items():
                 if key in NTRIPCaster._METADATA_FIELDS and value is not None:
                     setattr(instance, key, value)
 
             # Check if the transport is defined, this can happen if the transport is closed but the mountpoint
             # hasn't been unregistered.
-            if not self._transports.get(identifier):
-                self._transports[identifier] = self._transport_factory()
+            if not self._transports.get(mountpoint):
+                self._transports[mountpoint] = self._transport_factory()
 
             return instance
 
-        # Check if a name has been provided in the kwargs, otherwise use the identifier as the name
-        if "name" not in kwargs or not kwargs["name"]:
-            kwargs["name"] = identifier
+        kwargs.pop(
+            "name", None
+        )  # Ensure `name` is not present iin mountpoint metadata, it will be supplied explicitely below.
 
-        mountpoint = Mountpoint(identifier=identifier, **kwargs)
-        self._mountpoints[identifier] = mountpoint
-        self._transports[identifier] = self._transport_factory()
+        mp = Mountpoint(name=mountpoint, **kwargs)
+        self._mountpoints[mountpoint] = mp
+        self._transports[mountpoint] = self._transport_factory()
 
-        return mountpoint
+        return mp
 
-    async def available(self, identifier: str) -> bool:
-        if identifier not in self._mountpoints:
+    async def available(self, mountpoint: str) -> bool:
+        if mountpoint not in self._mountpoints:
             return False
 
-        return self._transports.get(identifier) is not None
+        return self._transports.get(mountpoint) is not None
 
-    async def close(self, identifier: str) -> None:
-        if identifier not in self._mountpoints:
+    async def close(self, mountpoint: str) -> None:
+        if mountpoint not in self._mountpoints:
             return
 
-        transport = self._transports[identifier]
-        del self._transports[identifier]
+        transport = self._transports[mountpoint]
+        del self._transports[mountpoint]
         await transport.shutdown()  # Signal the subscribers the base-station is leaving.
 
-    async def unregister(self, identifier: str) -> None:
-        if identifier not in self._mountpoints:
+    async def unregister(self, mountpoint: str) -> None:
+        if mountpoint not in self._mountpoints:
             return  # Idempotent
 
-        transport = self._transports[identifier]
+        transport = self._transports[mountpoint]
 
-        del self._mountpoints[identifier]
-        del self._transports[identifier]
+        del self._mountpoints[mountpoint]
+        del self._transports[mountpoint]
 
         await transport.shutdown()  # Signal the subscribers the base-station is leaving.
 
@@ -341,18 +342,18 @@ class NTRIPCaster(Caster):
         stored_hash: str = result.get("password_hash", "")
         return bool(stored_hash) and await secrets.verify(password, stored_hash)
 
-    async def publish(self, identifier: str, frame: bytes) -> int:
-        transport = self._transports.get(identifier)
+    async def publish(self, mountpoint: str, frame: bytes) -> int:
+        transport = self._transports.get(mountpoint)
         if transport is None:
             return 0
 
-        self._mountpoints[identifier].last_seen = time.monotonic()
+        self._mountpoints[mountpoint].last_seen = time.monotonic()
         return await transport.publish(frame)
 
-    def subscribe(self, identifier: str) -> AbstractAsyncContextManager[TransportSubscriber]:
-        transport = self._transports.get(identifier)
+    def subscribe(self, mountpoint: str) -> AbstractAsyncContextManager[TransportSubscriber]:
+        transport = self._transports.get(mountpoint)
         if transport is None:
-            raise KeyError(identifier)
+            raise KeyError(mountpoint)
 
         return transport.subscribe()
 
@@ -383,9 +384,7 @@ class NTRIPCaster(Caster):
 
         cutoff = time.monotonic() - self._expiry
 
-        stale = [
-            identifier for identifier, mp in self._mountpoints.items() if mp.last_seen < cutoff or mp.last_seen is None
-        ]
+        stale = [name for name, mp in self._mountpoints.items() if mp.last_seen < cutoff or mp.last_seen is None]
 
-        for identifier in stale:
-            await self.unregister(identifier)
+        for name in stale:
+            await self.unregister(name)
