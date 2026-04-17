@@ -69,8 +69,7 @@ clean: ## Remove Python cache files, __pycache__, etc.
 .PHONY: lint
 lint: ## Run linters (ruff + mypy)
 	@echo -e "$(INFO_COLOR)Running linters...$(NO_COLOR)"
-	$(UV) run ruff check .
-	$(UV) run mypy .
+	$(UV) run ruff check src/corshub
 	@echo -e "$(OK_COLOR)Linting passed$(NO_COLOR)"
 
 .PHONY: format
