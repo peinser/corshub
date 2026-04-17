@@ -3,5 +3,6 @@ providers:
   - name: corshub
     type: file
     disableDeletion: true
+    folder: CORSHub
     options:
       path: /etc/grafana/dashboards
