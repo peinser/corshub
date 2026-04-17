@@ -117,7 +117,7 @@ def parse_ntrip_str(
             return None
         try:
             return int(fields[idx])
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     def _float(idx: int) -> float | None:
@@ -125,7 +125,7 @@ def parse_ntrip_str(
             return None
         try:
             return float(fields[idx])
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     if (v := _str(STR_MOUNTPOINT)) is not None:
