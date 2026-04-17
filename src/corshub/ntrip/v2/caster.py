@@ -368,9 +368,7 @@ class NTRIPCaster(Caster):
         return delivered
 
     @asynccontextmanager
-    async def _metered_subscribe(
-        self, mountpoint: str, transport: Transport
-    ) -> AsyncGenerator[TransportSubscriber]:
+    async def _metered_subscribe(self, mountpoint: str, transport: Transport) -> AsyncGenerator[TransportSubscriber]:
         metrics.rover_sessions_total.labels(mountpoint=mountpoint).inc()
         async with transport.subscribe() as sub:
             yield sub
