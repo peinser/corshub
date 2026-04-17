@@ -21,13 +21,17 @@ import time
 
 from abc import ABC
 from abc import abstractmethod
+from collections.abc import AsyncGenerator
 from contextlib import AbstractAsyncContextManager
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
 
 from corshub.crypto import secrets
+
+import corshub.metrics as metrics
 
 
 if TYPE_CHECKING:
@@ -275,7 +279,7 @@ class NTRIPCaster(Caster):
 
         kwargs.pop(
             "name", None
-        )  # Ensure `name` is not present iin mountpoint metadata, it will be supplied explicitely below.
+        )  # Ensure `name` is not present in mountpoint metadata, it will be supplied explicitely below.
 
         mp = Mountpoint(name=mountpoint, **kwargs)
         self._mountpoints[mountpoint] = mp
@@ -326,10 +330,13 @@ class NTRIPCaster(Caster):
 
         result = await self._opa.query("corshub/base_station", input)
         if not result.get("allow"):
+            metrics.auth_requests_total.labels(role="base_station", result="failure").inc()
             return False
 
         stored_hash: str = result.get("password_hash", "")
-        return bool(stored_hash) and await secrets.verify(password, stored_hash)
+        allowed = bool(stored_hash) and await secrets.verify(password, stored_hash)
+        metrics.auth_requests_total.labels(role="base_station", result="success" if allowed else "failure").inc()
+        return allowed
 
     async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> bool:
         if self._opa is None:
@@ -337,10 +344,13 @@ class NTRIPCaster(Caster):
 
         result = await self._opa.query("corshub/rover", {"username": username, "mountpoint": mountpoint})
         if not result.get("allow"):
+            metrics.auth_requests_total.labels(role="rover", result="failure").inc()
             return False
 
         stored_hash: str = result.get("password_hash", "")
-        return bool(stored_hash) and await secrets.verify(password, stored_hash)
+        allowed = bool(stored_hash) and await secrets.verify(password, stored_hash)
+        metrics.auth_requests_total.labels(role="rover", result="success" if allowed else "failure").inc()
+        return allowed
 
     async def publish(self, mountpoint: str, frame: bytes) -> int:
         transport = self._transports.get(mountpoint)
@@ -348,14 +358,29 @@ class NTRIPCaster(Caster):
             return 0
 
         self._mountpoints[mountpoint].last_seen = time.monotonic()
-        return await transport.publish(frame)
+        delivered = await transport.publish(frame)
+
+        metrics.frames_published_total.labels(mountpoint=mountpoint).inc()
+        metrics.bytes_published_total.labels(mountpoint=mountpoint).inc(len(frame))
+        metrics.frame_size_bytes.labels(mountpoint=mountpoint).observe(len(frame))
+        metrics.frames_delivered_total.labels(mountpoint=mountpoint).inc(delivered)
+
+        return delivered
+
+    @asynccontextmanager
+    async def _metered_subscribe(
+        self, mountpoint: str, transport: Transport
+    ) -> AsyncGenerator[TransportSubscriber, None]:
+        metrics.rover_sessions_total.labels(mountpoint=mountpoint).inc()
+        async with transport.subscribe() as sub:
+            yield sub
 
     def subscribe(self, mountpoint: str) -> AbstractAsyncContextManager[TransportSubscriber]:
         transport = self._transports.get(mountpoint)
         if transport is None:
             raise KeyError(mountpoint)
 
-        return transport.subscribe()
+        return self._metered_subscribe(mountpoint, transport)
 
     async def start(self) -> None:
         if self._expiry is not None:
@@ -388,3 +413,6 @@ class NTRIPCaster(Caster):
 
         for name in stale:
             await self.unregister(name)
+
+        if stale:
+            metrics.mountpoints_reaped_total.inc(len(stale))

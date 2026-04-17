@@ -8,4 +8,5 @@ exec python -m corshub.bin.standalone \
      --host=0.0.0.0 \
      --access-log \
      --proxies-count=1 \
+     --metrics-port=9090 \
      --real-ip-header=X-Real-IP $@

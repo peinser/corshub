@@ -175,6 +175,14 @@ class QueueTransport(Transport):
         super().__init__()
         self._queues: list[QueueTransportSubscriber] = []
 
+    @property
+    def subscriber_count(self) -> int:
+        return len(self._queues)
+
+    @property
+    def queue_depth(self) -> int:
+        return sum(q.queue.qsize() for q in self._queues)
+
     @asynccontextmanager
     async def subscribe(self) -> AsyncGenerator[QueueTransportSubscriber]:
         subscriber = QueueTransportSubscriber()

@@ -1,6 +1,6 @@
 # Default values for corshub.
 
-# -- Number of replicas.
+# Number of replicas.
 # NOTE: The default in-process QueueTransport is per-replica. For multi-replica
 # deployments, base stations and rovers must connect to the same replica, or you
 # must configure a shared transport backend (e.g. Redis). Use replicaCount: 1
@@ -10,11 +10,11 @@ replicaCount: 1
 image:
   repository: docker.io/peinser/corshub
   pullPolicy: IfNotPresent
-  # -- Overrides the image tag; defaults to the chart's appVersion.
+  # Overrides the image tag; defaults to the chart's appVersion.
   tag: ""
 
 imagePullSecrets: []
-  # - name: harbor-registry-credentials
+  # name: harbor-registry-credentials
 
 nameOverride: ""
 fullnameOverride: ""
@@ -42,17 +42,17 @@ containerSecurityContext:
     drop: [ALL]
   readOnlyRootFilesystem: true
 
-# -- Application-level settings.
+# Application-level settings.
 app:
-  # -- HTTP port the Sanic server listens on inside the container.
+  # HTTP port the Sanic server listens on inside the container.
   port: 8000
 
-# -- Extra environment variables injected into the container.
+# Extra environment variables injected into the container.
 extraEnv: []
   # - name: MY_VAR
   #   value: "my-value"
 
-# -- Extra environment variables sourced from Secrets or ConfigMaps.
+# Extra environment variables sourced from Secrets or ConfigMaps.
 extraEnvFrom: []
   # - secretRef:
   #     name: corshub-secrets
@@ -61,9 +61,7 @@ service:
   type: ClusterIP
   port: 80
   annotations: {}
-  # -- Set a fixed ClusterIP (leave empty for automatic assignment).
   clusterIP: ""
-  # -- NodePort value (only effective when type=NodePort).
   # nodePort: 32080
 
 resources:
@@ -73,7 +71,7 @@ resources:
   limits:
     memory: 256Mi
 
-# -- Liveness probe — restarts the container if the server stops responding.
+# Restarts the container if the server stops responding.
 livenessProbe:
   httpGet:
     path: /.info/healthz
@@ -83,7 +81,7 @@ livenessProbe:
   failureThreshold: 3
   timeoutSeconds: 2
 
-# -- Readiness probe — gates traffic until the server is ready.
+# Gates traffic until the server is ready.
 readinessProbe:
   httpGet:
     path: /.info/healthz
@@ -93,7 +91,7 @@ readinessProbe:
   failureThreshold: 3
   timeoutSeconds: 2
 
-# -- Startup probe — gives the process extra time to start before liveness kicks in.
+# Gives the process extra time to start before liveness kicks in.
 startupProbe:
   httpGet:
     path: /.info/healthz
@@ -102,10 +100,10 @@ startupProbe:
   periodSeconds: 5
   failureThreshold: 12  # 12 * 5s = 60 s max startup time
 
-# -- Graceful shutdown: allow in-flight NTRIP streams to drain before the pod is killed.
+# Graceful shutdown: allow in-flight NTRIP streams to drain before the pod is killed.
 terminationGracePeriodSeconds: 30
 
-# -- Horizontal Pod Autoscaler.
+# Horizontal Pod Autoscaler.
 autoscaling:
   enabled: false
   minReplicas: 1
@@ -113,21 +111,21 @@ autoscaling:
   targetCPUUtilizationPercentage: 70
   # targetMemoryUtilizationPercentage: 80
 
-# -- Classic Kubernetes Ingress (networking.k8s.io/v1).
+# Classic Kubernetes Ingress (networking.k8s.io/v1).
 # Suitable for clusters running nginx-ingress, traefik, or similar controllers.
 ingress:
   enabled: false
-  # -- IngressClass name (e.g. "nginx", "traefik"). Leave empty to rely on
+  # IngressClass name (e.g. "nginx", "traefik"). Leave empty to rely on
   # the cluster default or a kubernetes.io/ingress.class annotation.
-  className: ""
+  className: nginx
   annotations:
-    # -- Extend connection timeouts for long-lived NTRIP streams (seconds) and enable RCTM streaming (disable buffering).
+    # Extend connection timeouts for long-lived NTRIP streams (seconds) and enable RTCM streaming (disable buffering).
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
     nginx.ingress.kubernetes.io/proxy-buffering: "off"
     nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-    # -- TLS termination / certificate management.
+    # TLS termination / certificate management.
     # cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
     - host: corshub.example.com
@@ -139,21 +137,21 @@ ingress:
     #   hosts:
     #     - corshub.example.com
 
-# -- Gateway API HTTPRoute (gateway.networking.k8s.io/v1).
+# Gateway API HTTPRoute (gateway.networking.k8s.io/v1).
 # Suitable for clusters running Envoy Gateway, Istio, Cilium, or similar
 # Gateway API-compliant controllers.
 httpRoute:
   enabled: false
-  # -- References to the parent Gateway objects that should serve this route.
+  # References to the parent Gateway objects that should serve this route.
   parentRefs:
     - name: gateway
       namespace: gateway-system
-      # -- Bind to a specific listener (e.g. "https").
+      # Bind to a specific listener (e.g. "https").
       # sectionName: https
-  # -- Hostnames this route applies to.
+  # Hostnames this route applies to.
   hostnames:
     - corshub.example.com
-  # -- Route rules. The default rule matches all paths with no timeout so that
+  # Route rules. The default rule matches all paths with no timeout so that
   # long-lived NTRIP streams (base stations and rovers) are never torn down by
   # the gateway. Override or add rules as needed.
   rules:
@@ -162,13 +160,42 @@ httpRoute:
             type: PathPrefix
             value: /
       timeouts:
-        # -- 0s means no timeout. Required for persistent NTRIP streams.
+        # 0s means no timeout. Required for persistent NTRIP streams.
         request: "0s"
         backendRequest: "0s"
-  # -- Additional annotations on the HTTPRoute resource.
+  # Additional annotations on the HTTPRoute resource.
   annotations: {}
 
-# -- Spread pods across failure domains for high availability.
+# Prometheus metrics scraping.
+# prometheus_client starts a lightweight HTTP server on metrics.port — a port
+# the Sanic app never listens on. The Ingress and HTTPRoute only target app.port,
+# so the metrics endpoint is unreachable from outside the cluster by design.
+# Set enabled: false to suppress the containerPort, Service, and METRICS_PORT
+# env-var injection entirely (e.g. for local dev without a Prometheus stack).
+metrics:
+  enabled: true
+
+  # Port the prometheus_client exposition server listens on inside the container.
+  # Must not collide with app.port or opa.port.
+  port: 9090
+
+  # Prometheus Operator ServiceMonitor for automatic scrape discovery.
+  # Requires kube-prometheus-stack or a standalone Prometheus Operator.
+  serviceMonitor:
+    enabled: false
+    # How often Prometheus scrapes the endpoint.
+    interval: "30s"
+    # Per-scrape timeout (must be <= interval).
+    scrapeTimeout: "10s"
+    # Extra labels added to the ServiceMonitor — must satisfy the Prometheus
+    # Operator's serviceMonitorSelector (e.g. {release: kube-prometheus-stack}).
+    additionalLabels: {}
+    # Deploy the ServiceMonitor into a different namespace (defaults to the
+    # release namespace). Useful when the Prometheus Operator watches a single
+    # dedicated monitoring namespace.
+    namespace: ""
+
+# Spread pods across failure domains for high availability.
 topologySpreadConstraints: []
   # - maxSkew: 1
   #   topologyKey: kubernetes.io/hostname
@@ -180,32 +207,32 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
-# -- Writable ephemeral directory mounted at /tmp (required when
+# Writable ephemeral directory mounted at /tmp (required when
 # readOnlyRootFilesystem=true).
 tmpDir:
-  # -- "" = node disk, "Memory" = tmpfs (faster, counts against memory limit).
+  # "" = node disk, "Memory" = tmpfs (faster, counts against memory limit).
   medium: ""
   sizeLimit: 64Mi
 
-# -- Open Policy Agent sidecar for authorization.
+# Open Policy Agent sidecar for authorization.
 # When enabled, OPA runs as a localhost sidecar and the application routes all
 # policy queries to http://localhost:<port> (fail-closed: unreachable OPA → deny).
 opa:
-  # -- Deploy the OPA sidecar alongside the application container.
+  # Deploy the OPA sidecar alongside the application container.
   # Disable only when running OPA out-of-cluster or supplying OPA_URL via extraEnv.
   enabled: true
 
   image:
     repository: docker.io/openpolicyagent/opa
-    # -- Static build: single binary, no shell, minimal attack surface.
+    # Static build: single binary, no shell, minimal attack surface.
     # Pin this to a specific release in production.
     tag: 1.15.2-static
     pullPolicy: IfNotPresent
 
-  # -- Port OPA listens on inside the pod. Must match the OPA_URL used by the app.
+  # Port OPA listens on inside the pod. Must match the OPA_URL used by the app.
   port: 8181
 
-  # -- OPA log verbosity: error | warn | info | debug.
+  # OPA log verbosity: error | warn | info | debug.
   logLevel: info
 
   resources:
@@ -215,17 +242,17 @@ opa:
     limits:
       memory: 128Mi
 
-  # -- Base-station and rover registry loaded into OPA as static data.
+  # Base-station and rover registry loaded into OPA as static data.
   # Changes here re-roll pods via the checksum/opa annotation on the Deployment.
   # For zero-downtime registry updates, migrate to OPA bundles and a bundle server.
   registry:
-    # -- Map of base stations keyed by username / mountpoint.
+    # Map of base stations keyed by username / mountpoint.
     base_stations: {}
       # HERE4:
       #   mountpoint: HERE4
       #   password_hash: "$2a$12$..."
 
-    # -- Map of rovers keyed by username.
+    # Map of rovers keyed by username.
     rovers: {}
       # demo:
       #   password_hash: "$2b$12$..."

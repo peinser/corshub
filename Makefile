@@ -86,7 +86,7 @@ test: ## Run tests with coverage
 
 .PHONY: dev
 dev: ## Run the application in development mode (if applicable)
-	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload
+	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload --metrics-port=9090
 
 .PHONY: helm-sync-policies
 helm-sync-policies: ## Copy OPA Rego policies from src/opa/policies into helm/files/opa/policies/ (run before helm package / chart distribution)

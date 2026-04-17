@@ -19,6 +19,7 @@ dependencies = [
     "pyserial>=3.5",
     "pyubx2>=1.2.60",
     "rich>=15.0.0",
+    "prometheus-client>=0.21.0",
     "sanic>=25.12.0",
 ]
 

@@ -12,7 +12,10 @@ from sanic import Request
 from sanic import response
 from sanic.exceptions import SanicException
 
+from prometheus_client import REGISTRY
+
 from corshub import env
+from corshub.metrics import NTRIPCasterCollector
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.opa import OPAClient
 
@@ -29,7 +32,9 @@ bp: Blueprint = Blueprint(
 
 env.verify(
     blueprint=bp,
-    required={"OPA_URL"},
+    required={
+        "OPA_URL",
+    },
 )
 
 
@@ -56,6 +61,9 @@ async def setup(app: Sanic) -> None:
         reap_interval=30.0,
     )
 
+    app.ctx.ntrip_metrics_collector = NTRIPCasterCollector(app.ctx.ntrip_caster)
+    REGISTRY.register(app.ctx.ntrip_metrics_collector)
+
     # Start the caster and its reaper loop.
     await app.ctx.ntrip_caster.start()
 
@@ -64,4 +72,6 @@ async def setup(app: Sanic) -> None:
 async def finalize(app: Sanic) -> None:
     """Stop the shared NTRIP caster after the server has been stopped."""
     await app.ctx.ntrip_caster.stop()
+    REGISTRY.unregister(app.ctx.ntrip_metrics_collector)
     del app.ctx.ntrip_caster
+    del app.ctx.ntrip_metrics_collector
