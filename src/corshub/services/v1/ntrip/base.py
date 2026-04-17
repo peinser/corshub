@@ -51,6 +51,9 @@ async def ntrip_error(_: Request, exc: SanicException) -> HTTPResponse:
 @bp.before_server_start
 async def setup(app: Sanic) -> None:
     """Initialize the shared NTRIP caster before the server starts accepting requests."""
+    if hasattr(app.ctx, "ntrip_caster"):
+        return
+
     opa_url: str = env.extract("OPA_URL", default="http://opa:8181")
     opa = OPAClient(base_url=opa_url, session=app.ctx.http_client_session)
 
@@ -70,6 +73,9 @@ async def setup(app: Sanic) -> None:
 @bp.after_server_stop
 async def finalize(app: Sanic) -> None:
     """Stop the shared NTRIP caster after the server has been stopped."""
+    if not hasattr(app.ctx, "ntrip_caster"):
+        return
+
     await app.ctx.ntrip_caster.stop()
     REGISTRY.unregister(app.ctx.ntrip_metrics_collector)
     del app.ctx.ntrip_caster

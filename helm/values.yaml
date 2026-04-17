@@ -167,17 +167,13 @@ httpRoute:
   annotations: {}
 
 # Prometheus metrics scraping.
-# prometheus_client starts a lightweight HTTP server on metrics.port — a port
-# the Sanic app never listens on. The Ingress and HTTPRoute only target app.port,
-# so the metrics endpoint is unreachable from outside the cluster by design.
-# Set enabled: false to suppress the containerPort, Service, and METRICS_PORT
-# env-var injection entirely (e.g. for local dev without a Prometheus stack).
+# Metrics are served by Sanic at /.info/v1/metrics/ on app.port.
+# Both Ingress and HTTPRoute block /.info/ paths at the edge so this endpoint
+# is unreachable from outside the cluster by design.
+# Set enabled: false to suppress PROMETHEUS_DISABLE_CREATED_SERIES injection
+# and the ServiceMonitor (e.g. for local dev without a Prometheus stack).
 metrics:
   enabled: true
-
-  # Port the prometheus_client exposition server listens on inside the container.
-  # Must not collide with app.port or opa.port.
-  port: 9090
 
   # Prometheus Operator ServiceMonitor for automatic scrape discovery.
   # Requires kube-prometheus-stack or a standalone Prometheus Operator.

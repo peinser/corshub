@@ -47,19 +47,14 @@ spec:
             - name: http
               containerPort: {{ .Values.app.port }}
               protocol: TCP
-            {{- if .Values.metrics.enabled }}
-            - name: metrics
-              containerPort: {{ .Values.metrics.port }}
-              protocol: TCP
-            {{- end }}
           env:
             {{- if .Values.opa.enabled }}
             - name: OPA_URL
               value: {{ printf "http://localhost:%d" (int .Values.opa.port) | quote }}
             {{- end }}
             {{- if .Values.metrics.enabled }}
-            - name: METRICS_PORT
-              value: {{ .Values.metrics.port | quote }}
+            - name: PROMETHEUS_DISABLE_CREATED_SERIES
+              value: "True"
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}

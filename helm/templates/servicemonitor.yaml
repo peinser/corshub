@@ -13,10 +13,9 @@ spec:
   selector:
     matchLabels:
       {{- include "corshub.selectorLabels" . | nindent 6 }}
-      app.kubernetes.io/component: metrics
   endpoints:
-    - port: metrics
-      path: /metrics
+    - port: http
+      path: /.info/v1/metrics/
       interval: {{ .Values.metrics.serviceMonitor.interval }}
       scrapeTimeout: {{ .Values.metrics.serviceMonitor.scrapeTimeout }}
 {{- end }}

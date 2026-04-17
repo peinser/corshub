@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 
 import corshub.metrics as metrics
 
+from corshub.ntrip.v2.transport import QueueTransport
 from corshub.crypto import secrets
 
 
@@ -253,8 +254,6 @@ class NTRIPCaster(Caster):
         expiry: float | None = 3600.0,
         reap_interval: float = 10.0,
     ) -> None:
-        from corshub.ntrip.v2.transport import QueueTransport
-
         self._opa = opa
         self._transport_factory: type[Transport] = transport_factory or QueueTransport
         self._expiry = expiry

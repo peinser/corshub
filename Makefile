@@ -86,7 +86,7 @@ test: ## Run tests with coverage
 
 .PHONY: dev
 dev: ## Run the application in development mode (if applicable)
-	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload --metrics-port=9090
+	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload --workers=1
 
 .PHONY: helm-sync-policies
 helm-sync-policies: ## Copy OPA Rego policies from src/opa/policies into helm/files/opa/policies/ (run before helm package / chart distribution)
@@ -122,24 +122,7 @@ act-job: ## Run a specific job from the workflows via act. Usage: make act-job J
 # Development tools
 # ───────────────────────────────────────────────
 
-.PHONY: simulate-base
-SIMULATE_SERVER     ?= http://localhost:8000
-SIMULATE_MOUNTPOINT ?= HERE4
-SIMULATE_USERNAME   ?= HERE4
-SIMULATE_PASSWORD   ?= secret
-SIMULATE_LAT        ?= 50.8503
-SIMULATE_LON        ?= 4.3517
-SIMULATE_ARGS       ?=
-simulate-base: ## Run the base station simulator against the local dev server. Override vars or pass SIMULATE_ARGS. Example: make simulate-base SIMULATE_PASSWORD=mypass
-	@echo -e "$(INFO_COLOR)Starting base station simulator...$(NO_COLOR)"
-	$(UV) run python .dev/tools/simulate-base-station.py \
-		--server $(SIMULATE_SERVER) \
-		--mountpoint $(SIMULATE_MOUNTPOINT) \
-		--username $(SIMULATE_USERNAME) \
-		--password $(SIMULATE_PASSWORD) \
-		--lat $(SIMULATE_LAT) \
-		--lon $(SIMULATE_LON) \
-		$(SIMULATE_ARGS)
+
 
 # ───────────────────────────────────────────────
 # 3th Party NTRIP Client

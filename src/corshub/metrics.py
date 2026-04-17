@@ -88,6 +88,11 @@ class NTRIPCasterCollector(Collector):
     Registered once per caster lifetime so that Prometheus always gets a
     fresh snapshot.  Only emits per-mountpoint queue/subscriber metrics for
     QueueTransport instances; other transport backends are skipped silently.
+
+    Note, since we run `generate_latest` through Sanic, the Prometheus Client
+    runs in the Sanic event loop. Hence, we don't need locks in the event loop
+    as long as we are running a single process. Given QueueTransport is the
+    only transport that is currently supported, this needs to be done anyway.
     """
 
     def __init__(self, caster: NTRIPCaster) -> None:
@@ -96,16 +101,19 @@ class NTRIPCasterCollector(Collector):
     def collect(self) -> Iterator[Metric]:
         caster = self._caster
 
+        mountpoints = caster.mountpoints
+        transports = caster._transports
+
         yield GaugeMetricFamily(
             "ntrip_mountpoints_registered",
             "Total mountpoints in the registry (online and offline).",
-            value=float(len(caster.mountpoints)),
+            value=float(len(mountpoints)),
         )
 
         yield GaugeMetricFamily(
             "ntrip_mountpoints_online",
             "Mountpoints with an active base station transport.",
-            value=float(len(caster._transports)),
+            value=float(len(transports)),
         )
 
         rovers_gauge = GaugeMetricFamily(
@@ -119,7 +127,7 @@ class NTRIPCasterCollector(Collector):
             labels=["mountpoint"],
         )
 
-        for name, transport in caster._transports.items():
+        for name, transport in transports.items():
             if isinstance(transport, QueueTransport):
                 rovers_gauge.add_metric([name], float(transport.subscriber_count))
                 queue_gauge.add_metric([name], float(transport.queue_depth))

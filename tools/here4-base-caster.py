@@ -144,18 +144,18 @@ SVIN_MIN_DUR = 60
 SVIN_ACC_LIMIT = 20_000  # 0.1 mm units → 2 m
 
 # UBX class / message IDs
-NAV_CLASS  = 0x01
-NAV_PVT_ID  = 0x07
-NAV_SAT_ID  = 0x35
+NAV_CLASS = 0x01
+NAV_PVT_ID = 0x07
+NAV_SAT_ID = 0x35
 NAV_SVIN_ID = 0x3B
-RTCM_CLASS  = 0xF5
+RTCM_CLASS = 0xF5
 
 # RTCM 3.3 message IDs to enable (1005, 1077, 1087, 1097, 1127, 1230)
 # u-blox CFG-MSG ID = message_number - 1000 (lower byte of the RTCM message number)
 RTCM_OUTPUT_IDS = [0x05, 0x4D, 0x57, 0x61, 0x7F, 0xE6]
 
 RTCM_FORMAT_DETAIL = "1005(1),1077(1),1087(1),1097(1),1127(1),1230(1)"
-RTCM_NAV_SYSTEM    = "GPS+GLO+GAL+BDS"
+RTCM_NAV_SYSTEM = "GPS+GLO+GAL+BDS"
 
 FIX_NAMES = {
     0: "No fix",
@@ -170,18 +170,18 @@ GNSS_NAMES = {0: "GPS", 1: "SBAS", 2: "Galileo", 3: "BDS", 4: "IMES", 5: "QZSS",
 
 
 class State(Enum):
-    SEARCHING  = auto()   # Scanning for u-blox USB device
-    CONNECTING = auto()   # Opening serial port, sending initial config
-    MONITORING = auto()   # Streaming NAV data, waiting for stable 3D fix
-    SURVEY_IN  = auto()   # Survey-in running
-    FIXED      = auto()   # Fixed position established, streaming RTCM
+    SEARCHING = auto()  # Scanning for u-blox USB device
+    CONNECTING = auto()  # Opening serial port, sending initial config
+    MONITORING = auto()  # Streaming NAV data, waiting for stable 3D fix
+    SURVEY_IN = auto()  # Survey-in running
+    FIXED = auto()  # Fixed position established, streaming RTCM
 
 
 class CasterState(Enum):
-    DISCONNECTED = auto()   # not configured or not yet attempted
-    CONNECTING   = auto()   # TCP/HTTP handshake in progress
-    STREAMING    = auto()   # PUT accepted, frames are flowing
-    ERROR        = auto()   # Last connection attempt failed
+    DISCONNECTED = auto()  # not configured or not yet attempted
+    CONNECTING = auto()  # TCP/HTTP handshake in progress
+    STREAMING = auto()  # PUT accepted, frames are flowing
+    ERROR = auto()  # Last connection attempt failed
 
 
 class GNSSState:
@@ -234,7 +234,9 @@ def _cfg_msg(msg_class: int, msg_id: int, rate: int) -> bytes:
 def _cfg_tmode3_svin(min_dur: int, acc_limit: int) -> bytes:
     """Build a CFG-TMODE3 survey-in command."""
     return UBXMessage(
-        "CFG", "CFG-TMODE3", SET,
+        "CFG",
+        "CFG-TMODE3",
+        SET,
         version=0,
         rcvrMode=1,  # Survey-in
         svinMinDur=min_dur,
@@ -249,18 +251,20 @@ def _cfg_tmode3_fixed(lat: float, lon: float, alt: float, acc_mm: float) -> byte
     The coordinate is split into a standard-precision integer (1e-7 deg / cm) and a
     high-precision remainder (1e-9 deg / 0.1 mm) as required by the UBX protocol.
     """
-    lat_i  = int(lat * 1e7)
-    lat_hp = round((lat * 1e7 - lat_i) * 100)   # Units: 1e-9 deg
-    lon_i  = int(lon * 1e7)
-    lon_hp = round((lon * 1e7 - lon_i) * 100)   # Units: 1e-9 deg
+    lat_i = int(lat * 1e7)
+    lat_hp = round((lat * 1e7 - lat_i) * 100)  # Units: 1e-9 deg
+    lon_i = int(lon * 1e7)
+    lon_hp = round((lon * 1e7 - lon_i) * 100)  # Units: 1e-9 deg
     alt_cm = int(alt * 100)
-    alt_hp = round((alt * 100 - alt_cm) * 10)   # Units: 0.1 mm
+    alt_hp = round((alt * 100 - alt_cm) * 10)  # Units: 0.1 mm
 
     return UBXMessage(
-        "CFG", "CFG-TMODE3", SET,
+        "CFG",
+        "CFG-TMODE3",
+        SET,
         version=0,
-        rcvrMode=2,             # Fixed mode
-        lla=1,                  # Coordinates are LLA, not ECEF
+        rcvrMode=2,  # Fixed mode
+        lla=1,  # Coordinates are LLA, not ECEF
         ecefXOrLat=lat_i,
         ecefYOrLon=lon_i,
         ecefZOrAlt=alt_cm,
@@ -283,25 +287,27 @@ def _build_ntrip_str(
 
     Field order matches RTCM 10410.1 §4.1 (without the leading ``STR;`` token).
     """
-    return ";".join([
-        mountpoint,           # [0]  mountpoint name
-        label,                # [1]  human-readable label
-        "RTCM 3.3",           # [2]  message format
-        RTCM_FORMAT_DETAIL,   # [3]  message IDs and rates
-        "2",                  # [4]  carrier: L1+L2
-        RTCM_NAV_SYSTEM,      # [5]  nav systems
-        network,              # [6]  network / agency
-        country,              # [7]  ISO 3166-1 alpha-3
-        f"{lat:.2f}",         # [8]  latitude
-        f"{lon:.2f}",         # [9]  longitude
-        "0",                  # [10] NMEA not accepted
-        "0",                  # [11] single base station
-        "Here4Base/1.0",      # [12] generator
-        "",                   # [13] no compression
-        "B",                  # [14] Basic auth required
-        "N",                  # [15] no fee
-        "0",                  # [16] bitrate unknown
-    ])
+    return ";".join(
+        [
+            mountpoint,  # [0]  mountpoint name
+            label,  # [1]  human-readable label
+            "RTCM 3.3",  # [2]  message format
+            RTCM_FORMAT_DETAIL,  # [3]  message IDs and rates
+            "2",  # [4]  carrier: L1+L2
+            RTCM_NAV_SYSTEM,  # [5]  nav systems
+            network,  # [6]  network / agency
+            country,  # [7]  ISO 3166-1 alpha-3
+            f"{lat:.2f}",  # [8]  latitude
+            f"{lon:.2f}",  # [9]  longitude
+            "0",  # [10] NMEA not accepted
+            "0",  # [11] single base station
+            "Here4Base/1.0",  # [12] generator
+            "",  # [13] no compression
+            "B",  # [14] Basic auth required
+            "N",  # [15] no fee
+            "0",  # [16] bitrate unknown
+        ]
+    )
 
 
 def find_ublox_ports() -> list[str]:
@@ -345,11 +351,11 @@ def build_display(gs: GNSSState, caster_url: str | None) -> Table:
     root.add_column()
 
     state_color = {
-        State.SEARCHING:  "yellow",
+        State.SEARCHING: "yellow",
         State.CONNECTING: "cyan",
         State.MONITORING: "blue",
-        State.SURVEY_IN:  "magenta",
-        State.FIXED:      "green",
+        State.SURVEY_IN: "magenta",
+        State.FIXED: "green",
     }[gs.state]
     banner = Text(f"  {gs.state.name}  {gs.port}  ", style=f"bold white on {state_color}")
     root.add_row(Panel(banner, title="[bold]Here4 RTK Base Station Prototype[/bold]"))
@@ -392,10 +398,10 @@ def build_display(gs: GNSSState, caster_url: str | None) -> Table:
     # NTRIP caster push panel (only shown when --caster-url is configured)
     if caster_url is not None:
         _caster_state_style = {
-            CasterState.DISCONNECTED: ("dim",    "DISCONNECTED"),
-            CasterState.CONNECTING:   ("yellow", "CONNECTING…"),
-            CasterState.STREAMING:    ("green",  "STREAMING"),
-            CasterState.ERROR:        ("red",    "ERROR"),
+            CasterState.DISCONNECTED: ("dim", "DISCONNECTED"),
+            CasterState.CONNECTING: ("yellow", "CONNECTING…"),
+            CasterState.STREAMING: ("green", "STREAMING"),
+            CasterState.ERROR: ("red", "ERROR"),
         }
         style, label = _caster_state_style[gs.caster_state]
 
@@ -415,21 +421,25 @@ def build_display(gs: GNSSState, caster_url: str | None) -> Table:
     if len(gs.h_acc_history) >= 2:
         spark = _sparkline(gs.h_acc_history)
         lo, hi = min(gs.h_acc_history), max(gs.h_acc_history)
-        root.add_row(Panel(
-            f"[cyan]{spark}[/cyan]\n"
-            f"[dim]min {lo:.2f} m  ·  max {hi:.2f} m  ·  now {gs.h_acc_history[-1]:.2f} m  "
-            f"·  {len(gs.h_acc_history)} s of history[/dim]",
-            title="H-Acc trend  [dim](↓ better)[/dim]",
-            expand=True,
-        ))
+        root.add_row(
+            Panel(
+                f"[cyan]{spark}[/cyan]\n"
+                f"[dim]min {lo:.2f} m  ·  max {hi:.2f} m  ·  now {gs.h_acc_history[-1]:.2f} m  "
+                f"·  {len(gs.h_acc_history)} s of history[/dim]",
+                title="H-Acc trend  [dim](↓ better)[/dim]",
+                expand=True,
+            )
+        )
 
     # Log panel
     if _log_lines:
-        root.add_row(Panel(
-            "\n".join(_log_lines),
-            title="Logs",
-            expand=True,
-        ))
+        root.add_row(
+            Panel(
+                "\n".join(_log_lines),
+                title="Logs",
+                expand=True,
+            )
+        )
 
     # Satellite table (top 16 by C/N0)
     if gs.satellites:
@@ -485,16 +495,14 @@ async def caster_loop(
             gs.caster_state = CasterState.CONNECTING
             gs.caster_error = ""
 
-            ntrip_str = _build_ntrip_str(
-                mountpoint, label or mountpoint, gs.lat, gs.lon, country, network
-            )
+            ntrip_str = _build_ntrip_str(mountpoint, label or mountpoint, gs.lat, gs.lon, country, network)
 
             log(f"NTRIP-STR: {ntrip_str}")
 
             async def _frame_generator():
                 while True:
                     frame = await frame_queue.get()
-                    if frame is None:   # sentinel: stop streaming
+                    if frame is None:  # sentinel: stop streaming
                         return
 
                     await asyncio.sleep(0)  # Ensure other tasks get scheduled.
@@ -508,17 +516,19 @@ async def caster_loop(
                     auth=aiohttp.BasicAuth(username, password),
                     headers={
                         "Ntrip-Version": "Ntrip/2.0",
-                        "Ntrip-STR":     ntrip_str,
-                        "Content-Type":  "gnss/data",
-                        "User-Agent":    "Here4Base/1.0",
+                        "Ntrip-STR": ntrip_str,
+                        "Content-Type": "gnss/data",
+                        "User-Agent": "Here4Base/1.0",
                     },
                     chunked=True,
                 ) as resp:
                     if resp.status != 200:
                         body = await resp.text()
                         raise aiohttp.ClientResponseError(
-                            resp.request_info, resp.history,
-                            status=resp.status, message=body,
+                            resp.request_info,
+                            resp.history,
+                            status=resp.status,
+                            message=body,
                         )
 
                     gs.caster_state = CasterState.STREAMING
@@ -569,9 +579,7 @@ async def main(args: argparse.Namespace) -> None:
             loop = asyncio.get_running_loop()
 
             try:
-                ser = await loop.run_in_executor(
-                    None, lambda: serial.Serial(port_name, BAUD_RATE, timeout=1)
-                )
+                ser = await loop.run_in_executor(None, lambda: serial.Serial(port_name, BAUD_RATE, timeout=1))
             except Exception:
                 gs.state = State.SEARCHING
                 await asyncio.sleep(2)
@@ -620,15 +628,15 @@ async def main(args: argparse.Namespace) -> None:
             identity = getattr(parsed, "identity", None)
 
             if identity == "NAV-PVT":
-                gs.fix_type   = parsed.fixType
+                gs.fix_type = parsed.fixType
                 gs.gnss_fix_ok = bool(parsed.gnssFixOk)
-                gs.lat   = parsed.lat
-                gs.lon   = parsed.lon
-                gs.alt   = parsed.hMSL / 1e3
+                gs.lat = parsed.lat
+                gs.lon = parsed.lon
+                gs.alt = parsed.hMSL / 1e3
                 gs.speed = parsed.gSpeed / 1e3
                 gs.h_acc = parsed.hAcc / 1e3
                 gs.v_acc = parsed.vAcc / 1e3
-                gs.pdop  = parsed.pDOP
+                gs.pdop = parsed.pDOP
                 gs.num_sv = parsed.numSV
                 gs.h_acc_history.append(gs.h_acc)
                 if parsed.validDate and parsed.validTime:
@@ -637,36 +645,30 @@ async def main(args: argparse.Namespace) -> None:
                         f"{parsed.hour:02d}:{parsed.min:02d}:{parsed.second:02d} UTC"
                     )
                 # Once we have a gnssFixOK 3D fix, kick off survey-in
-                if (
-                    gs.state == State.MONITORING
-                    and gs.fix_type >= 3
-                    and gs.gnss_fix_ok
-                    and ser_ref
-                ):
+                if gs.state == State.MONITORING and gs.fix_type >= 3 and gs.gnss_fix_ok and ser_ref:
                     ser = ser_ref[0]
                     for rtcm_id in RTCM_OUTPUT_IDS:
                         await loop.run_in_executor(None, ser.write, _cfg_msg(RTCM_CLASS, rtcm_id, 1))
                         await asyncio.sleep(0.05)
                     if args.lat is not None:
                         await loop.run_in_executor(
-                            None, ser.write,
+                            None,
+                            ser.write,
                             _cfg_tmode3_fixed(args.lat, args.lon, args.alt, args.fixed_acc),
                         )
                         gs.state = State.FIXED
                         log(f"Fixed mode activated at {args.lat:.8f}°, {args.lon:.8f}°, {args.alt:.3f} m")
                     else:
-                        await loop.run_in_executor(
-                            None, ser.write, _cfg_tmode3_svin(SVIN_MIN_DUR, SVIN_ACC_LIMIT)
-                        )
+                        await loop.run_in_executor(None, ser.write, _cfg_tmode3_svin(SVIN_MIN_DUR, SVIN_ACC_LIMIT))
                         gs.state = State.SURVEY_IN
                         log(f"Survey-in started — min {SVIN_MIN_DUR} s, acc limit {SVIN_ACC_LIMIT / 10000:.1f} m")
 
             elif identity == "NAV-SVIN":
                 gs.svin_active = bool(parsed.active)
-                gs.svin_valid  = bool(parsed.valid)
-                gs.svin_obs    = parsed.obs
-                gs.svin_acc    = parsed.meanAcc / 10000.0
-                gs.svin_dur    = parsed.dur
+                gs.svin_valid = bool(parsed.valid)
+                gs.svin_obs = parsed.obs
+                gs.svin_acc = parsed.meanAcc / 10000.0
+                gs.svin_dur = parsed.dur
                 if gs.state == State.SURVEY_IN and gs.svin_valid and not gs.svin_active:
                     gs.state = State.FIXED
                     log(f"Survey-in complete — mean acc {gs.svin_acc:.3f} m after {gs.svin_dur} s, streaming RTCM")
@@ -674,19 +676,21 @@ async def main(args: argparse.Namespace) -> None:
             elif identity == "NAV-SAT":
                 sats = []
                 for i in range(1, parsed.numSvs + 1):
-                    sats.append({
-                        "gnssId": getattr(parsed, f"gnssId_{i:02d}", 0),
-                        "svId":   getattr(parsed, f"svId_{i:02d}", 0),
-                        "cno":    getattr(parsed, f"cno_{i:02d}", 0),
-                        "elev":   getattr(parsed, f"elev_{i:02d}", 0),
-                        "azim":   getattr(parsed, f"azim_{i:02d}", 0),
-                        "used":   bool(getattr(parsed, f"svUsed_{i:02d}", 0)),
-                    })
+                    sats.append(
+                        {
+                            "gnssId": getattr(parsed, f"gnssId_{i:02d}", 0),
+                            "svId": getattr(parsed, f"svId_{i:02d}", 0),
+                            "cno": getattr(parsed, f"cno_{i:02d}", 0),
+                            "elev": getattr(parsed, f"elev_{i:02d}", 0),
+                            "azim": getattr(parsed, f"azim_{i:02d}", 0),
+                            "used": bool(getattr(parsed, f"svUsed_{i:02d}", 0)),
+                        }
+                    )
                 gs.satellites = sats
 
             elif gs.state == State.FIXED and isinstance(parsed, RTCMMessage) and raw:
                 gs.rtcm_bytes += len(raw)
-                gs.rtcm_msgs  += 1
+                gs.rtcm_msgs += 1
 
                 if caster_url is not None:
                     try:
@@ -699,7 +703,7 @@ async def main(args: argparse.Namespace) -> None:
         # Stats are updated inline in process_loop; this task monitors the
         # caster_queue depth to detect persistent back-pressure.
         while True:
-            gs.caster_msgs  = gs.rtcm_msgs   # same frame count pushed to caster
+            gs.caster_msgs = gs.rtcm_msgs  # same frame count pushed to caster
             gs.caster_bytes = gs.rtcm_bytes
             await asyncio.sleep(1)
 
@@ -714,13 +718,19 @@ async def main(args: argparse.Namespace) -> None:
     ]
 
     if caster_url is not None:
-        tasks.append(caster_loop(
-            gs, caster_queue,
-            caster_url, args.mountpoint, args.username, args.password,
-            country=args.country or "",
-            network=args.network or "",
-            label=args.label or "",
-        ))
+        tasks.append(
+            caster_loop(
+                gs,
+                caster_queue,
+                caster_url,
+                args.mountpoint,
+                args.username,
+                args.password,
+                country=args.country or "",
+                network=args.network or "",
+                label=args.label or "",
+            )
+        )
         tasks.append(caster_stats_loop())
 
     console = Console()
@@ -739,9 +749,12 @@ if __name__ == "__main__":
     )
     fixed.add_argument("--lat", type=float, metavar="DEG", help="Base latitude (decimal degrees)")
     fixed.add_argument("--lon", type=float, metavar="DEG", help="Base longitude (decimal degrees)")
-    fixed.add_argument("--alt", type=float, metavar="M",   help="Base altitude above ellipsoid (metres)")
+    fixed.add_argument("--alt", type=float, metavar="M", help="Base altitude above ellipsoid (metres)")
     fixed.add_argument(
-        "--fixed-acc", type=float, default=10.0, metavar="MM",
+        "--fixed-acc",
+        type=float,
+        default=10.0,
+        metavar="MM",
         help="Known accuracy of the fixed position in mm (default: 10)",
     )
 
@@ -749,13 +762,15 @@ if __name__ == "__main__":
         "NTRIP caster",
         "Push RTCM corrections to a CORSHub NTRIP v2 caster over HTTP.",
     )
-    ntrip.add_argument("--caster-url",  metavar="URL",        help="Caster base URL, e.g. http://localhost:8000")
-    ntrip.add_argument("--mountpoint",  metavar="NAME",       help="Mountpoint name to push to, e.g. HERE4")
-    ntrip.add_argument("--username",    metavar="USER",       help="Basic auth username")
-    ntrip.add_argument("--password",    metavar="PASS",       help="Basic auth password")
-    ntrip.add_argument("--label",       metavar="TEXT",       help="Human-readable label for the mountpoint (defaults to mountpoint name)")
-    ntrip.add_argument("--country",     metavar="ISO3",       help="ISO 3166-1 alpha-3 country code, e.g. BEL")
-    ntrip.add_argument("--network",     metavar="NAME",       help="Network or agency name")
+    ntrip.add_argument("--caster-url", metavar="URL", help="Caster base URL, e.g. http://localhost:8000")
+    ntrip.add_argument("--mountpoint", metavar="NAME", help="Mountpoint name to push to, e.g. HERE4")
+    ntrip.add_argument("--username", metavar="USER", help="Basic auth username")
+    ntrip.add_argument("--password", metavar="PASS", help="Basic auth password")
+    ntrip.add_argument(
+        "--label", metavar="TEXT", help="Human-readable label for the mountpoint (defaults to mountpoint name)"
+    )
+    ntrip.add_argument("--country", metavar="ISO3", help="ISO 3166-1 alpha-3 country code, e.g. BEL")
+    ntrip.add_argument("--network", metavar="NAME", help="Network or agency name")
 
     _args = parser.parse_args()
 

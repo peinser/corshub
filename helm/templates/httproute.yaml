@@ -18,6 +18,12 @@ spec:
     {{- toYaml . | nindent 4 }}
   {{- end }}
   rules:
+    # Block internal /.info/ paths (health checks, metrics) from public access.
+    # No backendRefs → gateway returns 500; acceptable as a denial response.
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /.info/
     {{- range .Values.httpRoute.rules }}
     - {{- with .matches }}
       matches:

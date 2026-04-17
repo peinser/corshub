@@ -12,7 +12,6 @@ import pkgutil
 
 from typing import TYPE_CHECKING
 
-from prometheus_client import start_http_server
 from sanic import response
 
 import corshub.services.v1
@@ -23,6 +22,7 @@ from .utils import create_app
 
 
 if TYPE_CHECKING:
+    from sanic import Sanic
     from sanic import HTTPResponse
     from sanic import Request
 
@@ -34,12 +34,6 @@ parser.add_argument("--port", type=int, default=8000, help="The port to run the 
 parser.add_argument("--debug", action="store_true", default=False, help="Run in debug mode (default: false).")
 parser.add_argument("--reload", action="store_true", default=False, help="Enable hot-reloading (default: false).")
 parser.add_argument("--access-logs", action="store_true", help="Enable access logs (default: false).")
-parser.add_argument(
-    "--metrics-port",
-    type=int,
-    default=None,
-    help="The port to run the (Prometheus) metrics service on (default: none, which disables the service).",
-)
 parser.add_argument(
     "--reverse-proxy-count",
     type=int,
@@ -75,14 +69,6 @@ async def healthz(_: Request) -> HTTPResponse:
 
 
 if __name__ == "__main__":
-    # Check if the Prometheus web service needs to be ran.
-    if arguments.metrics_port:
-        # Start the prometheus exposition server on a dedicated port so that it is
-        # never reachable through the main Ingress / HTTPRoute (which only targets
-        # the application port). METRICS_PORT absent or empty disables the server
-        # (useful in tests and local dev without a Prometheus stack).
-        start_http_server(port=arguments.metrics_port, addr="0.0.0.0")  # nosec B104
-
     app.run(
         host=arguments.host,
         port=arguments.port,
