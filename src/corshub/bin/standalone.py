@@ -12,8 +12,8 @@ import pkgutil
 
 from typing import TYPE_CHECKING
 
-from sanic import response
 from prometheus_client import start_http_server
+from sanic import response
 
 import corshub.services.v1
 

@@ -105,7 +105,7 @@ class NTRIPCasterCollector(Collector):
         yield GaugeMetricFamily(
             "ntrip_mountpoints_online",
             "Mountpoints with an active base station transport.",
-            value=float(len(caster._transports)),  # noqa: SLF001
+            value=float(len(caster._transports)),
         )
 
         rovers_gauge = GaugeMetricFamily(
@@ -119,7 +119,7 @@ class NTRIPCasterCollector(Collector):
             labels=["mountpoint"],
         )
 
-        for name, transport in caster._transports.items():  # noqa: SLF001
+        for name, transport in caster._transports.items():
             if isinstance(transport, QueueTransport):
                 rovers_gauge.add_metric([name], float(transport.subscriber_count))
                 queue_gauge.add_metric([name], float(transport.queue_depth))

@@ -29,9 +29,9 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
 
-from corshub.crypto import secrets
-
 import corshub.metrics as metrics
+
+from corshub.crypto import secrets
 
 
 if TYPE_CHECKING:
@@ -370,7 +370,7 @@ class NTRIPCaster(Caster):
     @asynccontextmanager
     async def _metered_subscribe(
         self, mountpoint: str, transport: Transport
-    ) -> AsyncGenerator[TransportSubscriber, None]:
+    ) -> AsyncGenerator[TransportSubscriber]:
         metrics.rover_sessions_total.labels(mountpoint=mountpoint).inc()
         async with transport.subscribe() as sub:
             yield sub

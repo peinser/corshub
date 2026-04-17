@@ -6,13 +6,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from prometheus_client import REGISTRY
 from sanic import Blueprint
 from sanic import HTTPResponse
 from sanic import Request
 from sanic import response
 from sanic.exceptions import SanicException
-
-from prometheus_client import REGISTRY
 
 from corshub import env
 from corshub.metrics import NTRIPCasterCollector
