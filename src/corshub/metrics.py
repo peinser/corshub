@@ -135,5 +135,20 @@ class NTRIPCasterCollector(Collector):
         yield rovers_gauge
         yield queue_gauge
 
+        info_gauge = GaugeMetricFamily(
+            "ntrip_mountpoint_info",
+            "Mountpoint metadata. Value is always 1; use labels for location and identification.",
+            labels=["mountpoint", "latitude", "longitude", "identifier", "country"],
+        )
+
+        for name, mp in mountpoints.items():
+            if mp.latitude is not None and mp.longitude is not None:
+                info_gauge.add_metric(
+                    [name, str(mp.latitude), str(mp.longitude), mp.identifier or "", mp.country or ""],
+                    1.0,
+                )
+
+        yield info_gauge
+
     def describe(self) -> list[Metric]:
         return []

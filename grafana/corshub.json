@@ -432,6 +432,118 @@
         "x": 0,
         "y": 4
       },
+      "id": 70,
+      "panels": [],
+      "title": "Base Stations",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 71,
+      "options": {
+        "controls": {
+          "mouseWheelZoom": true,
+          "showAttribution": true,
+          "showDebug": false,
+          "showMeasure": false,
+          "showScale": false,
+          "showTooltip": true,
+          "showZoom": true
+        },
+        "layers": [
+          {
+            "config": {
+              "showLegend": true,
+              "style": {
+                "color": {
+                  "fixed": "green"
+                },
+                "opacity": 1,
+                "size": 12,
+                "symbol": {
+                  "fixed": "circle"
+                }
+              }
+            },
+            "location": {
+              "mode": "auto"
+            },
+            "name": "Base Stations",
+            "tooltip": true,
+            "type": "markers"
+          }
+        ],
+        "tooltip": {
+          "mode": "details"
+        },
+        "view": {
+          "allLayers": true,
+          "id": "zero",
+          "lat": 0,
+          "lon": 0,
+          "zoom": 1
+        }
+      },
+      "pluginVersion": "11.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "expr": "ntrip_mountpoint_info",
+          "format": "table",
+          "instant": true,
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "title": "Base Stations",
+      "type": "geomap"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
       "id": 10,
       "title": "Correction Streams",
       "type": "row"
@@ -496,7 +608,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 5
+        "y": 18
       },
       "id": 11,
       "options": {
@@ -588,7 +700,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 5
+        "y": 18
       },
       "id": 12,
       "options": {
@@ -626,7 +738,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 26
       },
       "id": 20,
       "title": "Rover Connections",
@@ -693,7 +805,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 14
+        "y": 27
       },
       "id": 21,
       "options": {
@@ -786,7 +898,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 14
+        "y": 27
       },
       "id": 22,
       "options": {
@@ -823,7 +935,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 22
+        "y": 35
       },
       "id": 30,
       "title": "Queue & Delivery",
@@ -898,7 +1010,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 36
       },
       "id": 31,
       "options": {
@@ -992,7 +1104,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 36
       },
       "id": 32,
       "options": {
@@ -1032,7 +1144,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 31
+        "y": 44
       },
       "id": 40,
       "title": "Authentication",
@@ -1115,7 +1227,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 32
+        "y": 45
       },
       "id": 41,
       "options": {
@@ -1219,7 +1331,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 32
+        "y": 45
       },
       "id": 42,
       "options": {
@@ -1259,7 +1371,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 40
+        "y": 53
       },
       "id": 50,
       "title": "Frame Sizes",
@@ -1325,7 +1437,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 54
       },
       "id": 51,
       "options": {
@@ -1381,7 +1493,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 62
       },
       "id": 60,
       "title": "Process Health",
@@ -1448,7 +1560,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 50
+        "y": 63
       },
       "id": 61,
       "options": {
@@ -1541,7 +1653,7 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 50
+        "y": 63
       },
       "id": 62,
       "options": {
@@ -1634,7 +1746,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 50
+        "y": 63
       },
       "id": 63,
       "options": {
@@ -1702,7 +1814,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 50
+        "y": 63
       },
       "id": 64,
       "options": {
@@ -1804,6 +1916,6 @@
   "timezone": "browser",
   "title": "NTRIP",
   "uid": "corshub-ntrip-caster",
-  "version": 5,
+  "version": 7,
   "weekStart": ""
 }
