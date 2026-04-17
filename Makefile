@@ -150,10 +150,10 @@ simulate-base: ## Run the base station simulator against the local dev server. O
 NTRIP_SERVER     ?= corshub.peinser.com
 NTRIP_PORT       ?= 443
 NTRIP_HTTPS      ?= 1
-NTRIP_MOUNTPOINT ?= BE-VLA-EPPEGEM
+NTRIP_MOUNTPOINT ?= MOBILE-PEINSER-0
 NTRIP_VERSION    ?= 2.0
-NTRIP_USER       ?= test
-NTRIP_PASSWORD   ?= test
+NTRIP_USER       ?= anonymous
+NTRIP_PASSWORD   ?= anonymous
 NTRIP_ARGS       ?=
 gnssntripclient: ## Run the NTRIP client (SEMU Consulting). Override vars or pass NTRIP_ARGS. Example: make gnssntripclient NTRIP_SERVER=localhost NTRIP_PORT=8000 NTRIP_HTTPS=0
 	@echo -e "$(INFO_COLOR)Running external NTRIP client...$(NO_COLOR)"

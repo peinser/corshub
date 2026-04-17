@@ -55,3 +55,13 @@ async def setup(app: Sanic) -> None:
         expiry=3600.0,
         reap_interval=30.0,
     )
+
+    # Start the caster and its reaper loop.
+    await app.ctx.ntrip_caster.start()
+
+
+@bp.after_server_stop
+async def finalize(app: Sanic) -> None:
+    """Stop the shared NTRIP caster after the server has been stopped."""
+    await app.ctx.ntrip_caster.stop()
+    del app.ctx.ntrip_caster

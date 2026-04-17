@@ -382,6 +382,12 @@ class NTRIPCaster(Caster):
             return
 
         cutoff = time.monotonic() - self._expiry
-        stale = [identifier for identifier, mp in self._mountpoints.items() if mp.last_seen < cutoff]
+
+        stale = [
+            identifier
+            for identifier, mp in self._mountpoints.items()
+            if mp.last_seen < cutoff or mp.last_seen is None
+        ]
+
         for identifier in stale:
             await self.unregister(identifier)

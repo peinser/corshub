@@ -37,7 +37,10 @@ def mountpoint_metadata() -> dict:
 @pytest.fixture
 async def caster() -> NTRIPCaster:
     c = NTRIPCaster()
+    # Note: Don't start the caster because this will initiate the reap thread and you'll lose the base stations.
+
     await c.register(**_metadata)
+
     return c
 
 

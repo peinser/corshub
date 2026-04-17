@@ -18,6 +18,8 @@ Expected interface:
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from corshub.ntrip.v2.caster import Mountpoint
@@ -29,10 +31,13 @@ def _str_lines(table: str) -> list[str]:
     return [line for line in table.splitlines() if line.startswith("STR;")]
 
 
-async def _make_caster(*mountpoints: dict) -> NTRIPCaster:
-    c = NTRIPCaster()
+async def _make_caster(*mountpoints: dict, **kwargs) -> NTRIPCaster:
+    c = NTRIPCaster(**kwargs)
+    await c.start()
+
     for mp in mountpoints:
         await c.register(**mp)
+
     return c
 
 
@@ -80,6 +85,7 @@ class TestSourceTableStructure:
                 "longitude": 10.0
             },
         )
+
         assert len(_str_lines(format_sourcetable(c))) == 3
 
     def test_str_line_starts_with_str_prefix(self, caster: NTRIPCaster) -> None:
@@ -140,3 +146,32 @@ class TestSourceTableContent:
         str_lines = _str_lines(format_sourcetable(c))
         names = {line.split(";")[1] for line in str_lines}
         assert names == {"ALPHA", "BETA"}
+
+    async def test_mountpoint_removal(self) -> None:
+        reap_interval = 2.5
+
+        c = await _make_caster(
+            {
+                "name": "ALPHA",
+                "identifier": "ALPHA",
+                "format": "RTCM 3.3",
+                "country": "BEL",
+                "latitude": 50.0,
+                "longitude": 4.0
+            },
+            expiry=1.0,
+            reap_interval=reap_interval,
+        )
+
+        str_lines = _str_lines(format_sourcetable(c))
+        names = {line.split(";")[1] for line in str_lines}
+        assert names == {"ALPHA"}
+
+        # At this point, the reap thread shouldn't have executed.
+        await asyncio.sleep(0)  # Yield to other coroutines.
+        assert "ALPHA" in c.mountpoints
+
+        await asyncio.sleep(reap_interval * 2)
+
+        # The caster should have been removed from the mountpoints.
+        assert "ALPHA" not in c.mountpoints
