@@ -36,6 +36,33 @@ services:
     - dev
     restart: unless-stopped
 
+  prometheus:
+    image: docker.io/prom/prometheus:latest
+    container_name: prometheus
+    ports:
+    - "9090:9090"
+    volumes:
+    - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks:
+    - dev
+    restart: unless-stopped
+
+  grafana:
+    image: docker.io/grafana/grafana:latest
+    container_name: grafana
+    ports:
+    - "3000:3000"
+    environment:
+    - GF_AUTH_ANONYMOUS_ENABLED=true
+    - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    - GF_AUTH_DISABLE_LOGIN_FORM=true
+    volumes:
+    - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    - ../grafana:/etc/grafana/dashboards:ro
+    networks:
+    - dev
+    restart: unless-stopped
+
 networks:
   dev:
     driver: bridge
