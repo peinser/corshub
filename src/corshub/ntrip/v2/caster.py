@@ -31,8 +31,8 @@ from typing import TYPE_CHECKING
 
 import corshub.metrics as metrics
 
-from corshub.ntrip.v2.transport import QueueTransport
 from corshub.crypto import secrets
+from corshub.ntrip.v2.transport import QueueTransport
 
 
 if TYPE_CHECKING:

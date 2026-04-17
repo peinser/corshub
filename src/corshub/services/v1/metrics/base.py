@@ -9,15 +9,13 @@ to protect these endpoints behind your reverse proxy.
 
 from __future__ import annotations
 
+from prometheus_client import CONTENT_TYPE_LATEST
 from prometheus_client import REGISTRY
+from prometheus_client import generate_latest
 from sanic import Blueprint
 from sanic import HTTPResponse
 from sanic import Request
 from sanic import response
-
-from prometheus_client import REGISTRY
-from prometheus_client import CONTENT_TYPE_LATEST
-from prometheus_client import generate_latest
 
 from corshub import env
 

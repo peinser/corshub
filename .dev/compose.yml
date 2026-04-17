@@ -9,7 +9,6 @@ services:
     command: sleep infinity
     environment:
     - OPA_URL=http://opa:8181
-    - METRICS_NTRIP_PORT=9090
     ports: []
     volumes:
     - ..:/workspace:cached

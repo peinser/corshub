@@ -22,7 +22,6 @@ from .utils import create_app
 
 
 if TYPE_CHECKING:
-    from sanic import Sanic
     from sanic import HTTPResponse
     from sanic import Request
 
