@@ -3,12 +3,11 @@
 # Only values that differ from the chart defaults are listed here.
 # For the full set of tunables see helm/values.yaml.
 
-# -- Pin to an explicit image tag in production; never use "latest".
+# Pin to an explicit image tag in production; never use "latest".
 image:
-  repository: docker.io/peinser/corshub
-  tag: 0.0.1.dev0-c6235e6
+  repository: harbor.peinser.com/uas/corshub
+  tag: 0.0.1.dev0-c12b6aa
 
-# -- Increase for higher throughput; see the multi-replica warning in the chart
 # README before scaling beyond 1 (in-process QueueTransport is per-pod).
 replicaCount: 1
 
@@ -24,7 +23,7 @@ ingress:
   enabled: true
   className: nginx
   annotations:
-    # NTRIP streams are long-lived — raise timeouts well above the default 60 s.
+    # NTRIP streams are long-lived, raise timeouts well above the default 60 s.
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
     nginx.ingress.kubernetes.io/proxy-body-size: "0"
@@ -42,26 +41,31 @@ ingress:
         - corshub.peinser.com
 
 
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+
 opa:
   enabled: true
 
   image:
-    repository: docker.io/openpolicyagent/opa
+    repository: harbor.peinser.com/dockerhub/openpolicyagent/opa
     tag: 1.15.2-static
 
   registry:
-    # -- Map of base stations keyed by username / mountpoint.
+    # Map of base stations keyed by username / mountpoint.
     base_stations: {
-        "HERE4": {
-            "mountpoint": "HERE4",
-            "password_hash": "$2a$12$A7aOt0EZ6f1SDeQfFf2uWOfOnSHJAflr3ns0EetImaEqo6vvUbnam"
+        "peinser-mobile": {
+          "mountpoint": "MOBILE-PEINSER-0",
+          "password_hash": "$2a$12$1fkUorsdceZKRjwhgWjsmuNgWb6FjDMmilqGesXTnn50Sg7.9114a"
         }
     }
 
-    # -- Map of rovers keyed by username.
+    # Map of rovers keyed by username.
     rovers: {
-        "demo": {
-            "password_hash": "$2b$12$O7..ZHXLJ5v1rgEjg9LbNumMjSVS31sumzHqbc94UqRCdpfds4Pha",
+        "anonymous": {
+            "password_hash": "$2a$12$ZATiNWlcWTFfx/wxj7kX1.vtS/rEdU6WEkO7N39k67zcBrKe4V9yq",
             "mountpoints": [
                 "*"
             ]
