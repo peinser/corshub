@@ -66,7 +66,7 @@ class TestSourceTableStructure:
                 "format": "RTCM 3.3",
                 "country": "BEL",
                 "latitude": 50.0,
-                "longitude": 4.0
+                "longitude": 4.0,
             },
             {
                 "mountpoint": "B",
@@ -74,7 +74,7 @@ class TestSourceTableStructure:
                 "format": "RTCM 3.3",
                 "country": "NLD",
                 "latitude": 52.0,
-                "longitude": 5.0
+                "longitude": 5.0,
             },
             {
                 "mountpoint": "C",
@@ -82,7 +82,7 @@ class TestSourceTableStructure:
                 "format": "RTCM 3.3",
                 "country": "DEU",
                 "latitude": 48.0,
-                "longitude": 10.0
+                "longitude": 10.0,
             },
         )
 
@@ -132,7 +132,7 @@ class TestSourceTableContent:
                 "format": "RTCM 3.3",
                 "country": "BEL",
                 "latitude": 50.0,
-                "longitude": 4.0
+                "longitude": 4.0,
             },
             {
                 "mountpoint": "BETA",
@@ -140,7 +140,7 @@ class TestSourceTableContent:
                 "format": "RTCM 3.3",
                 "country": "NLD",
                 "latitude": 52.0,
-                "longitude": 5.0
+                "longitude": 5.0,
             },
         )
         str_lines = _str_lines(format_sourcetable(c))
@@ -157,7 +157,7 @@ class TestSourceTableContent:
                 "format": "RTCM 3.3",
                 "country": "BEL",
                 "latitude": 50.0,
-                "longitude": 4.0
+                "longitude": 4.0,
             },
             expiry=1.0,
             reap_interval=reap_interval,

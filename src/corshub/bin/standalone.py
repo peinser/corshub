@@ -81,7 +81,7 @@ if __name__ == "__main__":
         # never reachable through the main Ingress / HTTPRoute (which only targets
         # the application port). METRICS_PORT absent or empty disables the server
         # (useful in tests and local dev without a Prometheus stack).
-        start_http_server(port=arguments.metrics_port, addr="0.0.0.0")
+        start_http_server(port=arguments.metrics_port, addr="0.0.0.0")  # nosec B104
 
     app.run(
         host=arguments.host,

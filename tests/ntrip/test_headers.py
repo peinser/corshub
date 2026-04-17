@@ -25,12 +25,7 @@ def _gga(lat: float, lon: float) -> str:
     lon_min = (abs(lon) - lon_deg) * 60
     ns = "N" if lat >= 0 else "S"
     ew = "E" if lon >= 0 else "W"
-    body = (
-        f"GPGGA,120000.00,"
-        f"{lat_deg:02d}{lat_min:08.5f},{ns},"
-        f"{lon_deg:03d}{lon_min:08.5f},{ew},"
-        f"1,08,1.0,0.0,M,0.0,M,,"
-    )
+    body = f"GPGGA,120000.00,{lat_deg:02d}{lat_min:08.5f},{ns},{lon_deg:03d}{lon_min:08.5f},{ew},1,08,1.0,0.0,M,0.0,M,,"
     checksum = 0
     for ch in body:
         checksum ^= ord(ch)
@@ -38,7 +33,6 @@ def _gga(lat: float, lon: float) -> str:
 
 
 class TestParseNtripStr:
-
     def test_valid_str(self) -> None:
         ntrip_str = "MOBILE;Whoop;RTCM 3.3;1005(1),1077(1),1087(1),1097(1),1127(1),1230(1);2;GPS+GLO+GAL+BDS;;PRT;37.11;-7.11;0;0;Here4Base/1.0;;B;N;0"
         parsed = parse_ntrip_str(ntrip_str, "MOBILE")
@@ -66,7 +60,6 @@ class TestParseNtripStr:
 
 
 class TestParseNtripGga:
-
     def test_none_returns_none(self) -> None:
         assert parse_ntrip_gga(None) is None
 
@@ -140,7 +133,6 @@ class TestParseNtripGga:
 
 
 class TestHaversine:
-
     def test_same_point_is_zero(self) -> None:
         assert haversine(50.85, 4.35, 50.85, 4.35) == 0.0
 

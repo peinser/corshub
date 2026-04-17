@@ -67,10 +67,10 @@ def _rtcm1005(station_id: int = 0) -> bytes:
                 idx, remainder = divmod(offset + i, 8)
                 buf[idx] |= 1 << (7 - remainder)
 
-    _set(body, 0, 1005, 12)         # Message number (RTCM 1005)
+    _set(body, 0, 1005, 12)  # Message number (RTCM 1005)
     _set(body, 12, station_id, 12)  # Reference station ID
     # Bits 24-29: ITRF realisation year = 0 (already zero)
-    _set(body, 30, 1, 1)            # GPS indicator = 1
+    _set(body, 30, 1, 1)  # GPS indicator = 1
     # Remaining fields (GLONASS/Galileo indicators, ARP coords) stay 0
 
     header = bytes([0xD3, 0x00, 0x13])  # D3 preamble + 10-bit length = 19
@@ -160,9 +160,7 @@ def server_port() -> int:  # type: ignore[return]
             app.blueprint(blueprint)
             app.ctx.ntrip_caster = caster  # Set directly; before_server_start doesn't fire for create_server
 
-            server = await app.create_server(
-                host=HOST, port=port, return_asyncio_server=True
-            )
+            server = await app.create_server(host=HOST, port=port, return_asyncio_server=True)
             await server.startup()
             ready.set()
 
@@ -276,9 +274,7 @@ class TestRtcmDelivery:
         stop = asyncio.Event()
 
         # Start the base station so frames are already flowing when the rover connects.
-        bs_task = asyncio.create_task(
-            self._run_base_station(server_port, frame, stop)
-        )
+        bs_task = asyncio.create_task(self._run_base_station(server_port, frame, stop))
 
         await asyncio.sleep(0.3)  # Give the base station time to register and start sending.
 
@@ -308,9 +304,7 @@ class TestRtcmDelivery:
         frame = _rtcm1005()
         stop = asyncio.Event()
 
-        bs_task = asyncio.create_task(
-            self._run_base_station(server_port, frame, stop)
-        )
+        bs_task = asyncio.create_task(self._run_base_station(server_port, frame, stop))
         await asyncio.sleep(0.3)
 
         client = _start_client(server_port, mountpoint=MOUNTPOINT, output=output)

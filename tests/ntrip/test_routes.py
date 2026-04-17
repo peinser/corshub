@@ -49,7 +49,6 @@ INVALID_NTRIP_STR = "STR;Quelfes, PT;RTCM 3.x Ephemeris;RTCM 3.2;1004(1),1012(1)
 
 
 class TestSourceTableRoute:
-
     async def test_returns_200(self, app: Sanic) -> None:
         _, response = await app.asgi_client.get("/", headers=NTRIP_HEADERS)
         assert response.status_code == 200
@@ -68,7 +67,6 @@ class TestSourceTableRoute:
 
 
 class TestSourceRoute:
-
     async def test_missing_ntrip_version_header_returns_400(self, app: Sanic) -> None:
         _, response = await app.asgi_client.put(
             "/BASE1",

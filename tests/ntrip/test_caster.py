@@ -41,8 +41,12 @@ def extra_mountpoint() -> dict:
 class TestMountpointValidation:
     def _base(self, **overrides) -> dict:  # type: ignore[return]
         defaults = dict(
-            name="BASE1", identifier="BASE1",
-            format="RTCM 3.3", country="BEL", latitude=50.85, longitude=4.35,
+            name="BASE1",
+            identifier="BASE1",
+            format="RTCM 3.3",
+            country="BEL",
+            latitude=50.85,
+            longitude=4.35,
         )
         defaults.update(overrides)
         return defaults
@@ -124,11 +128,13 @@ class TestMountpointRegistry:
 
     async def test_raise_invalid_country(self, caster: NTRIPCaster) -> None:
         with pytest.raises(ValueError):
-            await caster.register(**{
-                "name": "BASE3",
-                "mountpoint": "BASE3",
-                "country": "INVALID",
-            })
+            await caster.register(
+                **{
+                    "name": "BASE3",
+                    "mountpoint": "BASE3",
+                    "country": "INVALID",
+                }
+            )
 
     async def test_unregister_removes_mountpoint(self, caster: NTRIPCaster) -> None:
         await caster.unregister("BASE1")
@@ -138,9 +144,7 @@ class TestMountpointRegistry:
         await caster.unregister("UNKNOWN")
         assert "UNKNOWN" not in caster.mountpoints  # Operation is idempotent, should not yield errors
 
-    def test_mountpoints_is_mapping_of_name_to_mountpoint(
-        self, caster: NTRIPCaster, mountpoint_metadata: dict
-    ) -> None:
+    def test_mountpoints_is_mapping_of_name_to_mountpoint(self, caster: NTRIPCaster, mountpoint_metadata: dict) -> None:
         mp = caster.mountpoints["BASE1"]
         assert mp.name == mountpoint_metadata["name"]
         assert mp.identifier == mountpoint_metadata["identifier"]
@@ -196,9 +200,7 @@ class TestAvailability:
     async def test_available_empty_string_identifier(self, caster: NTRIPCaster) -> None:
         assert await caster.available("") is False
 
-    async def test_available_is_independent_per_mountpoint(
-        self, caster: NTRIPCaster, extra_mountpoint: dict
-    ) -> None:
+    async def test_available_is_independent_per_mountpoint(self, caster: NTRIPCaster, extra_mountpoint: dict) -> None:
         await caster.register(**extra_mountpoint)
         await caster.close("BASE1")
         assert await caster.available("BASE1") is False
@@ -367,6 +369,7 @@ class TestReaper:
 
     async def test_publish_updates_last_seen(self, caster: NTRIPCaster) -> None:
         import time
+
         before = time.monotonic()
         caster.mountpoints["BASE1"].last_seen = 0.0
         await caster.publish("BASE1", b"\xd3\x00\x00")

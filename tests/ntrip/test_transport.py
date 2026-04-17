@@ -46,7 +46,6 @@ async def _collect_one(transport: QueueTransport, mountpoint: str) -> list[bytes
 
 
 class TestLifecycle:
-
     async def test_open_registers_mountpoint(self) -> None:
         t = QueueTransport()
         assert await t.publish(b"\xd3\x00\x00") == 0

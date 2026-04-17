@@ -48,12 +48,7 @@ def _gga(lat: float, lon: float) -> str:
     lon_min = (abs(lon) - lon_deg) * 60
     ns = "N" if lat >= 0 else "S"
     ew = "E" if lon >= 0 else "W"
-    body = (
-        f"GPGGA,120000.00,"
-        f"{lat_deg:02d}{lat_min:08.5f},{ns},"
-        f"{lon_deg:03d}{lon_min:08.5f},{ew},"
-        f"1,08,1.0,0.0,M,0.0,M,,"
-    )
+    body = f"GPGGA,120000.00,{lat_deg:02d}{lat_min:08.5f},{ns},{lon_deg:03d}{lon_min:08.5f},{ew},1,08,1.0,0.0,M,0.0,M,,"
     checksum = 0
     for ch in body:
         checksum ^= ord(ch)
@@ -121,8 +116,12 @@ async def nmea_caster() -> NTRIPCaster:
     """Single mountpoint at Brussels with nmea=True and no mask."""
     c = NTRIPCaster()
     await c.register(
-        mountpoint="BASE1", identifier="My Own String",
-        format="RTCM 3.3", country="BEL", latitude=MP_LAT, longitude=MP_LON,
+        mountpoint="BASE1",
+        identifier="My Own String",
+        format="RTCM 3.3",
+        country="BEL",
+        latitude=MP_LAT,
+        longitude=MP_LON,
         nmea=True,
     )
     return c
@@ -133,9 +132,14 @@ async def masked_caster() -> NTRIPCaster:
     """Single mountpoint at Brussels with nmea=True and a 50 km mask."""
     c = NTRIPCaster()
     await c.register(
-        mountpoint="BASE1", identifier="My Fancy String",
-        format="RTCM 3.3", country="BEL", latitude=MP_LAT, longitude=MP_LON,
-        nmea=True, mask=50.0,
+        mountpoint="BASE1",
+        identifier="My Fancy String",
+        format="RTCM 3.3",
+        country="BEL",
+        latitude=MP_LAT,
+        longitude=MP_LON,
+        nmea=True,
+        mask=50.0,
     )
     return c
 
@@ -179,7 +183,6 @@ class TestRoverRouteNmeaDisabled:
 
 
 class TestRoverRouteNmeaRequired:
-
     async def test_missing_gga_returns_400(self, nmea_app: Sanic) -> None:
         _, response = await nmea_app.asgi_client.get(
             "/BASE1",
@@ -197,16 +200,18 @@ class TestRoverRouteNmeaRequired:
     async def test_bad_checksum_gga_returns_400(self, nmea_app: Sanic) -> None:
         _, response = await nmea_app.asgi_client.get(
             "/BASE1",
-            headers={**NTRIP_H, "Authorization": AUTH,
-                     "Ntrip-GGA": "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*00"},
+            headers={
+                **NTRIP_H,
+                "Authorization": AUTH,
+                "Ntrip-GGA": "$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*00",
+            },
         )
         assert response.status_code == 400
 
     async def test_non_gga_nmea_sentence_returns_400(self, nmea_app: Sanic) -> None:
         _, response = await nmea_app.asgi_client.get(
             "/BASE1",
-            headers={**NTRIP_H, "Authorization": AUTH,
-                     "Ntrip-GGA": "$GPGLL,4807.038,N,01131.000,E,123519,A*26"},
+            headers={**NTRIP_H, "Authorization": AUTH, "Ntrip-GGA": "$GPGLL,4807.038,N,01131.000,E,123519,A*26"},
         )
         assert response.status_code == 400
 
@@ -218,9 +223,7 @@ class TestRoverRouteNmeaRequired:
         )
         assert response.status_code == 200
 
-    async def test_valid_gga_far_away_returns_200_when_no_mask(
-        self, nmea_app: Sanic, nmea_caster: NTRIPCaster
-    ) -> None:
+    async def test_valid_gga_far_away_returns_200_when_no_mask(self, nmea_app: Sanic, nmea_caster: NTRIPCaster) -> None:
         # Without a mask, any valid GGA passes regardless of distance.
         asyncio.create_task(_end_stream(nmea_caster))
         _, response = await nmea_app.asgi_client.get(
@@ -231,7 +234,6 @@ class TestRoverRouteNmeaRequired:
 
 
 class TestRoverRouteNmeaMasked:
-
     async def test_rover_outside_mask_returns_400(self, masked_app: Sanic) -> None:
         _, response = await masked_app.asgi_client.get(
             "/BASE1",
@@ -246,9 +248,7 @@ class TestRoverRouteNmeaMasked:
         )
         assert response.status_code == 400
 
-    async def test_rover_within_mask_returns_200(
-        self, masked_app: Sanic, masked_caster: NTRIPCaster
-    ) -> None:
+    async def test_rover_within_mask_returns_200(self, masked_app: Sanic, masked_caster: NTRIPCaster) -> None:
         asyncio.create_task(_end_stream(masked_caster))
         _, response = await masked_app.asgi_client.get(
             "/BASE1",
@@ -268,38 +268,57 @@ class TestRoverRouteNmeaMasked:
 
 
 class TestMountpointMaskField:
-
     def test_default_mask_is_zero(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
+
         mp = Mountpoint(
-            name="X", identifier="X",
-            format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
+            name="X",
+            identifier="X",
+            format="RTCM 3.3",
+            country="BEL",
+            latitude=50.0,
+            longitude=4.0,
         )
         assert mp.mask == 0.0
 
     def test_positive_mask_is_accepted(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
+
         mp = Mountpoint(
-            name="X", identifier="X",
-            format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
+            name="X",
+            identifier="X",
+            format="RTCM 3.3",
+            country="BEL",
+            latitude=50.0,
+            longitude=4.0,
             mask=100.0,
         )
         assert mp.mask == 100.0
 
     def test_zero_mask_is_accepted(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
+
         Mountpoint(
-            name="X", identifier="X",
-            format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
+            name="X",
+            identifier="X",
+            format="RTCM 3.3",
+            country="BEL",
+            latitude=50.0,
+            longitude=4.0,
             mask=0.0,
         )  # must not raise
 
     def test_negative_mask_raises(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
+
         with pytest.raises(ValueError, match="[Mm]ask"):
             Mountpoint(
-                name="X", identifier="X",
-                format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
+                name="X",
+                identifier="X",
+                format="RTCM 3.3",
+                country="BEL",
+                latitude=50.0,
+                longitude=4.0,
                 mask=-1.0,
             )
 
@@ -309,12 +328,20 @@ async def two_mountpoint_caster() -> NTRIPCaster:
     """Two mountpoints: BASE1 near (50.0, 4.0), BASE2 far (52.0, 4.0)."""
     c = NTRIPCaster()
     await c.register(
-        mountpoint="BASE1", identifier="BASE1",
-        format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0,
+        mountpoint="BASE1",
+        identifier="BASE1",
+        format="RTCM 3.3",
+        country="BEL",
+        latitude=50.0,
+        longitude=4.0,
     )
     await c.register(
-        mountpoint="BASE2", identifier="BASE2",
-        format="RTCM 3.3", country="NLD", latitude=52.0, longitude=4.0,
+        mountpoint="BASE2",
+        identifier="BASE2",
+        format="RTCM 3.3",
+        country="NLD",
+        latitude=52.0,
+        longitude=4.0,
     )
     return c
 
@@ -324,12 +351,22 @@ async def masked_two_caster() -> NTRIPCaster:
     """Two mountpoints each with a 30 km mask; BASE1 south, BASE2 north."""
     c = NTRIPCaster()
     await c.register(
-        mountpoint="BASE1", identifier="BASE1",
-        format="RTCM 3.3", country="BEL", latitude=50.0, longitude=4.0, mask=30.0,
+        mountpoint="BASE1",
+        identifier="BASE1",
+        format="RTCM 3.3",
+        country="BEL",
+        latitude=50.0,
+        longitude=4.0,
+        mask=30.0,
     )
     await c.register(
-        mountpoint="BASE2", identifier="BASE2",
-        format="RTCM 3.3", country="NLD", latitude=52.0, longitude=4.0, mask=30.0,
+        mountpoint="BASE2",
+        identifier="BASE2",
+        format="RTCM 3.3",
+        country="NLD",
+        latitude=52.0,
+        longitude=4.0,
+        mask=30.0,
     )
     return c
 
@@ -345,7 +382,6 @@ def masked_two_app(masked_two_caster: NTRIPCaster) -> Sanic:
 
 
 class TestNearestRoute:
-
     @pytest.mark.parametrize("path", ["/NEAR", "/NEAREST", "/NSB"])
     async def test_missing_gga_returns_400(self, path: str, two_app: Sanic) -> None:
         _, response = await two_app.asgi_client.get(
@@ -379,9 +415,7 @@ class TestNearestRoute:
         )
         assert response.status_code == 404
 
-    async def test_selects_nearest_mountpoint(
-        self, two_app: Sanic, two_mountpoint_caster: NTRIPCaster
-    ) -> None:
+    async def test_selects_nearest_mountpoint(self, two_app: Sanic, two_mountpoint_caster: NTRIPCaster) -> None:
         # Rover at (50.1, 4.0) → ~11 km from BASE1, ~211 km from BASE2
         asyncio.create_task(_end_stream(two_mountpoint_caster))
         _, response = await two_app.asgi_client.get(
@@ -401,9 +435,7 @@ class TestNearestRoute:
         )
         assert response.status_code == 200
 
-    async def test_nearest_aliases_return_same_status(
-        self, two_app: Sanic, two_mountpoint_caster: NTRIPCaster
-    ) -> None:
+    async def test_nearest_aliases_return_same_status(self, two_app: Sanic, two_mountpoint_caster: NTRIPCaster) -> None:
         gga = _gga(50.1, 4.0)
         results = []
         for path in ("/NEAR", "/NEAREST", "/NSB"):
