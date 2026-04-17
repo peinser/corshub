@@ -12,6 +12,9 @@ import pytest
 
 from corshub.ntrip.v2.headers import haversine
 from corshub.ntrip.v2.headers import parse_ntrip_gga
+from corshub.ntrip.v2.headers import parse_ntrip_str
+from corshub.ntrip.v2.caster import Mountpoint
+from corshub.ntrip.v2.sourcetable import _str_record
 
 
 def _gga(lat: float, lon: float) -> str:
@@ -32,6 +35,34 @@ def _gga(lat: float, lon: float) -> str:
     for ch in body:
         checksum ^= ord(ch)
     return f"${body}*{checksum:02X}"
+
+
+class TestParseNtripStr:
+
+    def test_valid_str(self) -> None:
+        ntrip_str = "MOBILE;Whoop;RTCM 3.3;1005(1),1077(1),1087(1),1097(1),1127(1),1230(1);2;GPS+GLO+GAL+BDS;;PRT;37.11;-7.11;0;0;Here4Base/1.0;;B;N;0"
+        parsed = parse_ntrip_str(ntrip_str, "MOBILE")
+
+        assert parsed["name"] == "MOBILE"
+        assert parsed["identifier"] == "Whoop"
+        assert parsed["format"] == "RTCM 3.3"
+        assert parsed["country"] == "PRT"
+        assert parsed["latitude"] == 37.11
+        assert parsed["longitude"] == -7.11
+
+        mp = Mountpoint(**parsed)
+        assert mp.name == "MOBILE"
+        assert mp.identifier == "Whoop"
+        assert mp.latitude == 37.11
+        assert mp.longitude == -7.11
+        assert mp.country == "PRT"
+
+        record = _str_record(mp)
+        assert "MOBILE" in record
+        assert "Whoop" in record
+        assert "37.11" in record
+        assert "-7.11" in record
+        assert "PRT" in record
 
 
 class TestParseNtripGga:

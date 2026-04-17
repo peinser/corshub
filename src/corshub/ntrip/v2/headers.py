@@ -96,7 +96,7 @@ def parse_ntrip_str(
         return defaults
 
     # Split on semicolons and clean each field (remove whitespace, drop completely empty ones)
-    fields = [f.strip() for f in header.split(";") if f.strip()]
+    fields = [f.strip() for f in header.split(";")]
 
     # Handle both compliant and non-compliant clients:
     #   Compliant (NTRIP v2 spec): starts directly with mountpoint
@@ -129,6 +129,9 @@ def parse_ntrip_str(
             return None
 
     if (v := _str(STR_MOUNTPOINT)) is not None:
+        defaults["name"] = v
+
+    if (v := _str(STR_IDENTIFIER)) is not None:
         defaults["identifier"] = v
 
     if (v := _str(STR_FORMAT)) is not None:
