@@ -474,7 +474,9 @@ async def caster_loop(
     url = f"{caster_url.rstrip('/')}/{mountpoint}"
     backoff = 1.0
 
-    async with aiohttp.ClientSession() as session:
+    # Disable aiohttp's default 300 s total timeout — NTRIP streams are indefinite.
+    _timeout = aiohttp.ClientTimeout(total=None, connect=10)
+    async with aiohttp.ClientSession(timeout=_timeout) as session:
         while True:
             # Don't attempt to connect until we have a fixed position.
             while gs.state != State.FIXED:
@@ -486,6 +488,8 @@ async def caster_loop(
             ntrip_str = _build_ntrip_str(
                 mountpoint, label or mountpoint, gs.lat, gs.lon, country, network
             )
+
+            log(f"NTRIP-STR: {ntrip_str}")
 
             async def _frame_generator():
                 while True:
