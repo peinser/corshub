@@ -95,58 +95,85 @@ def parse_ntrip_str(
     if not header:
         return defaults
 
-    fields = header.split(";")
+    # Split on semicolons and clean each field (remove whitespace, drop completely empty ones)
+    fields = [f.strip() for f in header.split(";") if f.strip()]
 
-    # Remove leading 'STR'
-    del fields[0]
+    # Handle both compliant and non-compliant clients:
+    #   Compliant (NTRIP v2 spec): starts directly with mountpoint
+    #   Non-compliant / legacy: starts with "STR"
+    if fields and fields[0].upper() == "STR":
+        fields = fields[1:]
 
     def _str(idx: int) -> str | None:
-        v = fields[idx].strip() if idx < len(fields) else None
-        return v or None
+        if idx >= len(fields):
+            return None
+
+        v = fields[idx]
+
+        return v if v else None
 
     def _int(idx: int) -> int | None:
+        if idx >= len(fields):
+            return None
         try:
-            return int(fields[idx]) if idx < len(fields) else None
-        except ValueError, IndexError:
+            return int(fields[idx])
+        except (ValueError, TypeError):
             return None
 
     def _float(idx: int) -> float | None:
+        if idx >= len(fields):
+            return None
         try:
-            return float(fields[idx]) if idx < len(fields) else None
-        except ValueError, IndexError:
+            return float(fields[idx])
+        except (ValueError, TypeError):
             return None
 
     if (v := _str(STR_MOUNTPOINT)) is not None:
         defaults["identifier"] = v
+
     if (v := _str(STR_FORMAT)) is not None:
         defaults["format"] = v
+
     if (v := _str(STR_FORMAT_DETAIL)) is not None:
         defaults["format_detail"] = v
+
     if (i := _int(STR_CARRIER)) is not None and i in (0, 1, 2):
         defaults["carrier"] = i
+
     if (v := _str(STR_NAV_SYSTEM)) is not None:
         defaults["nav_system"] = v
+
     if (v := _str(STR_NETWORK)) is not None:
         defaults["network"] = v
-    if len(fields) >= STR_MIN_FIELDS:
+
+    if len(fields) > STR_LONGITUDE:
         if (v := _str(STR_COUNTRY)) is not None and len(v) == 3:
             defaults["country"] = v.upper()
+
         if (f := _float(STR_LATITUDE)) is not None and -90.0 <= f <= 90.0:
             defaults["latitude"] = f
+
         if (f := _float(STR_LONGITUDE)) is not None and -180.0 <= f <= 180.0:
             defaults["longitude"] = f
+
     if (i := _int(STR_NMEA)) is not None and i in (0, 1):
         defaults["nmea"] = bool(i)
+
     if (i := _int(STR_SOLUTION)) is not None and i in (0, 1):
         defaults["solution"] = i
+
     if (v := _str(STR_GENERATOR)) is not None:
         defaults["generator"] = v
+
     if (v := _str(STR_COMPRESSION)) is not None:
         defaults["compression"] = v
+
     if (v := _str(STR_AUTH)) is not None and v in ("N", "B", "D"):
         defaults["auth"] = v
+
     if (v := _str(STR_FEE)) is not None and v in ("N", "Y"):
         defaults["fee"] = v
+
     if (i := _int(STR_BITRATE)) is not None and i >= 0:
         defaults["bitrate"] = i
 
