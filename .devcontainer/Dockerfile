@@ -93,7 +93,7 @@ ENV PATH=/workspace/bin:$PATH
 # Install 'act' for local GitHub Actions testing
 RUN curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | bash
 
-# Install `helm
+# Install `helm'
 RUN HELM_VERSION=3.17.3 && \
     ARCH=$(dpkg --print-architecture) && \
     curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${ARCH}.tar.gz" \

@@ -53,7 +53,7 @@ opa:
                 mountpoint: MOBILE-PEINSER-0
                 valid_from: "2025-01-01"
                 valid_until: "2027-01-01"
-                password_hash: ENC[AES256_GCM,data:X/LzXBUs1RsesjZx8tfloQBtUYZ3ucVQRaMJb40JKBDefQIAHuvj4m6yjezxHmrZrx+OKa7ifLZs2nhs,iv:V+d2wuje7y3f7ljCB7lCd9O1IM2RxrbwqIhmeEltWEo=,tag:ZMEcdYVB9WXyc3tJ+mYS/A==,type:str]
+                password_hash: ENC[AES256_GCM,data:tkgRqaVDF/EJVOqR6D++qzqjU0/xvVaEkx1ziTFw9YK+L9nQpqAzB6K5/NjJSH1xIZ+T4SEQRvqvNgbZ,iv:x4J3LeE0Mm6btYS4f+0t6Zn6HlTBN4mk7G8+qwFk3PQ=,tag:nEH1Cvfc4klMsMCjFkivpg==,type:str]
         # Map of rovers keyed by username.
         # valid_from / valid_until: optional ISO 8601 dates (YYYY-MM-DD).
         rovers:
@@ -62,19 +62,19 @@ opa:
                 valid_until: "2027-01-01"
                 mountpoints:
                     - '*'
-                password_hash: ENC[AES256_GCM,data:6PZNDZbPOGMcWUZt9W794xgf0qI4z5vwyTf6hPTzEpG0iZeSa0Hmq0H4dZAMOO4W65LRb2gjusAXVbjc,iv:3PETjj053YTVIEBMepl76y6ob/M3n++Bdn4PfTRsOcw=,tag:7v6JTpx88yqxbYKghc4pxw==,type:str]
+                password_hash: ENC[AES256_GCM,data:R6Bzx/HMm9ldttfTtxG8Z0QkDzx/oGEK75L3va6Eq6ipc8R3kYEmsTn6YfPXLR9lunGtZNhwLwndizw4,iv:Bh914q0Rre8JVQBb10AZmRrRgLyyVovpGzA1Mtly6XI=,tag:V0Pg9eO8c+EmnwbJqgAESg==,type:str]
 sops:
     age:
-        - recipient: age1j34rc5dz8w53vsr92vxx86mdlk2qd9qg3acjmdzuml9u5svgs9jqs7w3vx
+        - recipient: age1za85janjgmr22j7ax2hftg5usc53v0estz7zn35kdcs8h9l4sd2q97p724
           enc: |
             -----BEGIN AGE ENCRYPTED FILE-----
-            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBEY2tiZ0JlMkJPaGpRV1pR
-            a2dUbndONjJTSm9aVVNSZEZ3c3VXYzRVaTFBCk5aUHNyRXdaWXlkOWQzL2pMck5U
-            anZFLzRoZnNac1A0NURsK3JqVVhkTnMKLS0tIFRFdGhtc2VuM2ZuQm1LSnBlK0I2
-            d25TSTNldSszNXBmS0FzMmF2OWlvRWMK5boKKFoOuurEauiSEKQjMzK8cORezhFn
-            Pt4mBPQ5vyZicFGu3sz7p7Tk9tGEAMAyXzCM772Y+wuPD3zdI1IDvw==
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSA2RUxGbmdJeFJuOTQvRzR0
+            SmFrcDhVbXIveDYvWVExeUU0UGhManU4dFdBCmpocUx6dWJSTGQ3OHZiNFdwcnd2
+            UDR5Q0dzSWlYZENVNUVWQkxtenlDVW8KLS0tIFlBYmpxQ2xmOThYdmJQZk9qTmVH
+            anRtWHQ5UjN1SnBoOWxIVTNqZ28xM0kK0iqVVCV4E8vgm4UHH0UYkVHPf14u15+2
+            m9d5wZmqTODKJKbAbGqRqlsY8kUTwt/sp1uSqt5dju4gzercekAtFg==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-04-18T08:26:23Z"
-    mac: ENC[AES256_GCM,data:TFRlwSm4E1N5Y3CtfteUG39717rL9yz1A2GycsrDFudJADbedlzwf2aJx/fRGPu06BsOLKPhJ99gOCiGBI8BeUIDM9a/FOma7ty4bPwWlV24UQ5YO+JXZGJJ8PBIamPapJRk+Lq32okDBPGnxVz5r6YSwlqygB1RcwginZuv9Eg=,iv:wNO80JuJizRqBD5luR9/n26kmCu+NNBQE4VUy8DrdF0=,tag:w1Cp9cdeS34EvsTzkxRMVw==,type:str]
+    lastmodified: "2026-04-18T20:21:16Z"
+    mac: ENC[AES256_GCM,data:ey+myGri/D5HWY9LtMpyZchNsugLP1WpH3jgA+J2xh+s1F2cU+L5BlMMHlZJL2o2CyEgXshjRsX53KBoljsTZ9S94Gw2BEvTHqzHRXIdwgQO4L2gVWnVHcgAQZLXWgV+3q7dEkFy85SYw3X9w28fH73f8NpQFtTnjnjBL9TV3Ic=,iv:CCZXHMS8eRynocld6EhDiBekNuGsHbZTCaNKNlqyXj0=,tag:yNV1DRv5LQFFOIR6IgRRpQ==,type:str]
     encrypted_regex: password_hash
     version: 3.12.2
