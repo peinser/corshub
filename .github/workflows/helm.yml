@@ -32,6 +32,7 @@ jobs:
     - name: Authenticate with the remote Container Registry
       run: |
         echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
+        echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | crane auth login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
 
     - name: Determine chart version
       id: version
