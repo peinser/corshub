@@ -41,38 +41,13 @@ jobs:
         run: |
           echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
 
-      - name: Debug SOPS
-        shell: bash
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
-        run: |
-          echo "Key length: ${#SOPS_AGE_KEY}"
-          sops --version
-
-      - name: Debug values.yaml
-        shell: bash
-        working-directory: ./ops
-        run: |
-          md5sum values.yaml
-          head -3 values.yaml
-
-      - name: Debug decrypt
-        shell: bash
-        working-directory: ./ops
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
-        run: |
-          echo "Key prefix: ${SOPS_AGE_KEY:0:20}"
-          echo "$SOPS_AGE_KEY" > /tmp/k.txt && age-keygen -y /tmp/k.txt && rm /tmp/k.txt
-          sops -d --output /tmp/values-plain.yaml values.yaml
-
       - name: Prepare values.yaml
         shell: bash
         working-directory: ./ops
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
         run: |
-          sops -d values.yaml > /tmp/values-plain.yaml
+          echo '${{ secrets.SOPS_AGE_KEY }}' > /tmp/age-key.txt
+          SOPS_AGE_KEY_FILE=/tmp/age-key.txt sops -d --output /tmp/values-plain.yaml values.yaml
+          rm -f /tmp/age-key.txt
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
