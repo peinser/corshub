@@ -28,6 +28,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           sparse-checkout: |
+            .
             ops
           sparse-checkout-cone-mode: false
           fetch-depth: 0
@@ -45,9 +46,10 @@ jobs:
         shell: bash
         working-directory: ./ops
         run: |
-          echo '${{ secrets.SOPS_AGE_KEY }}' > /tmp/age-key.txt
-          SOPS_AGE_KEY_FILE=/tmp/age-key.txt sops -d --output /tmp/values-plain.yaml values.yaml
-          rm -f /tmp/age-key.txt
+          echo "${{ secrets.SOPS_AGE_KEY }}" > age.key
+          chmod 600 age.key
+          echo "SOPS_AGE_KEY_FILE=age.key" >> $GITHUB_ENV
+          sops -d values.yaml > /tmp/values-plain.yaml
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
