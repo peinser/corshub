@@ -46,10 +46,10 @@ jobs:
 
       - name: Prepare values.yaml
         shell: bash
-        env:
-          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
         run: |
-          sops -d values.yaml > /tmp/values-plain.yaml
+          echo '${{ secrets.SOPS_AGE_KEY }}' > /tmp/age-key.txt
+          SOPS_AGE_KEY_FILE=/tmp/age-key.txt sops -d values.yaml > /tmp/values-plain.yaml
+          rm -f /tmp/age-key.txt
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
