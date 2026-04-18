@@ -63,6 +63,7 @@ jobs:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
         run: |
           echo "Key prefix: ${SOPS_AGE_KEY:0:20}"
+          echo "$SOPS_AGE_KEY" > /tmp/k.txt && age-keygen -y /tmp/k.txt && rm /tmp/k.txt
           sops -d --output /tmp/values-plain.yaml values.yaml
 
       - name: Prepare values.yaml
