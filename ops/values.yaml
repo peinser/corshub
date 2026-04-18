@@ -2,73 +2,79 @@
 #
 # Only values that differ from the chart defaults are listed here.
 # For the full set of tunables see helm/values.yaml.
-
 # Pin to an explicit image tag in production; never use "latest".
 image:
-  repository: harbor.peinser.com/uas/corshub
-  tag: 0.0.1.dev0-c12b6aa
-
+    repository: harbor.peinser.com/uas/corshub
+    tag: 0.0.1.dev0-822f802
 # README before scaling beyond 1 (in-process QueueTransport is per-pod).
 replicaCount: 1
-
 resources:
-  requests:
-    cpu: 250m
-    memory: 512Mi
-  limits:
-    memory: 512Mi
-
+    requests:
+        cpu: 250m
+        memory: 512Mi
+    limits:
+        memory: 512Mi
 # Classic Ingress (nginx-ingress or similar):
 ingress:
-  enabled: true
-  className: nginx
-  annotations:
-    # NTRIP streams are long-lived, raise timeouts well above the default 60 s.
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
-    nginx.ingress.kubernetes.io/proxy-body-size: "0"
-    nginx.ingress.kubernetes.io/proxy-buffering: "off"
-    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
-    cert-manager.io/cluster-issuer: letsencrypt-production
-  hosts:
-    - host: corshub.peinser.com
-      paths:
-        - path: /
-          pathType: Prefix
-  tls:
-    - secretName: corshub-tls
-      hosts:
-        - corshub.peinser.com
-
-
-metrics:
-  enabled: true
-  serviceMonitor:
     enabled: true
-
+    className: nginx
+    annotations:
+        # NTRIP streams are long-lived, raise timeouts well above the default 60 s.
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-body-size: "0"
+        nginx.ingress.kubernetes.io/proxy-buffering: "off"
+        nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+        cert-manager.io/cluster-issuer: letsencrypt-production
+    hosts:
+        - host: corshub.peinser.com
+          paths:
+            - path: /
+              pathType: Prefix
+    tls:
+        - secretName: corshub-tls
+          hosts:
+            - corshub.peinser.com
+metrics:
+    enabled: true
+    serviceMonitor:
+        enabled: true
 opa:
-  enabled: true
-
-  image:
-    repository: harbor.peinser.com/dockerhub/openpolicyagent/opa
-    tag: 1.15.2-static
-
-  registry:
-    # Map of base stations keyed by username / mountpoint.
-    base_stations: {
-        "peinser-mobile": {
-          "mountpoint": "MOBILE-PEINSER-0",
-          "password_hash": "$2a$12$1fkUorsdceZKRjwhgWjsmuNgWb6FjDMmilqGesXTnn50Sg7.9114a"
-        }
-    }
-
-    # Map of rovers keyed by username.
-    rovers: {
-        "anonymous": {
-            "password_hash": "$2a$12$ZATiNWlcWTFfx/wxj7kX1.vtS/rEdU6WEkO7N39k67zcBrKe4V9yq",
-            "mountpoints": [
-                "*"
-            ]
-        }
-    }
-
+    enabled: true
+    image:
+        repository: harbor.peinser.com/dockerhub/openpolicyagent/opa
+        tag: 1.15.2-static
+    registry:
+        # Map of base stations keyed by username / mountpoint.
+        # valid_from / valid_until: optional ISO 8601 dates (YYYY-MM-DD).
+        # Connections are denied before valid_from and on/after valid_until.
+        base_stations:
+            peinser-mobile:
+                mountpoint: MOBILE-PEINSER-0
+                valid_from: "2025-01-01"
+                valid_until: "2027-01-01"
+                password_hash: ENC[AES256_GCM,data:X/LzXBUs1RsesjZx8tfloQBtUYZ3ucVQRaMJb40JKBDefQIAHuvj4m6yjezxHmrZrx+OKa7ifLZs2nhs,iv:V+d2wuje7y3f7ljCB7lCd9O1IM2RxrbwqIhmeEltWEo=,tag:ZMEcdYVB9WXyc3tJ+mYS/A==,type:str]
+        # Map of rovers keyed by username.
+        # valid_from / valid_until: optional ISO 8601 dates (YYYY-MM-DD).
+        rovers:
+            anonymous:
+                valid_from: "2025-01-01"
+                valid_until: "2027-01-01"
+                mountpoints:
+                    - '*'
+                password_hash: ENC[AES256_GCM,data:6PZNDZbPOGMcWUZt9W794xgf0qI4z5vwyTf6hPTzEpG0iZeSa0Hmq0H4dZAMOO4W65LRb2gjusAXVbjc,iv:3PETjj053YTVIEBMepl76y6ob/M3n++Bdn4PfTRsOcw=,tag:7v6JTpx88yqxbYKghc4pxw==,type:str]
+sops:
+    age:
+        - recipient: age1j34rc5dz8w53vsr92vxx86mdlk2qd9qg3acjmdzuml9u5svgs9jqs7w3vx
+          enc: |
+            -----BEGIN AGE ENCRYPTED FILE-----
+            YWdlLWVuY3J5cHRpb24ub3JnL3YxCi0+IFgyNTUxOSBEY2tiZ0JlMkJPaGpRV1pR
+            a2dUbndONjJTSm9aVVNSZEZ3c3VXYzRVaTFBCk5aUHNyRXdaWXlkOWQzL2pMck5U
+            anZFLzRoZnNac1A0NURsK3JqVVhkTnMKLS0tIFRFdGhtc2VuM2ZuQm1LSnBlK0I2
+            d25TSTNldSszNXBmS0FzMmF2OWlvRWMK5boKKFoOuurEauiSEKQjMzK8cORezhFn
+            Pt4mBPQ5vyZicFGu3sz7p7Tk9tGEAMAyXzCM772Y+wuPD3zdI1IDvw==
+            -----END AGE ENCRYPTED FILE-----
+    lastmodified: "2026-04-18T08:26:23Z"
+    mac: ENC[AES256_GCM,data:TFRlwSm4E1N5Y3CtfteUG39717rL9yz1A2GycsrDFudJADbedlzwf2aJx/fRGPu06BsOLKPhJ99gOCiGBI8BeUIDM9a/FOma7ty4bPwWlV24UQ5YO+JXZGJJ8PBIamPapJRk+Lq32okDBPGnxVz5r6YSwlqygB1RcwginZuv9Eg=,iv:wNO80JuJizRqBD5luR9/n26kmCu+NNBQE4VUy8DrdF0=,tag:w1Cp9cdeS34EvsTzkxRMVw==,type:str]
+    encrypted_regex: password_hash
+    version: 3.12.2

@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Correction streams, rover connections, queue health, authentication and process stats.",
+  "description": "Correction streams, rover connections, queue health, signal quality, authentication and process stats.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -442,8 +442,12 @@
         "type": "prometheus",
         "uid": "${datasource}"
       },
+      "description": "Dot colour: green = data fresh (< 10 s), yellow = slightly stale (< 60 s), red = stale / offline. Circle size is proportional to the configured maximum rover range (mask), giving a visual indication of each station's coverage area in the network.",
       "fieldConfig": {
         "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
           "custom": {
             "hideFrom": {
               "legend": false,
@@ -456,12 +460,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "red",
                 "value": null
               },
               {
-                "color": "red",
-                "value": 80
+                "color": "yellow",
+                "value": 0.2
+              },
+              {
+                "color": "green",
+                "value": 0.85
               }
             ]
           }
@@ -469,7 +477,7 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
+        "h": 14,
         "w": 24,
         "x": 0,
         "y": 5
@@ -481,22 +489,72 @@
           "showAttribution": true,
           "showDebug": false,
           "showMeasure": false,
-          "showScale": false,
+          "showScale": true,
           "showTooltip": true,
           "showZoom": true
         },
         "layers": [
           {
             "config": {
+              "showLegend": false,
+              "style": {
+                "color": {
+                  "fixed": "blue"
+                },
+                "opacity": 0.12,
+                "size": {
+                  "field": "mask",
+                  "fixed": 8,
+                  "max": 80,
+                  "min": 8
+                },
+                "symbol": {
+                  "fixed": "circle",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "h": "center",
+                  "v": "center"
+                }
+              }
+            },
+            "location": {
+              "mode": "auto"
+            },
+            "name": "Coverage Range",
+            "tooltip": false,
+            "type": "markers"
+          },
+          {
+            "config": {
               "showLegend": true,
               "style": {
                 "color": {
-                  "fixed": "green"
+                  "field": "Value"
                 },
                 "opacity": 1,
-                "size": 12,
+                "size": {
+                  "fixed": 10
+                },
                 "symbol": {
-                  "fixed": "circle"
+                  "fixed": "circle",
+                  "mode": "fixed"
+                },
+                "symbolAlign": {
+                  "h": "center",
+                  "v": "center"
+                },
+                "text": {
+                  "field": "mountpoint",
+                  "fixed": "",
+                  "mode": "field"
+                },
+                "textConfig": {
+                  "fontSize": 12,
+                  "offsetX": 0,
+                  "offsetY": -16,
+                  "textAlign": "center",
+                  "textBaseline": "middle"
                 }
               }
             },
@@ -526,7 +584,8 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "ntrip_mountpoint_info",
+          "editorMode": "code",
+          "expr": "ntrip_mountpoint_info * on(mountpoint) group_left() (clamp_min(1 - (ntrip_mountpoint_last_seen_seconds / 60), 0))",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -542,7 +601,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 19
       },
       "id": 10,
       "title": "Correction Streams",
@@ -608,7 +667,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 18
+        "y": 20
       },
       "id": 11,
       "options": {
@@ -700,7 +759,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 18
+        "y": 20
       },
       "id": 12,
       "options": {
@@ -738,7 +797,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 28
       },
       "id": 20,
       "title": "Rover Connections",
@@ -805,7 +864,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 27
+        "y": 29
       },
       "id": 21,
       "options": {
@@ -898,7 +957,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 27
+        "y": 29
       },
       "id": 22,
       "options": {
@@ -935,7 +994,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 37
       },
       "id": 30,
       "title": "Queue & Delivery",
@@ -1010,7 +1069,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 36
+        "y": 38
       },
       "id": 31,
       "options": {
@@ -1104,7 +1163,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 36
+        "y": 38
       },
       "id": 32,
       "options": {
@@ -1144,7 +1203,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 44
+        "y": 46
       },
       "id": 40,
       "title": "Authentication",
@@ -1227,7 +1286,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 47
       },
       "id": 41,
       "options": {
@@ -1331,7 +1390,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 47
       },
       "id": 42,
       "options": {
@@ -1371,7 +1430,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 53
+        "y": 55
       },
       "id": 50,
       "title": "Frame Sizes",
@@ -1437,7 +1496,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 54
+        "y": 56
       },
       "id": 51,
       "options": {
@@ -1493,7 +1552,639 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 62
+        "y": 64
+      },
+      "id": 80,
+      "title": "Signal Quality & Delay",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Median and 95th-percentile time between consecutive frames from each base station. Spikes in p95 indicate dropped or delayed frames. Typical RTCM correction rates are 0.2–1 Hz (0.5–5 s intervals).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 65
+      },
+      "id": 81,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, mountpoint) (rate(ntrip_frame_interval_seconds_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
+          "legendFormat": "p50 — {{mountpoint}}",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum by (le, mountpoint) (rate(ntrip_frame_interval_seconds_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
+          "legendFormat": "p95 — {{mountpoint}}",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Frame Interval (p50 / p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Seconds since the last frame was received from each mountpoint. Values above 30 s indicate a stale or offline base station.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line+area"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 10
+              },
+              {
+                "color": "red",
+                "value": 30
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 65
+      },
+      "id": 82,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "ntrip_mountpoint_last_seen_seconds{mountpoint=~\"$mountpoint\"}",
+          "legendFormat": "{{mountpoint}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Time Since Last Frame",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 73
+      },
+      "id": 90,
+      "title": "RTCM Signal Quality",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Median carrier-to-noise density (CNR) per constellation from RTCM MSM4–7 messages. Healthy open-sky signals: 35–50 dBHz. Values below 30 dBHz suggest poor reception. Anomalously uniform CNR across all satellites (all satellites at exactly the same level) is a potential spoofing indicator.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 25
+              },
+              {
+                "color": "transparent",
+                "value": 35
+              }
+            ]
+          },
+          "unit": "dBHz"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 74
+      },
+      "id": 91,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, mountpoint, constellation) (rate(ntrip_rtcm_signal_cnr_dbhz_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
+          "legendFormat": "{{mountpoint}} — {{constellation}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Signal CNR by Constellation (median dBHz)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Median number of satellites tracked per MSM frame, by constellation. Sudden drops may indicate jamming, antenna obstruction, or loss of a constellation. Spoofed signals often show an unrealistically high or fixed satellite count.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 74
+      },
+      "id": 92,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "min"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum by (le, mountpoint, constellation) (rate(ntrip_rtcm_satellites_tracked_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
+          "legendFormat": "{{mountpoint}} — {{constellation}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Satellites Tracked by Constellation (median)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Rate of each RTCM message type received. Useful for verifying that the expected correction message set (e.g. 1077 GPS MSM7, 1087 GLONASS MSM7, 1097 Galileo MSM7, 1005 antenna reference) is being streamed.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 5,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 83
+      },
+      "id": 93,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "topk(15, sum by (message_type) (rate(ntrip_rtcm_messages_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
+          "legendFormat": "{{message_type}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "RTCM Message Rate by Type",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${datasource}"
+      },
+      "description": "Rate of RTCM frames that failed to parse (CRC error, truncated message, unknown format). A non-zero rate may indicate link corruption, a misconfigured base station, or an unsupported encoding.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "line+area"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.01
+              }
+            ]
+          },
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 83
+      },
+      "id": 94,
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${datasource}"
+          },
+          "editorMode": "code",
+          "expr": "rate(ntrip_rtcm_parse_errors_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
+          "legendFormat": "{{mountpoint}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "RTCM Parse Errors / sec",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 92
       },
       "id": 60,
       "title": "Process Health",
@@ -1560,7 +2251,7 @@
         "h": 6,
         "w": 6,
         "x": 0,
-        "y": 63
+        "y": 93
       },
       "id": 61,
       "options": {
@@ -1653,7 +2344,7 @@
         "h": 6,
         "w": 6,
         "x": 6,
-        "y": 63
+        "y": 93
       },
       "id": 62,
       "options": {
@@ -1746,7 +2437,7 @@
         "h": 6,
         "w": 6,
         "x": 12,
-        "y": 63
+        "y": 93
       },
       "id": 63,
       "options": {
@@ -1814,7 +2505,7 @@
         "h": 6,
         "w": 6,
         "x": 18,
-        "y": 63
+        "y": 93
       },
       "id": 64,
       "options": {
@@ -1916,6 +2607,6 @@
   "timezone": "browser",
   "title": "NTRIP",
   "uid": "corshub-ntrip-caster",
-  "version": 7,
+  "version": 8,
   "weekStart": ""
 }

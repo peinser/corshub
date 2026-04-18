@@ -100,3 +100,17 @@ RUN HELM_VERSION=3.17.3 && \
         | tar xz -C /tmp && \
     mv /tmp/linux-${ARCH}/helm /usr/local/bin/helm && \
     rm -rf /tmp/linux-${ARCH}
+
+#  GitOps / policy toolchain: sops, age, cosign
+ARG SOPS_VERSION=3.12.2
+ARG AGE_VERSION=1.3.1
+ARG COSIGN_VERSION=3.0.6
+RUN set -eux; \
+    curl -fsSL -o /usr/local/bin/sops \
+      "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" && \
+    chmod +x /usr/local/bin/sops; \
+    curl -fsSL "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz" \
+      | tar -xz -C /usr/local/bin --strip-components=1 age/age age/age-keygen; \
+    curl -fsSL -o /usr/local/bin/cosign \
+      "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" && \
+    chmod +x /usr/local/bin/cosign

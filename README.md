@@ -1,6 +1,6 @@
 # CORSHub
 
-Continuously Operating Reference Station Hub - Python-based NTRIP (V2) caster for aggregating RTK corrections from a network of CORS base stations and distributing them to NTRIP clients.
+Continuously Operating Reference Station Hub: Python-based NTRIP (V2) caster for aggregating RTK corrections from a network of CORS base stations and distributing them to NTRIP clients.
 
 ---
 

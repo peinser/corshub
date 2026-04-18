@@ -29,9 +29,12 @@ from dataclasses import dataclass
 from dataclasses import field
 from typing import TYPE_CHECKING
 
+from pyrtcm import RTCMReader
+
 import corshub.metrics as metrics
 
 from corshub.crypto import secrets
+from corshub.logging import logger
 from corshub.ntrip.v2.transport import QueueTransport
 
 
@@ -44,6 +47,74 @@ if TYPE_CHECKING:
 
 
 _MOUNTPOINT_RE = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
+
+# Maps the hundreds digit of an MSM message type to its GNSS constellation name.
+# MSM types run from <base>1 (MSM1) to <base>7 (MSM7); only MSM4-7 carry CNR (DF403).
+_MSM_CONSTELLATION: dict[int, str] = {
+    107: "GPS",
+    108: "GLONASS",
+    109: "Galileo",
+    110: "SBAS",
+    111: "QZSS",
+    112: "BeiDou",
+    113: "NavIC",
+}
+
+
+def _observe_rtcm_quality(mountpoint: str, frame: bytes) -> None:
+    """Parse RTCM messages in *frame* and record signal-quality metrics.
+
+    Iterates all RTCM3 messages in the raw chunk.  For each message the type
+    counter is incremented.  For MSM4-7 frames the per-cell CNR values and
+    satellite count are also recorded.  A single parse error aborts the loop
+    and increments the error counter partial frames at chunk boundaries are
+    expected and do not count as errors.
+    """
+    reader = RTCMReader(frame, quitonerror=2, parsed=True)
+
+    while True:
+        try:
+            raw, msg = reader.read()
+
+        except Exception as ex:
+            logger.exception(ex)
+            metrics.rtcm_parse_errors_total.labels(mountpoint=mountpoint).inc()
+            break
+
+        if raw is None:
+            break
+
+        if msg is None:
+            continue
+
+        msg_type = int(msg.identity)
+
+        metrics.rtcm_messages_total.labels(
+            mountpoint=mountpoint,
+            message_type=str(msg_type),
+        ).inc()
+
+        constellation = _MSM_CONSTELLATION.get(msg_type // 10)
+        if constellation is None:
+            continue
+
+        msm_variant = msg_type % 10
+        msg_attrs = vars(msg)
+
+        # Satellite count. PRN_XX attributes are present in all MSM types.
+        nsat = sum(1 for k in msg_attrs if k.startswith("PRN_"))
+        if nsat:
+            metrics.rtcm_satellites_tracked.labels(mountpoint=mountpoint, constellation=constellation).observe(nsat)
+
+        # CNR (DF403_XX) is only present in MSM4, MSM5, MSM6, MSM7.
+        if msm_variant >= 4:
+            for attr, val in msg_attrs.items():
+                if attr.startswith("DF403_") and isinstance(val, (int, float)) and val > 0:
+                    metrics.rtcm_signal_cnr_dbhz.labels(mountpoint=mountpoint, constellation=constellation).observe(
+                        float(val)
+                    )
+
+
 _IDENTIFIER_RE = re.compile(r"[^;]+")
 
 
@@ -356,13 +427,20 @@ class NTRIPCaster(Caster):
         if transport is None:
             return 0
 
-        self._mountpoints[mountpoint].last_seen = time.monotonic()
+        now = time.monotonic()
+        mp = self._mountpoints[mountpoint]
+        interval = now - mp.last_seen
+        mp.last_seen = now
+
         delivered = await transport.publish(frame)
 
         metrics.frames_published_total.labels(mountpoint=mountpoint).inc()
         metrics.bytes_published_total.labels(mountpoint=mountpoint).inc(len(frame))
         metrics.frame_size_bytes.labels(mountpoint=mountpoint).observe(len(frame))
         metrics.frames_delivered_total.labels(mountpoint=mountpoint).inc(delivered)
+        metrics.frame_interval_seconds.labels(mountpoint=mountpoint).observe(interval)
+
+        _observe_rtcm_quality(mountpoint, frame)
 
         return delivered
 

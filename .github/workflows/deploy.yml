@@ -1,0 +1,67 @@
+name: 🚀 Deploy Production
+run-name: "${{ github.actor }} is shipping to Production!"
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ops/**
+
+jobs:
+  deploy-production:
+    environment: Production
+    runs-on:
+      group: on-prem
+    defaults:
+      run:
+        working-directory: ./ops
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            environments/production
+          sparse-checkout-cone-mode: false
+          fetch-depth: 0
+
+      - name: 🎛️ Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: 🔑 Authenticate to OCI registry
+        run: |
+          echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin harbor.peinser.com
+        env:
+          HELM_EXPERIMENTAL_OCI: 1
+
+      - name: 📦 Fetch Helm dependencies
+        run: helm dependency update
+
+      - name: Prepare values.yaml
+        shell: bash
+        run: |
+          # Decrypt, SOPS, and deploy.
+          echo "TODO"
+
+      - name: 🏗️ Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: 🚀 Deploy to Kubernetes using Helm
+        run: |
+          echo "${{ secrets.KUBECONFIG }}" > kubeconfig
+          export KUBECONFIG=$(pwd)/kubeconfig
+
+          echo "🛳️ Deploying to Kubernetes..."
+          #   helm upgrade --install production \                                                                                      ─╯
+          #     oci://harbor.peinser.com/uas/charts/corshub \
+          #     --version $VERSION \
+          #     --values values.yaml \
+          #     --namespace corshub \
+          #     --atomic \
+          #     --timeout 120s
+
+          kubectl get po  # Test
+
+          echo "Deployment successful! 🎉"
