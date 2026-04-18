@@ -42,14 +42,16 @@ jobs:
         run: |
           echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
 
-      - name: Prepare values.yaml
+      - name: Prepare sops age key
         shell: bash
-        working-directory: ./ops
         run: |
-          echo "${{ secrets.SOPS_AGE_KEY }}" > age.key
-          chmod 600 age.key
-          echo "SOPS_AGE_KEY_FILE=age.key" >> $GITHUB_ENV
-          sops -d values.yaml > /tmp/values-plain.yaml
+          echo "${{ secrets.SOPS_AGE_KEY }}" > /tmp/age.key
+          chmod 600 /tmp/age.key
+          echo "SOPS_AGE_KEY_FILE=/tmp/age.key" >> $GITHUB_ENV
+
+      - name: Prepare values.yaml
+        run:
+          sops -d ops/values.yaml > /tmp/values-plain.yaml
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
