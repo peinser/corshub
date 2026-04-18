@@ -58,6 +58,7 @@ jobs:
 
       - name: Debug decrypt
         shell: bash
+        working-directory: ./ops
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
         run: |
