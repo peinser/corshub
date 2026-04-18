@@ -56,6 +56,14 @@ jobs:
           md5sum values.yaml
           head -3 values.yaml
 
+      - name: Debug decrypt
+        shell: bash
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          echo "Key prefix: ${SOPS_AGE_KEY:0:20}"
+          sops -d --output /tmp/values-plain.yaml values.yaml
+
       - name: Prepare values.yaml
         shell: bash
         working-directory: ./ops
