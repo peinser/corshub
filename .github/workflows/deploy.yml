@@ -49,6 +49,13 @@ jobs:
           echo "Key length: ${#SOPS_AGE_KEY}"
           sops --version
 
+      - name: Debug values.yaml
+        shell: bash
+        working-directory: ./ops
+        run: |
+          md5sum values.yaml
+          head -3 values.yaml
+
       - name: Prepare values.yaml
         shell: bash
         working-directory: ./ops
