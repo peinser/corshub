@@ -60,13 +60,9 @@ jobs:
           export KUBECONFIG=$(pwd)/kubeconfig
 
           echo "🛳️ Deploying to Kubernetes (chart: $CHART_VERSION)..."
-          VERSION_FLAG=""
-          if [ "$CHART_VERSION" != "latest" ]; then
-            VERSION_FLAG="--version $CHART_VERSION"
-          fi
           helm upgrade --install production \
             oci://${{ vars.OCI_REGISTRY }}/uas/charts/corshub \
-            $VERSION_FLAG \
+            --version $CHART_VERSION \
             --values /tmp/values-plain.yaml \
             --namespace corshub \
             --atomic \
