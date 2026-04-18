@@ -1,0 +1,98 @@
+{{- if .Values.opa.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "corshub.fullname" . }}-opa
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "corshub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "corshub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opa
+  template:
+    metadata:
+      annotations:
+        # Re-roll OPA pods when policies or registry data change.
+        checksum/opa: {{ toJson .Values.opa | sha256sum }}
+      labels:
+        {{- include "corshub.labels" . | nindent 8 }}
+        app.kubernetes.io/component: opa
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: opa
+          image: {{ include "corshub.opa.image" . }}
+          imagePullPolicy: {{ .Values.opa.image.pullPolicy }}
+          args:
+            - run
+            - --server
+            - --addr=:{{ .Values.opa.port }}
+            - --log-level={{ .Values.opa.logLevel }}
+            - --log-format=json
+            - /policies
+            - /data
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            readOnlyRootFilesystem: true
+          ports:
+            - name: http
+              containerPort: {{ .Values.opa.port }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 2
+          readinessProbe:
+            httpGet:
+              path: /health?plugins
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 3
+            timeoutSeconds: 2
+          resources:
+            {{- toYaml .Values.opa.resources | nindent 12 }}
+          volumeMounts:
+            # subPath bypasses the ConfigMap symlink structure so OPA does not
+            # load each .rego file twice (once via the named link, once via the
+            # hidden ..timestamp/ path), which would trigger "multiple default
+            # rules" errors at startup.
+            - name: opa-policies
+              mountPath: /policies/base_station.rego
+              subPath: base_station.rego
+              readOnly: true
+            - name: opa-policies
+              mountPath: /policies/rover.rego
+              subPath: rover.rego
+              readOnly: true
+            - name: opa-data
+              mountPath: /data/corshub/stations.json
+              subPath: stations.json
+              readOnly: true
+            - name: opa-data
+              mountPath: /data/corshub/rovers.json
+              subPath: rovers.json
+              readOnly: true
+      volumes:
+        - name: opa-policies
+          configMap:
+            name: {{ include "corshub.opa.policiesConfigMapName" . }}
+        - name: opa-data
+          configMap:
+            name: {{ include "corshub.opa.dataConfigMapName" . }}
+{{- end }}

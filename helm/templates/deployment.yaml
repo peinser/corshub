@@ -15,11 +15,7 @@ spec:
   template:
     metadata:
       annotations:
-        # Re-roll pods when app config or OPA config (registry / policies) changes.
         checksum/app: {{ toJson .Values.app | sha256sum }}
-        {{- if .Values.opa.enabled }}
-        checksum/opa: {{ toJson .Values.opa | sha256sum }}
-        {{- end }}
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -50,7 +46,7 @@ spec:
           env:
             {{- if .Values.opa.enabled }}
             - name: OPA_URL
-              value: {{ printf "http://localhost:%d" (int .Values.opa.port) | quote }}
+              value: {{ printf "http://%s-opa:%d" (include "corshub.fullname" .) (int .Values.opa.port) | quote }}
             {{- end }}
             {{- if .Values.metrics.enabled }}
             - name: PROMETHEUS_DISABLE_CREATED_SERIES
@@ -85,89 +81,11 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
-        {{- if .Values.opa.enabled }}
-        - name: opa
-          # OPA sidecar — policy engine running on localhost.
-          # The main container routes all authorization queries to
-          # http://localhost:<port> (fail-closed: unreachable OPA → deny).
-          image: {{ include "corshub.opa.image" . }}
-          imagePullPolicy: {{ .Values.opa.image.pullPolicy }}
-          args:
-            - run
-            - --server
-            - --addr=:{{ .Values.opa.port }}
-            - --log-level={{ .Values.opa.logLevel }}
-            - --log-format=json
-            - /policies
-            - /data
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 1000
-            runAsGroup: 1000
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop: [ALL]
-            readOnlyRootFilesystem: true
-            seccompProfile:
-              type: RuntimeDefault
-          ports:
-            - name: opa-http
-              containerPort: {{ .Values.opa.port }}
-              protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /health
-              port: opa-http
-            initialDelaySeconds: 5
-            periodSeconds: 10
-            failureThreshold: 3
-            timeoutSeconds: 2
-          readinessProbe:
-            httpGet:
-              path: /health?plugins
-              port: opa-http
-            initialDelaySeconds: 3
-            periodSeconds: 5
-            failureThreshold: 3
-            timeoutSeconds: 2
-          resources:
-            {{- toYaml .Values.opa.resources | nindent 12 }}
-          volumeMounts:
-            # subPath mounts bypass Kubernetes' ConfigMap symlink structure
-            # (the hidden ..timestamp/ directory). Without subPath, OPA walks
-            # the mount recursively and loads every .rego file twice — once via
-            # the named symlink and once from the raw timestamped path — which
-            # triggers "multiple default rules" errors at startup.
-            - name: opa-policies
-              mountPath: /policies/base_station.rego
-              subPath: base_station.rego
-              readOnly: true
-            - name: opa-policies
-              mountPath: /policies/rover.rego
-              subPath: rover.rego
-              readOnly: true
-            - name: opa-data
-              mountPath: /data/corshub/stations.json
-              subPath: stations.json
-              readOnly: true
-            - name: opa-data
-              mountPath: /data/corshub/rovers.json
-              subPath: rovers.json
-              readOnly: true
-        {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             medium: {{ .Values.tmpDir.medium | quote }}
             sizeLimit: {{ .Values.tmpDir.sizeLimit }}
-        {{- if .Values.opa.enabled }}
-        - name: opa-policies
-          configMap:
-            name: {{ include "corshub.opa.policiesConfigMapName" . }}
-        - name: opa-data
-          configMap:
-            name: {{ include "corshub.opa.dataConfigMapName" . }}
-        {{- end }}
       {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- range . }}
