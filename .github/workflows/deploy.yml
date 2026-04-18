@@ -41,14 +41,20 @@ jobs:
         run: |
           echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
 
+      - name: Debug SOPS
+        shell: bash
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          echo "Key length: ${#SOPS_AGE_KEY}"
+          sops --version
+
       - name: Prepare values.yaml
         shell: bash
         working-directory: ./ops
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
         run: |
-          ls -al
-          sops --version
           sops -d values.yaml > /tmp/values-plain.yaml
 
       - name: Install kubectl
