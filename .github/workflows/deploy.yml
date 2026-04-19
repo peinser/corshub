@@ -46,6 +46,7 @@ jobs:
         run: |
           printf "%s" "${{ secrets.SOPS_AGE_KEY }}" | tr -d '\n' | tr -d '\r' > /tmp/age.key
           echo "SOPS_AGE_KEY_FILE=/tmp/age.key" >> $GITHUB_ENV
+          hexdump -C /tmp/age.key
           chmod 600 /tmp/age.key
           age-keygen -y /tmp/age.key
 
