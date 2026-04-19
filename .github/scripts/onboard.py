@@ -46,6 +46,29 @@ import bcrypt
 import yaml
 
 
+def _no_duplicate_mapping(
+    loader: yaml.SafeLoader, node: yaml.MappingNode
+) -> dict[str, Any]:
+    loader.flatten_mapping(node)
+    pairs = loader.construct_pairs(node)
+    seen: set[str] = set()
+    for key, _ in pairs:
+        if key in seen:
+            raise yaml.YAMLError(f"duplicate key: {key!r}")
+        seen.add(key)
+    return dict(pairs)
+
+
+class _StrictLoader(yaml.SafeLoader):
+    pass
+
+
+_StrictLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _no_duplicate_mapping,
+)
+
+
 VALUES_FILE       = Path("ops/values.yaml")
 FINGERPRINTS_FILE = Path("ops/key-fingerprints.yaml")
 
@@ -57,13 +80,14 @@ GITHUB_ACTOR = os.environ["GITHUB_ACTOR"]
 SUBPROCESS_TIMEOUT = 30  # seconds
 
 
-def sops_decrypt(path: Path) -> dict[str, Any]:
+def sops_decrypt(path: Path, *, strict: bool = False) -> dict[str, Any]:
     result = subprocess.run(
         ["sops", "-d", "--output-type", "yaml", str(path)],
         capture_output=True, text=True, check=True,
         timeout=SUBPROCESS_TIMEOUT,
     )
-    return yaml.safe_load(result.stdout) or {}
+    loader = _StrictLoader if strict else yaml.SafeLoader
+    return yaml.load(result.stdout, Loader=loader) or {}
 
 
 def sops_set(path: Path, *keys: str, value: str) -> None:
@@ -276,7 +300,15 @@ def detect_changes(
 
 
 def main() -> None:
-    pr_values   = sops_decrypt(VALUES_FILE)
+    try:
+        pr_values = sops_decrypt(VALUES_FILE, strict=True)
+    except yaml.YAMLError as exc:
+        post_comment(
+            f"ops/values.yaml contains duplicate usernames: {exc}\n\n"
+            "Each username must appear at most once under each role."
+        )
+        sys.exit(1)
+
     main_values = decrypt_main_values()
     fp_data     = yaml.safe_load(FINGERPRINTS_FILE.read_text()) or {} \
                   if FINGERPRINTS_FILE.exists() else {}

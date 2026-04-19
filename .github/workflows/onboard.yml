@@ -161,7 +161,7 @@ jobs:
 
       - name: Commit generated credentials
         run: |
-          git add ops/values.yaml ops/key-fingerprints.yaml
+          git add -f ops/values.yaml ops/key-fingerprints.yaml
           git diff --cached --quiet && exit 0
           git commit -m "chore: issue credentials for new registry entries [skip ci]"
           git push
