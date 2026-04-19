@@ -1,0 +1,3 @@
+--env RUNNER_TOOL_CACHE=/tmp/runner-tool-cache
+--secret-file .secrets
+--var-file .vars

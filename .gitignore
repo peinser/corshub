@@ -2,6 +2,10 @@
 .claude/
 .coverage
 
+# ACT
+.secrets
+.vars
+
 # Ops directory
 ops
 

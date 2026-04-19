@@ -47,18 +47,38 @@ You can provide `GITHUB_TOKEN` to `act` in several secure ways. Example options:
   act -s GITHUB_TOKEN=${GITHUB_TOKEN}
   ```
 
-### 3) Run workflows locally
+### 3) Create `.secrets` and `.vars` files
 
-Once `GITHUB_TOKEN` is available in your environment, run `act` as you normally would. Example:
+Workflows use GitHub secrets and repository variables that must be supplied locally. Both files are git-ignored, never commit them.
 
-```bash
-act -P on-prem=harbor.peinser.com/library/github-actions-runner:latest -s GITHUB_TOKEN=$GITHUB_TOKEN
+Create `.secrets` in the repo root with the secrets required by the workflow you want to run:
+
+```
+GITHUB_TOKEN=ghp_xxx-your-token-here
+SOPS_AGE_KEY=AGE-SECRET-KEY-1...
+OCI_REGISTRY_HARBOR_LOGIN=robot$...
+OCI_REGISTRY_HARBOR_SECRET=...
+KUBECONFIG=...
 ```
 
-Or run a specific job:
+Create `.vars` in the repo root with the repository variables:
+
+```
+OCI_REGISTRY=harbor.peinser.com
+```
+
+`act` is configured (via `.actrc`) to load both files automatically on every run.
+
+### 4) Run workflows locally
+
+nce `GITHUB_TOKEN` is available in your environment, run `act` as you normally would. Use the Makefile targets. No need to pass flags manually:
 
 ```bash
-act -j test
+# Run all workflows
+make act
+
+# Run a specific job
+make act-job JOB=deploy-production
 ```
 
 ---

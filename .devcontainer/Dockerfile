@@ -91,7 +91,10 @@ ENV EDITOR=vim
 ENV PATH=/workspace/bin:$PATH
 
 # Install 'act' for local GitHub Actions testing
-RUN curl --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/nektos/act/master/install.sh | bash
+RUN ACT_VERSION=0.2.74 && \
+    ARCH=$(dpkg --print-architecture) && \
+    curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_Linux_${ARCH}.tar.gz" \
+        | tar xz -C /usr/local/bin act
 
 # Install `helm'
 RUN HELM_VERSION=3.17.3 && \
