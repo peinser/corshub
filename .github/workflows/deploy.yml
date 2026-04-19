@@ -42,9 +42,9 @@ jobs:
         run: |
           echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
 
-      - name: Prepare age key and show public key
+      - name: Prepare age key & show public key
         run: |
-          printf "%s" "${{ secrets.SOPS_AGE_KEY }}" > /tmp/age.key
+          printf "%s" "${{ secrets.SOPS_AGE_KEY }}" | tr -d '\n' | tr -d '\r' > /tmp/age.key
           echo "SOPS_AGE_KEY_FILE=/tmp/age.key" >> $GITHUB_ENV
           chmod 600 /tmp/age.key
           age-keygen -y /tmp/age.key
@@ -63,9 +63,10 @@ jobs:
           export KUBECONFIG=$(pwd)/kubeconfig
 
           echo "🛳️ Deploying to Kubernetes (chart: $CHART_VERSION)..."
+          VERSION_FLAG=$([[ "$CHART_VERSION" != "latest" ]] && echo "--version $CHART_VERSION" || echo "")
           helm upgrade --install production \
             oci://${{ vars.OCI_REGISTRY }}/uas/charts/corshub \
-            --version $CHART_VERSION \
+            $VERSION_FLAG \
             --values /tmp/values-plain.yaml \
             --namespace corshub \
             --atomic \
