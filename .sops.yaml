@@ -1,4 +1,5 @@
 creation_rules:
   - path_regex: ops/values\.yaml$
     encrypted_regex: '^password_hash$'
+    mac_only_encrypted: true
     age: age15j90jg9v79g0fknf4407s7q9yn2wezp76dcpl035qnf40uq8ugdqauhej4
