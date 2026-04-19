@@ -1,0 +1,42 @@
+name: Onboard
+
+on:
+  pull_request:
+    paths:
+      - ops/values.yaml
+    types: [opened, synchronize]
+
+jobs:
+  onboard:
+    environment: Production
+    runs-on:
+      group: on-prem
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          token: ${{ github.token }}
+
+      - name: Install Python dependencies
+        run: pip install --quiet bcrypt PyYAML
+
+      - name: Configure git identity for bot commits
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Run onboarding script
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_ACTOR: ${{ github.actor }}
+        run: python3 .github/scripts/onboard.py
