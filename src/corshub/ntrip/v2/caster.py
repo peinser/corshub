@@ -34,6 +34,7 @@ from pyrtcm import RTCMReader
 
 import corshub.metrics as metrics
 
+from corshub import env
 from corshub.crypto import secrets
 from corshub.logging import logger
 from corshub.ntrip.v2.transport import QueueTransport
@@ -61,15 +62,31 @@ _MSM_CONSTELLATION: dict[int, str] = {
     113: "NavIC",
 }
 
+# ARP deviation above this threshold (metres) counts as a position change.
+_ARP_CHANGE_THRESHOLD: float = env.extract(
+    "GNSS_ARP_CHANGE_THRESHOLD", default="0.01", dtype=float
+)
 
-def _observe_rtcm_quality(mountpoint: str, frame: bytes) -> None:
+# CNR observations above this level are counted as anomalously high.
+_HIGH_CNR_THRESHOLD_DBHZ: float = env.extract(
+    "GNSS_CNR_DBHZ_HIGH_THRESHOLD", default="55.0", dtype=float
+)
+
+
+def _observe_rtcm_quality(
+    mountpoint: str,
+    frame: bytes,
+    arp_reference: dict[str, tuple[float, float, float]],
+) -> None:
     """Parse RTCM messages in *frame* and record signal-quality metrics.
 
     Iterates all RTCM3 messages in the raw chunk.  For each message the type
     counter is incremented.  For MSM4-7 frames the per-cell CNR values and
-    satellite count are also recorded.  A single parse error aborts the loop
-    and increments the error counter partial frames at chunk boundaries are
-    expected and do not count as errors.
+    satellite count are also recorded.  RTCM 1005/1006 messages are used to
+    track the base station ARP position; any deviation beyond 1 cm from the
+    first observed position increments the ARP-changes counter.  A single
+    parse error aborts the loop and increments the error counter; partial
+    frames at chunk boundaries are expected and do not count as errors.
     """
     reader = RTCMReader(BytesIO(frame), quitonerror=2, parsed=True)
 
@@ -95,6 +112,26 @@ def _observe_rtcm_quality(mountpoint: str, frame: bytes) -> None:
             message_type=str(msg_type),
         ).inc()
 
+        # ARP position tracking from RTCM 1005 (and 1006 which adds antenna height).
+        if msg_type in (1005, 1006):
+            try:
+                x, y, z = float(msg.DF025), float(msg.DF026), float(msg.DF027)
+            except AttributeError:
+                continue
+
+            metrics.base_station_arp_ecef_meters.labels(mountpoint=mountpoint, axis="x").set(x)
+            metrics.base_station_arp_ecef_meters.labels(mountpoint=mountpoint, axis="y").set(y)
+            metrics.base_station_arp_ecef_meters.labels(mountpoint=mountpoint, axis="z").set(z)
+            ref = arp_reference.get(mountpoint)
+            if ref is None:
+                arp_reference[mountpoint] = (x, y, z)
+
+            elif max(abs(x - ref[0]), abs(y - ref[1]), abs(z - ref[2])) > _ARP_CHANGE_THRESHOLD:
+                metrics.base_station_arp_changes_total.labels(mountpoint=mountpoint).inc()
+                arp_reference[mountpoint] = (x, y, z)
+
+            continue
+
         constellation = _MSM_CONSTELLATION.get(msg_type // 10)
         if constellation is None:
             continue
@@ -112,9 +149,10 @@ def _observe_rtcm_quality(mountpoint: str, frame: bytes) -> None:
             cnr_prefix = "DF408_" if msm_variant >= 6 else "DF403_"
             for attr, val in msg_attrs.items():
                 if attr.startswith(cnr_prefix) and isinstance(val, (int, float)) and val > 0:
-                    metrics.rtcm_signal_cnr_dbhz.labels(mountpoint=mountpoint, constellation=constellation).observe(
-                        float(val)
-                    )
+                    cnr = float(val)
+                    metrics.rtcm_signal_cnr_dbhz.labels(mountpoint=mountpoint, constellation=constellation).observe(cnr)
+                    if cnr > _HIGH_CNR_THRESHOLD_DBHZ:
+                        metrics.rtcm_high_cnr_total.labels(mountpoint=mountpoint, constellation=constellation).inc()
 
 
 _IDENTIFIER_RE = re.compile(r"[^;]+")
@@ -335,6 +373,7 @@ class NTRIPCaster(Caster):
         self._mountpoints: dict[str, Mountpoint] = {}
         self._transports: dict[str, Transport] = {}
         self._reaper_task: asyncio.Task[None] | None = None
+        self._arp_reference: dict[str, tuple[float, float, float]] = {}
 
     async def register(self, mountpoint: str, **kwargs: dict) -> Mountpoint:
         if mountpoint in self._mountpoints:
@@ -449,7 +488,7 @@ class NTRIPCaster(Caster):
         metrics.frames_delivered_total.labels(mountpoint=mountpoint).inc(delivered)
         metrics.frame_interval_seconds.labels(mountpoint=mountpoint).observe(interval)
 
-        _observe_rtcm_quality(mountpoint, frame)
+        _observe_rtcm_quality(mountpoint, frame, self._arp_reference)
 
         return delivered
 

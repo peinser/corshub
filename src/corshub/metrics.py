@@ -34,6 +34,7 @@ import time
 from typing import TYPE_CHECKING
 
 from prometheus_client import Counter
+from prometheus_client import Gauge
 from prometheus_client import Histogram
 from prometheus_client.metrics_core import GaugeMetricFamily
 from prometheus_client.registry import Collector
@@ -116,6 +117,27 @@ rtcm_signal_cnr_dbhz: Histogram = Histogram(
     "Anomalous uniformity or out-of-range values may indicate spoofing or hardware issues.",
     ["mountpoint", "constellation"],
     buckets=[10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70],
+)
+
+base_station_arp_ecef_meters: Gauge = Gauge(
+    "ntrip_base_station_arp_ecef_meters",
+    "Base station Antenna Reference Point (ARP) ECEF coordinate in metres from RTCM 1005/1006. "
+    "Should remain constant for a fixed installation. Any change may indicate spoofing or physical tampering.",
+    ["mountpoint", "axis"],
+)
+
+base_station_arp_changes_total: Counter = Counter(
+    "ntrip_base_station_arp_changes_total",
+    "Number of times the ARP position in RTCM 1005/1006 deviated from the first observed value by more "
+    "than 1 cm. Any non-zero value on a fixed installation is a potential spoofing or tampering indicator.",
+    ["mountpoint"],
+)
+
+rtcm_high_cnr_total: Counter = Counter(
+    "ntrip_rtcm_high_cnr_total",
+    "Satellite-signal CNR observations above 55 dBHz from MSM4-7 messages. Spoofed signals are often "
+    "abnormally strong; a sustained high fraction relative to total CNR observations may indicate spoofing.",
+    ["mountpoint", "constellation"],
 )
 
 rtcm_satellites_tracked: Histogram = Histogram(

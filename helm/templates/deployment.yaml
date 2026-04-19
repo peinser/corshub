@@ -50,6 +50,10 @@ spec:
             - name: OPA_URL
               value: {{ printf "http://%s-opa:%d" (include "corshub.fullname" .) (int .Values.opa.port) | quote }}
             {{- end }}
+            - name: GNSS_ARP_CHANGE_THRESHOLD
+              value: {{ .Values.gnss.arpChangeThresholdMeters | quote }}
+            - name: GNSS_CNR_DBHZ_HIGH_THRESHOLD
+              value: {{ .Values.gnss.highCnrThresholdDbhz | quote }}
             {{- if .Values.metrics.enabled }}
             - name: PROMETHEUS_DISABLE_CREATED_SERIES
               value: "True"

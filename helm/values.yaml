@@ -47,6 +47,18 @@ app:
   # HTTP port the Sanic server listens on inside the container.
   port: 8000
 
+# GNSS signal-quality and spoofing-detection thresholds.
+gnss:
+  # ARP position change threshold in metres.  Any deviation greater than this
+  # value between successive RTCM 1005/1006 messages from the same base station
+  # increments the ntrip_base_station_arp_changes_total counter.  For a fixed
+  # installation this counter should remain at zero.
+  arpChangeThresholdMeters: 0.01
+  # CNR observations above this level (dBHz) are counted as anomalously high.
+  # Natural open-sky signals peak around 45-50 dBHz; values above 55 dBHz on
+  # multiple satellites simultaneously may indicate spoofed transmissions.
+  highCnrThresholdDbhz: 55.0
+
 # Extra environment variables injected into the container.
 extraEnv: []
   # - name: MY_VAR

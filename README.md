@@ -172,9 +172,23 @@ The list of active base stations and their approximate locations can be found in
 
 ---
 
+### Signal integrity monitoring
+
+The caster continuously monitors each base station stream for signals of GNSS spoofing:
+
+- **Antenna position drift** Every RTCM 1005/1006 message contains the base station's ECEF coordinates. A fixed installation must report an identical position on every message. Any deviation larger than 1 cm from the first observed position is counted and surfaced in the Grafana dashboard.
+- **Abnormally high signal strength** Spoofed transmissions are typically stronger than natural open-sky signals. CNR observations above 55 dBHz per satellite are tracked separately and shown as a fraction of total CNR observations per constellation.
+
+These metrics are available in the Grafana dashboard under the "Spoofing Indicators" section. Neither indicator is conclusive on its own, but a simultaneous ARP position change and elevated CNR across multiple constellations is a strong combined signal.
+
+The thresholds are configurable via the Helm chart values `gnss.arpChangeThresholdMeters` and `gnss.highCnrThresholdDbhz`.
+
+---
+
 ## Table of Contents
 
 - [Joining the Network](#joining-the-network)
+- [Signal Integrity Monitoring](#signal-integrity-monitoring)
 - [Tools](#tools)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
