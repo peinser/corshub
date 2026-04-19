@@ -104,7 +104,7 @@ class QueueTransportSubscriber(TransportSubscriber):
         self.cancelled = True
         try:
             self.queue.put_nowait(self._sentinel)  # Signal any waiting producers to stop
-        except (asyncio.QueueFull, RuntimeError):
+        except asyncio.QueueFull, RuntimeError:
             pass  # If the queue is full or closed, we can ignore this
 
     def drain(self) -> None:
