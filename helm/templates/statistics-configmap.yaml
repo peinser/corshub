@@ -45,6 +45,25 @@ data:
           return 301 /statistics/;
         }
 
+        # Proxy Grafana's static assets so the public dashboard HTML can load
+        # them. The browser resolves /public/... relative to this domain, so
+        # we forward those requests to the internal Grafana service.
+        location /public/ {
+          limit_req zone=stats_rl burst=50 nodelay;
+          set $grafana_base {{ regexFind "^https?://[^/]+" (.Values.statistics.upstreamUrl | default .Values.statistics.shareableUrl) }};
+          proxy_pass            $grafana_base$request_uri;
+          proxy_ssl_server_name on;
+          proxy_set_header      Host {{ (urlParse .Values.statistics.shareableUrl).host }};
+
+          proxy_cache        grafana;
+          proxy_cache_valid  200 60m;
+          proxy_cache_key    "$uri";
+          proxy_cache_use_stale error timeout updating;
+          proxy_cache_lock   on;
+
+          add_header Cache-Control "public, max-age=3600" always;
+        }
+
         location = /statistics/ {
           limit_req zone=stats_rl burst=10 nodelay;
 

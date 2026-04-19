@@ -34,4 +34,11 @@ spec:
                 name: {{ include "corshub.fullname" . }}-statistics
                 port:
                   name: http
+          - path: /public
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "corshub.fullname" . }}-statistics
+                port:
+                  name: http
 {{- end }}

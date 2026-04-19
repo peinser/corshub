@@ -23,6 +23,9 @@ spec:
         - path:
             type: PathPrefix
             value: /statistics
+        - path:
+            type: PathPrefix
+            value: /public
       backendRefs:
         - name: {{ include "corshub.fullname" . }}-statistics
           port: 80
