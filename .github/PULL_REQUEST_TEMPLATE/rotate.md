@@ -12,15 +12,17 @@ of your original onboarding.
 
 ### What happens next
 
-1. A maintainer reviews and approves the **Production** environment gate.
-2. The bot verifies that this PR is opened by the registered owner of the entry.
-3. A new password is generated and posted encrypted in a comment — only you can decrypt it:
+1. The bot runs automatically. It verifies that this PR is opened by the
+   registered owner of the entry, then generates a new password and posts it
+   encrypted in a comment. Only you can decrypt it:
    ```sh
    # Copy the age-encrypted block from the PR comment, then:
    echo '<paste block here>' | age -d -i ~/.ssh/your-private-key
    ```
-4. The maintainer merges the PR. Your old password stops working immediately
-   on deploy; use the new one from that point on.
+2. The bot commits the updated entry directly to main and closes this PR. You
+   do not need to wait for a maintainer and should not try to merge it yourself.
+3. Your old password stops working on the next deployment. Use the new one from
+   that point on.
 
 ### Note on key changes
 

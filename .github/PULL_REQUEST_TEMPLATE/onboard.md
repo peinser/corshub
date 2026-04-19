@@ -36,14 +36,16 @@ opa:
 
 ### What happens next
 
-1. A maintainer reviews and approves the **Production** environment gate.
-2. The bot fetches your SSH keys, generates a random password, and posts it
-   encrypted in a comment on this PR. Only you can decrypt it.
-3. Decrypt the password with:
+1. The bot runs automatically. It validates that only your entry was added to
+   ops/values.yaml, generates a random password, and posts it encrypted in a
+   comment on this PR. Only you can decrypt it.
+2. Decrypt the password with:
    ```sh
    # Copy the age-encrypted block from the PR comment, then:
    echo '<paste block here>' | age -d -i ~/.ssh/your-private-key
    ```
    If you have multiple SSH keys, try every registered key until one works.
-4. The maintainer merges the PR and your credentials become active.
-5. Store the decrypted password securely. To rotate, open a new PR using the **Credential rotation** template.
+3. The bot commits your entry directly to main and closes this PR. You do not
+   need to wait for a maintainer and should not try to merge it yourself.
+4. Store the decrypted password securely. It will not be shown again. To
+   rotate, open a new PR using the **Credential rotation** template.

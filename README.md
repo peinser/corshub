@@ -22,6 +22,8 @@ You do not need to be a collaborator. Fork the repository, make your change, and
 
 No `password_hash` or `github_user` field is required in your entry. The bot fills in the hash; your GitHub identity is taken from whoever opens the PR.
 
+The PR is closed automatically by the bot after credentials are issued. Your entry is committed directly to main by the bot, not by merging your PR. This is intentional: it ensures only the specific entry you added lands on main, with no risk of other files from your fork being merged in.
+
 ---
 
 ### Joining as a rover
@@ -54,13 +56,11 @@ See the [available mountpoints](#available-mountpoints) section below.
 
 #### 2. Open a PR using the New NTRIP registration template
 
-Go to: `https://github.com/peinser/corshub/compare`
+[Open a new registration PR](https://github.com/peinser/corshub/compare?template=onboard.md)
 
-Select the template "New NTRIP registration" when creating the PR.
+#### 3. Wait for the bot
 
-#### 3. Wait for maintainer approval
-
-A maintainer reviews your entry and approves the credential issuance. The bot then posts a comment on your PR containing your encrypted password.
+The bot runs automatically when your PR is opened. It validates the PR, issues a credential, commits your entry directly to main, posts your encrypted password as a comment, and then closes the PR. You do not need to wait for a maintainer and you should not try to merge the PR yourself.
 
 #### 4. Decrypt your password
 
@@ -146,7 +146,9 @@ The connection uses HTTP PUT (NTRIP v2). Ensure your client supports NTRIP v2 an
 
 ### Rotating credentials
 
-To get a new password for an existing entry, open a PR that removes only the `password_hash` field from your entry in `ops/values.yaml`. Leave everything else unchanged. Use the "Credential rotation" PR template.
+To get a new password for an existing entry, open a PR that removes only the `password_hash` field from your entry in `ops/values.yaml`. Leave everything else unchanged.
+
+[Open a credential rotation PR](https://github.com/peinser/corshub/compare?template=rotate.md)
 
 The bot verifies that the PR is opened by the same GitHub account that originally registered the entry, then issues a new credential. The old password stops working as soon as the PR is merged and the deployment rolls out.
 
