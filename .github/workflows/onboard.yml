@@ -35,31 +35,52 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          # Lines removed from ops/values.yaml, excluding diff headers and
-          # password_hash (absent in a legitimate rotation PR).
+          # Lines removed from ops/values.yaml, excluding:
+          #   - diff headers
+          #   - password_hash (absent in a legitimate rotation PR)
+          #   - SOPS metadata that changes on every sops write (lastmodified, mac)
           removed=$(git diff HEAD -- ops/values.yaml \
-            | grep '^-' | grep -v '^---' | grep -v 'password_hash')
+            | grep '^-' \
+            | grep -v '^---' \
+            | grep -v 'password_hash' \
+            | grep -v 'lastmodified:' \
+            | grep -v 'mac:')
 
+          echo "Removed lines (after exclusions):"
+          echo "${removed:-  (none)"}"
           [ -z "$removed" ] && exit 0
 
+          echo "Violation detected — labelling and closing PR."
+
           api="https://api.github.com"
-          auth=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json")
+          auth=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28")
 
-          # Create or update the violation label.
-          curl -sf -X POST "$api/repos/$REPO/labels" "${auth[@]}" \
-            -d '{"name":"violation","color":"B60205","description":"PR removes or modifies existing configuration"}' \
-            -o /dev/null || true
-          curl -sf -X POST "$api/repos/$REPO/issues/$PR/labels" "${auth[@]}" \
-            -d '{"labels":["violation"]}' -o /dev/null
+          curl_check() {
+            local desc="$1"; shift
+            local out
+            out=$(curl -sS -w "\n%{http_code}" "$@")
+            local code="${out##*$'\n'}"
+            local body="${out%$'\n'*}"
+            echo "[$desc] HTTP $code"
+            if [ "$code" -ge 400 ]; then
+              echo "  response: $body"
+              return 1
+            fi
+          }
 
-          # Post a comment explaining the rejection.
+          # Create or update the violation label (422 = already exists, ignore).
+          curl_check "create label" -X POST "$api/repos/$REPO/labels" "${auth[@]}" \
+            -d '{"name":"violation","color":"B60205","description":"PR removes or modifies existing configuration"}' || true
+
+          curl_check "apply label" -X POST "$api/repos/$REPO/issues/$PR/labels" "${auth[@]}" \
+            -d '{"labels":["violation"]}'
+
           body="This PR removes or modifies existing lines in ops/values.yaml.\n\nOnly additions are permitted. Changes to existing entries or other sections of the file must go through the repository maintainers directly.\n\nRemoved lines:\n\`\`\`diff\n${removed}\n\`\`\`\n\nThis PR has been closed. Open a new one containing only the additions for your entry."
-          curl -sf -X POST "$api/repos/$REPO/issues/$PR/comments" "${auth[@]}" \
-            -d "{\"body\":\"$body\"}" -o /dev/null
+          curl_check "post comment" -X POST "$api/repos/$REPO/issues/$PR/comments" "${auth[@]}" \
+            -d "{\"body\":\"$body\"}"
 
-          # Close the PR.
-          curl -sf -X PATCH "$api/repos/$REPO/pulls/$PR" "${auth[@]}" \
-            -d '{"state":"closed"}' -o /dev/null
+          curl_check "close PR" -X PATCH "$api/repos/$REPO/pulls/$PR" "${auth[@]}" \
+            -d '{"state":"closed"}'
 
           exit 1
 
