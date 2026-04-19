@@ -22,7 +22,7 @@ data:
       proxy_cache_path /tmp/nginx_cache
                        levels=1:2
                        keys_zone=grafana:2m
-                       max_size={{ .Values.statistics.cacheSizeLimit }}
+                       max_size={{ .Values.statistics.cacheSizeLimit | replace "Mi" "m" | replace "Gi" "g" | replace "Ki" "k" }}
                        inactive=1h
                        use_temp_path=off;
 
