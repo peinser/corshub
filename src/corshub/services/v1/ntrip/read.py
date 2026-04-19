@@ -95,7 +95,7 @@ async def read(request: Request, mountpoint: str) -> HTTPResponse:
                 async with caster.subscribe(mountpoint) as sub:
                     while (frame := await sub.get()) is not None:
                         await stream.write(frame)
-        except (KeyError, TimeoutError):
+        except KeyError, TimeoutError:
             pass  # Mountpoint closed, or session limit reached.
 
     return ResponseStream(

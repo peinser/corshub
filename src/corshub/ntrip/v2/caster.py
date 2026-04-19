@@ -242,9 +242,7 @@ class Caster(ABC):
         """
 
     @abstractmethod
-    async def authenticate_rover(
-        self, username: str, password: str, mountpoint: str
-    ) -> tuple[bool, int | None]:
+    async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> tuple[bool, int | None]:
         """Return True if *username*/*password* may subscribe to *mountpoint* and returns
         an additional max session duration that needs to be imposed by the routes.
 
@@ -413,9 +411,7 @@ class NTRIPCaster(Caster):
         metrics.auth_requests_total.labels(role="base_station", result="success" if allowed else "failure").inc()
         return allowed
 
-    async def authenticate_rover(
-        self, username: str, password: str, mountpoint: str
-    ) -> tuple[bool, int | None]:
+    async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> tuple[bool, int | None]:
         """Authenticate a rover against the OPA policy.
 
         Returns a ``(allowed, max_session_seconds)`` tuple.  ``max_session_seconds``
