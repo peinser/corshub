@@ -25,3 +25,4 @@ spec:
       {{- end }}
   selector:
     {{- include "corshub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
