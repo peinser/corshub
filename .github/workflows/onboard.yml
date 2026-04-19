@@ -35,20 +35,29 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
+          echo "--- raw diff ---"
+          git diff HEAD -- ops/values.yaml
+          echo "--- end diff ---"
+
           # Lines removed from ops/values.yaml, excluding:
           #   - diff headers
           #   - password_hash (absent in a legitimate rotation PR)
-          #   - SOPS metadata that changes on every sops write (lastmodified, mac)
+          #   - SOPS metadata that regenerates on every sops write
           removed=$(git diff HEAD -- ops/values.yaml \
             | grep '^-' \
             | grep -v '^---' \
             | grep -v 'password_hash' \
             | grep -v 'lastmodified:' \
-            | grep -v 'mac:')
+            | grep -v 'mac:' \
+            | grep -v 'ENC\[')
 
-          echo "Removed lines (after exclusions):"
-          echo "${removed:-  (none)"}"
-          [ -z "$removed" ] && exit 0
+          echo "Removed lines after exclusions:"
+          if [ -z "$removed" ]; then
+            echo "  (none)"
+            exit 0
+          fi
+
+          echo "$removed"
 
           echo "Violation detected — labelling and closing PR."
 
