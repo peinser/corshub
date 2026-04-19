@@ -39,24 +39,6 @@ metrics:
     enabled: true
     serviceMonitor:
         enabled: true
-statistics:
-  enabled: true
-  shareableUrl: https://grafana.tools.compute.peinser.com/public-dashboards/79e0116793194d0bae971dac3f2d98e3
-  upstreamUrl: http://prd-grafana.monitoring.svc.cluster.local:80/public-dashboards/79e0116793194d0bae971dac3f2d98e3
-  cacheTtlMinutes: 5
-  clusterDNS: 172.18.0.10
-  image:
-    repository: harbor.peinser.com/dockerhub/nginxinc/nginx-unprivileged
-  ingress:
-    enabled: true
-    className: nginx
-    annotations:
-        cert-manager.io/cluster-issuer: letsencrypt-production
-    host: corshub.peinser.com
-    tls:
-        - secretName: corshub-tls
-          hosts:
-            - corshub.peinser.com
 opa:
     enabled: true
     image:
