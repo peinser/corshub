@@ -49,6 +49,10 @@ opa:
         # valid_from / valid_until: optional ISO 8601 dates (YYYY-MM-DD).
         # Connections are denied before valid_from and on/after valid_until.
         base_stations:
+            joerih:
+                mountpoint: TEST-JOERIH
+                valid_from: "2026-04-20"
+                valid_until: "2026-04-30"
             peinser-mobile:
                 mountpoint: MOBILE-PEINSER-0
                 valid_from: "2025-01-01"
