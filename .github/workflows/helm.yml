@@ -70,4 +70,4 @@ jobs:
       run: |
         crane tag \
           ${{ vars.OCI_REGISTRY }}/uas/charts/corshub:${{ steps.version.outputs.value }} \
-          latest
+          0.0.0-latest
