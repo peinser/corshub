@@ -203,6 +203,61 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
+# Public statistics proxy — serves a cached copy of a Grafana shareable link
+# at /statistics.  A small nginx pod fetches the URL on first request, caches
+# the response for cacheTtlMinutes, and serves subsequent visitors from cache.
+# No Grafana reconfiguration or service account token is required.
+#
+# Steps:
+#   1. In Grafana open the dashboard, click Share, copy the link.
+#   2. Set statistics.shareableUrl to that URL.
+#   3. Enable statistics.ingress or statistics.httpRoute for your cluster type.
+statistics:
+  enabled: false
+
+  # Full Grafana shareable link, including any query parameters.
+  # Example: https://grafana.example.com/d/abc123/ntrip?orgId=1&kiosk
+  shareableUrl: ""
+
+  # How long to cache the page (minutes).
+  cacheTtlMinutes: 2
+
+  # Maximum size of the nginx cache volume.
+  cacheSizeLimit: 32Mi
+
+  image:
+    repository: docker.io/nginxinc/nginx-unprivileged
+    tag: alpine
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 64Mi
+
+  # Classic Kubernetes Ingress for /statistics.
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    host: corshub.example.com
+    tls: []
+      # - secretName: corshub-tls
+      #   hosts:
+      #     - corshub.example.com
+
+  # Gateway API HTTPRoute for /statistics.
+  httpRoute:
+    enabled: false
+    parentRefs:
+      - name: gateway
+        namespace: gateway-system
+    hostnames:
+      - corshub.example.com
+    annotations: {}
+
 # Writable ephemeral directory mounted at /tmp (required when
 # readOnlyRootFilesystem=true).
 tmpDir:

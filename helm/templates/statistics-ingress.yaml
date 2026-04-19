@@ -1,0 +1,37 @@
+{{- if and .Values.statistics.enabled .Values.statistics.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "corshub.fullname" . }}-statistics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "corshub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: statistics
+  annotations:
+    # The statistics proxy handles its own caching; enable buffering at the ingress level.
+    nginx.ingress.kubernetes.io/proxy-buffering: "on"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    {{- with .Values.statistics.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.statistics.ingress.className }}
+  ingressClassName: {{ .Values.statistics.ingress.className }}
+  {{- end }}
+  {{- if .Values.statistics.ingress.tls }}
+  tls:
+    {{- toYaml .Values.statistics.ingress.tls | nindent 4 }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.statistics.ingress.host | quote }}
+      http:
+        paths:
+          - path: /statistics
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "corshub.fullname" . }}-statistics
+                port:
+                  name: http
+{{- end }}

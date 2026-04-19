@@ -1,0 +1,20 @@
+{{- if .Values.statistics.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "corshub.fullname" . }}-statistics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "corshub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: statistics
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "corshub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: statistics
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+{{- end }}

@@ -1,0 +1,64 @@
+{{- if .Values.statistics.enabled -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "corshub.fullname" . }}-statistics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "corshub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: statistics
+data:
+  nginx.conf: |
+    pid /tmp/nginx.pid;
+
+    events {
+      worker_connections 256;
+    }
+
+    http {
+      access_log /dev/stdout;
+      error_log  /dev/stderr warn;
+
+      proxy_cache_path /tmp/nginx_cache
+                       levels=1:2
+                       keys_zone=grafana:2m
+                       max_size={{ .Values.statistics.cacheSizeLimit }}
+                       inactive=1h
+                       use_temp_path=off;
+
+      limit_req_zone $binary_remote_addr zone=stats_rl:5m rate=20r/s;
+
+      server {
+        listen 8080;
+        server_name _;
+
+        location = /statistics {
+          return 301 /statistics/;
+        }
+
+        location = /statistics/ {
+          limit_req zone=stats_rl burst=10 nodelay;
+
+          # Drop any client-supplied query string so the upstream always
+          # receives the exact URL configured in shareableUrl (e.g. kiosk
+          # mode parameters cannot be overridden by the caller).
+          set $args "";
+
+          proxy_pass            {{ .Values.statistics.shareableUrl }};
+          proxy_ssl_server_name on;
+          proxy_set_header      Host $proxy_host;
+
+          proxy_cache           grafana;
+          proxy_cache_valid     200 {{ .Values.statistics.cacheTtlMinutes }}m;
+          proxy_cache_key       "statistics";
+          proxy_cache_use_stale error timeout updating;
+          proxy_cache_lock      on;
+
+          add_header Cache-Control          "public, max-age={{ mul .Values.statistics.cacheTtlMinutes 60 }}" always;
+          add_header X-Cache-Status         $upstream_cache_status always;
+          add_header X-Content-Type-Options nosniff always;
+          add_header Referrer-Policy        strict-origin-when-cross-origin always;
+        }
+      }
+    }
+{{- end }}
