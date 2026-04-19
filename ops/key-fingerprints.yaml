@@ -1,7 +1,9 @@
-# Tracks SSH key fingerprints used when credentials were issued to each user.
-# Written by the onboarding bot; used to verify identity during rotation.
-# Do not edit manually.
 base_stations:
+  joerih:
+    github_user: JoeriHermans
+    key_fingerprints:
+    - SHA256:BTynIRg3JI2pmjGVwfgdyhrBo6xpJ4b87xVwvclLnFE
+    - SHA256:BCyf5DJksDS4n4Q/YCSRS4CFZL+UoWCLEUhKAgQh2t0
   peinser-mobile:
     github_user: JoeriHermans
     key_fingerprints: []

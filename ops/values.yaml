@@ -49,6 +49,11 @@ opa:
         # valid_from / valid_until: optional ISO 8601 dates (YYYY-MM-DD).
         # Connections are denied before valid_from and on/after valid_until.
         base_stations:
+            joerih:
+                mountpoint: TEST-JOERIH
+                valid_from: "2026-04-20"
+                valid_until: "2026-05-30"
+                password_hash: ENC[AES256_GCM,data:8uz4aHIqBiHuMXKmHrQlA7Ph32vUt70MB63h0XdvrNaiUjrsMkaHg9T+02uSxeLL3wiTQe8PPzT1hW0X,iv:rBcutWP8WHhWyklY/bg/YS5wMbNCLqfmIRjPy7FYgqo=,tag:5xMMbPn+Kcs56f+6yyOS8g==,type:str]
             peinser-mobile:
                 mountpoint: MOBILE-PEINSER-0
                 valid_from: "2025-01-01"
@@ -74,8 +79,8 @@ sops:
             NmJXdkFLQ0VPMVh6WmZsMVgrMStac1EKEgV2Sy8H06dbBug7035MgtPEhJpoQd7t
             zKd8nT5K2ttLL1uevMxspmzq+QCz5yNZnexNKU1P0Z/HWO3abrimaA==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-04-19T09:54:14Z"
-    mac: ENC[AES256_GCM,data:6ll+4og5+aGQ1lovkUGhmpzwL8kfnjsj1ooIIFwWq2KSRYo2L6KSfw3h//g7mmndJHlhN+26WueH10qOO0fg/oxxagHiL85eomXcSIe+ZvPyCRmz3DQFC1as2ieuFPYHEscj++dxTTBvDo2jDsEtwuB4/V0tf6dIbx92to+KnV0=,iv:skYhf80PDxSjlsrMSJlqL8dI/ElAbaq1AY+96cG4msU=,tag:jk5qG2Q0j5zZneErT//vdA==,type:str]
+    lastmodified: "2026-04-19T21:01:18Z"
+    mac: ENC[AES256_GCM,data:O6x1lBQkc4JUEMT6ZCo1J37uHE+ozJcWgHVxryYZ+NeqKC2OQFvjygd688gZ6PWw5tSjz9+BWGne0Vcp3jf+eS2WCUqxStA7GRQU/5hed3wD6LgVLROttJCGc/5n+FnrdQ8sQMIHNrz40Rw3id1k12WdQWLzPldNxSxA3WdjS6g=,iv:zT6vGjSbhbLjMP7xq9PVRNe8ctOroLViec5duw/Bknk=,tag:jLVENMzaDTo0Fx7XXFkmKQ==,type:str]
     encrypted_regex: ^password_hash$
     mac_only_encrypted: true
     version: 3.12.2
