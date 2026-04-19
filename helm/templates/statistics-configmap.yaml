@@ -55,10 +55,16 @@ data:
 
           # Variable assignment forces nginx to use the resolver above for
           # dynamic DNS lookup instead of a one-shot resolution at startup.
-          set $upstream {{ .Values.statistics.shareableUrl }};
+          # upstreamUrl bypasses an ingress IP whitelist by pointing directly
+          # at the in-cluster Grafana service, e.g.:
+          #   http://prd-grafana.monitoring.svc.cluster.local:80/public-dashboards/...
+          # Leave empty to proxy directly to shareableUrl.
+          set $upstream {{ .Values.statistics.upstreamUrl | default .Values.statistics.shareableUrl }};
           proxy_pass            $upstream;
           proxy_ssl_server_name on;
-          proxy_set_header      Host $proxy_host;
+          # Always send the public Grafana hostname so virtual-host routing works
+          # even when upstreamUrl points to an internal cluster service.
+          proxy_set_header      Host {{ (urlParse .Values.statistics.shareableUrl).host }};
 
           proxy_cache           grafana;
           proxy_cache_valid     200 {{ .Values.statistics.cacheTtlMinutes }}m;

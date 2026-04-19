@@ -219,6 +219,12 @@ statistics:
   # Example: https://grafana.example.com/d/abc123/ntrip?orgId=1&kiosk
   shareableUrl: ""
 
+  # Optional: proxy target URL. Overrides shareableUrl as the proxy_pass destination.
+  # Use this to bypass an ingress IP whitelist by pointing at the in-cluster
+  # Grafana service directly (the public Host header is still set from shareableUrl).
+  # Example: http://prd-grafana.monitoring.svc.cluster.local:80/public-dashboards/<uid>
+  upstreamUrl: ""
+
   # Cluster DNS IP for nginx's resolver directive (must be an IP address).
   # Confirm with: kubectl get svc -n kube-system | grep -i dns
   # In principle, we can inject this dynamically during the deploy. But you know.
