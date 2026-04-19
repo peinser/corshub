@@ -242,8 +242,11 @@ class Caster(ABC):
         """
 
     @abstractmethod
-    async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> bool:
-        """Return True if *username*/*password* may subscribe to *mountpoint*.
+    async def authenticate_rover(
+        self, username: str, password: str, mountpoint: str
+    ) -> tuple[bool, int | None]:
+        """Return True if *username*/*password* may subscribe to *mountpoint* and returns
+        an additional max session duration that needs to be imposed by the routes.
 
         Raises no exception — returns False on any auth failure or error.
         """

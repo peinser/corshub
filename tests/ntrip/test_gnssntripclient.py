@@ -146,7 +146,7 @@ def server_port() -> int:  # type: ignore[return]
             blueprint = ntrip_service.blueprint()
             caster = NTRIPCaster()
             caster.authenticate_base_station = AsyncMock(return_value=True)
-            caster.authenticate_rover = AsyncMock(return_value=True)
+            caster.authenticate_rover = AsyncMock(return_value=(True, None))
             await caster.register(
                 mountpoint=MOUNTPOINT,
                 identifier="My Own String",

@@ -56,7 +56,7 @@ def app(caster: NTRIPCaster) -> Sanic:
     _app.blueprint(ntrip_blueprint)
 
     caster.authenticate_base_station = AsyncMock(return_value=True)
-    caster.authenticate_rover = AsyncMock(return_value=True)
+    caster.authenticate_rover = AsyncMock(return_value=(True, None))
 
     @_app.before_server_start
     async def setup_caster(app: Sanic, _: object) -> None:
