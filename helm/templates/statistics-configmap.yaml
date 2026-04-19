@@ -30,7 +30,7 @@ data:
 
       # Use the cluster DNS resolver so the upstream hostname is resolved
       # dynamically at request time rather than once at config-load.
-      resolver kube-dns.kube-system.svc.cluster.local valid=30s ipv6=off;
+      resolver {{ .Values.statistics.clusterDNS }} valid=30s ipv6=off;
 
       server {
         listen 8080;

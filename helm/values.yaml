@@ -203,7 +203,7 @@ nodeSelector: {}
 tolerations: []
 affinity: {}
 
-# Public statistics proxy — serves a cached copy of a Grafana shareable link
+# Public statistics proxy, serves a cached copy of a Grafana shareable link
 # at /statistics.  A small nginx pod fetches the URL on first request, caches
 # the response for cacheTtlMinutes, and serves subsequent visitors from cache.
 # No Grafana reconfiguration or service account token is required.
@@ -218,6 +218,11 @@ statistics:
   # Full Grafana shareable link, including any query parameters.
   # Example: https://grafana.example.com/d/abc123/ntrip?orgId=1&kiosk
   shareableUrl: ""
+
+  # Cluster DNS IP for nginx's resolver directive (must be an IP address).
+  # Confirm with: kubectl get svc -n kube-system | grep -i dns
+  # In principle, we can inject this dynamically during the deploy. But you know.
+  clusterDNS: 172.18.0.10
 
   # How long to cache the page (minutes).
   cacheTtlMinutes: 2
