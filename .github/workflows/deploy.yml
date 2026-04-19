@@ -15,7 +15,7 @@ on:
       - ops/**
 
 env:
-  CHART_VERSION: ${{ github.event.inputs.chart_version || 'latest' }}
+  CHART_VERSION: ${{ github.event.inputs.chart_version || '0.0.0-latest' }}
 
 jobs:
   deploy-production:
