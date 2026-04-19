@@ -107,7 +107,7 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
             # Read the received chunks in the stream.
             async for chunk in request.stream:
                 if chunk:
-                    logger.info(
+                    logger.debug(
                         "Received chunk of %d bytes for mountpoint %r from IP %s",
                         len(chunk),
                         mountpoint,
@@ -115,7 +115,7 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
                     )
 
                     acks = await caster.publish(mountpoint, chunk)
-                    logger.info("Dispatched to %d rovers for mountpoint %r.", acks, mountpoint)
+                    logger.debug("Dispatched to %d rovers for mountpoint %r.", acks, mountpoint)
                     await resp.send(data=str(acks))  # Send back the number of ACKs from the rovers for now.
 
         finally:

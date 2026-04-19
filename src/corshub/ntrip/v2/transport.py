@@ -80,10 +80,22 @@ class QueueTransportSubscriber(TransportSubscriber):
 
     Designed to be shared safely between multiple producer tasks and one consumer task.
     Guarantees that the queue is drained/cleaned up and no tasks are left hanging.
+
+    The queue is bounded (QUEUE_MAXSIZE frames). When a slow rover falls behind and the
+    queue fills up, the oldest frame is evicted before the newest one is enqueued not
+    the other way around. RTCM corrections are only useful within ~1-2 seconds of
+    generation; a stale correction actively degrades the rover's RTK filter. Evicting
+    oldest-first ensures the rover always receives the freshest available data rather
+    than draining a backlog of outdated frames. At the typical 1 Hz base-station output
+    rate, 15 slots represent ~15 seconds of buffer well beyond the point at which RTK
+    fix would already be lost; so legitimate transient slowdowns (GC pause, slow link)
+    are absorbed without dropping any frames.
     """
 
+    QUEUE_MAXSIZE: Final[int] = 15
+
     def __init__(self) -> None:
-        self.queue: asyncio.Queue[bytes] = asyncio.Queue()
+        self.queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=self.QUEUE_MAXSIZE)
         self.cancelled: bool = False
         self._sentinel: Final[object] = object()  # Unique sentinel value to signal cancellation
 
@@ -92,7 +104,7 @@ class QueueTransportSubscriber(TransportSubscriber):
         self.cancelled = True
         try:
             self.queue.put_nowait(self._sentinel)  # Signal any waiting producers to stop
-        except asyncio.QueueFull, RuntimeError:
+        except (asyncio.QueueFull, RuntimeError):
             pass  # If the queue is full or closed, we can ignore this
 
     def drain(self) -> None:
@@ -131,19 +143,24 @@ class QueueTransportSubscriber(TransportSubscriber):
         self.cleanup()  # Perform cleanup and signal producers to stop
 
     async def publish(self, frame: bytes) -> bool:
-        """Publish a frame to this subscriber's queue."""
+        """Publish a frame to this subscriber's queue, evicting the oldest frame if full."""
         if self.cancelled:
-            return False  # Don't publish to cancelled subscribers
+            return False
+
+        if self.queue.full():
+            try:
+                self.queue.get_nowait()  # evict oldest; newest frame takes priority
+            except asyncio.QueueEmpty:
+                pass
 
         try:
-            await self.queue.put(frame)
+            self.queue.put_nowait(frame)
             return True
 
-        except asyncio.CancelledError:
-            self.cancelled = True
-            raise
+        except asyncio.QueueFull:
+            return False  # lost race between the eviction and put_nowait; drop this frame
 
-        except Exception:
+        except asyncio.CancelledError:
             self.cancelled = True
             raise
 

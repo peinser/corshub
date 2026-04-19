@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import os
 
+from functools import wraps
 from typing import TYPE_CHECKING
 
 import jwt
@@ -38,7 +39,8 @@ class JWKSManager:
         self._jwks = crypto.JWKSet()
         self._public_keys = {}
 
-        assert self._origin, "No OIDC origin has been specified."
+        if not self._origin:
+            raise RuntimeError("No OIDC origin has been specified.")
 
     @property
     def jwks(self) -> crypto.JWKSet:
@@ -90,7 +92,8 @@ class JWKSManager:
 
 
 def protected(f: callable) -> callable:
-    def _wrapped(request: Request, **kwargs) -> HTTPResponse:
+    @wraps(f)
+    async def _wrapped(request: Request, **kwargs) -> HTTPResponse:
         token = request.token
 
         if not token:
@@ -109,6 +112,6 @@ def protected(f: callable) -> callable:
 
         request.ctx.claims = claims
 
-        return f(request, **kwargs)
+        return await f(request, **kwargs)
 
     return _wrapped

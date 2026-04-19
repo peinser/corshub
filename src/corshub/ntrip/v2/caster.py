@@ -413,12 +413,11 @@ class NTRIPCaster(Caster):
         if mountpoint not in self._mountpoints:
             return  # Idempotent
 
-        transport = self._transports[mountpoint]
-
+        transport = self._transports.pop(mountpoint, None)
         del self._mountpoints[mountpoint]
-        del self._transports[mountpoint]
 
-        await transport.shutdown()  # Signal the subscribers the base-station is leaving.
+        if transport is not None:
+            await transport.shutdown()
 
     @property
     def mountpoints(self) -> dict[str, Mountpoint]:
