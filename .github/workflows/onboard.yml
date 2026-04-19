@@ -49,7 +49,7 @@ jobs:
             | grep -v 'password_hash' \
             | grep -v 'lastmodified:' \
             | grep -v 'mac:' \
-            | grep -v 'ENC\[')
+            | grep -v 'ENC\[') || true
 
           echo "Removed lines after exclusions:"
           if [ -z "$removed" ]; then
