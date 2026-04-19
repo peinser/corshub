@@ -20,6 +20,8 @@ Response:
 
 from __future__ import annotations
 
+import asyncio
+
 from typing import TYPE_CHECKING
 
 from sanic.exceptions import NotFound
@@ -58,7 +60,10 @@ async def read(request: Request, mountpoint: str) -> HTTPResponse:
 
     caster = request.app.ctx.ntrip_caster
 
-    if not await caster.authenticate_rover(request.credentials.username, request.credentials.password, mountpoint):
+    allowed, max_session_seconds = await caster.authenticate_rover(
+        request.credentials.username, request.credentials.password, mountpoint
+    )
+    if not allowed:
         raise Unauthorized("Invalid credentials.", scheme="Basic")
 
     mp = caster.mountpoints.get(mountpoint)
@@ -80,12 +85,18 @@ async def read(request: Request, mountpoint: str) -> HTTPResponse:
         # The transport may disappear between the availability check above and this
         # point if the base station disconnects concurrently.  Treat that as a
         # normal end-of-stream rather than a server error.
+        #
+        # asyncio.timeout(None) sets no deadline and is a no-op, so registered
+        # users (max_session_seconds=None) pass through without any timeout.
+        # Users with a policy-imposed limit (e.g. anonymous) are disconnected
+        # cleanly once the deadline expires.
         try:
-            async with caster.subscribe(mountpoint) as sub:
-                while (frame := await sub.get()) is not None:
-                    await stream.write(frame)
-        except KeyError:
-            pass  # Mountpoint closed between availability check and subscribe.
+            async with asyncio.timeout(max_session_seconds):
+                async with caster.subscribe(mountpoint) as sub:
+                    while (frame := await sub.get()) is not None:
+                        await stream.write(frame)
+        except (KeyError, TimeoutError):
+            pass  # Mountpoint closed, or session limit reached.
 
     return ResponseStream(
         stream_frames,

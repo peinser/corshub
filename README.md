@@ -14,9 +14,21 @@ The network is open. Anyone can connect a rover to receive RTK corrections, or c
 https://corshub.peinser.com
 ```
 
+### Anonymous access
+
+You can connect a rover without registering using the credentials `anonymous` / `anonymous`. Anonymous access is limited:
+
+- one concurrent connection
+- nearest base station only (mountpoint `*`), no pinning to a specific station
+- sessions are time-limited (1 minute)
+
+This is intended for evaluating the network. For production use, register a rover to get a persistent identity, unlimited sessions, and the ability to pin to a specific mountpoint.
+
+---
+
 ### How registration works
 
-Access is managed through a pull request to this repository. You add your entry to `ops/values.yaml`, open the PR, and a bot generates your credentials automatically once a maintainer approves. The password is encrypted with your SSH public key from GitHub and posted as a comment on the PR. Only you can decrypt it.
+Access is managed through a pull request to this repository. You add your entry to `ops/values.yaml`, open the PR, and a bot generates your credentials automatically. The password is encrypted with your SSH public key from GitHub and posted as a comment on the PR. Only you can decrypt it.
 
 You do not need to be a collaborator. Fork the repository, make your change, and open the PR from your fork.
 
@@ -74,15 +86,15 @@ brew install age
 apt install age   # or download from https://github.com/FiloSottile/age/releases
 ```
 
-Copy the encrypted block from the PR comment (the full `-----BEGIN AGE ENCRYPTED FILE-----` block) and decrypt it:
+The PR comment contains a ready-to-run command with the encrypted block already inlined. Copy and run it, replacing `~/.ssh/your-private-key` with the private key matching one of the fingerprints listed in the comment:
 
 ```sh
-echo '-----BEGIN AGE ENCRYPTED FILE-----
-<paste the full block here>
------END AGE ENCRYPTED FILE-----' | age -d -i ~/.ssh/id_ed25519
+age -d -i ~/.ssh/your-private-key <<'EOF'
+-----BEGIN AGE ENCRYPTED FILE-----
+...
+-----END AGE ENCRYPTED FILE-----
+EOF
 ```
-
-If you have multiple SSH keys, try each until one works. The bot encrypts to all ed25519 and RSA keys registered on your GitHub account.
 
 #### 5. Configure your NTRIP client
 
@@ -376,6 +388,12 @@ docker build -f docker/Dockerfile -t corshub:local .
 # Run
 docker run --rm corshub:local
 ```
+
+---
+
+## TODO
+
+- [ ] Add token bucket rate-limiter for auth based on connection fingerprint
 
 ---
 

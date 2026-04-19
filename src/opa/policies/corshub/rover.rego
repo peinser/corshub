@@ -27,8 +27,9 @@
 # Result document returned at /v1/data/corshub/rover
 # --------------------------------------------------
 # {
-#   "allow":         bool,   // false when undefined (deny-by-default)
-#   "password_hash": string  // absent when username is unknown
+#   "allow":               bool,      // false when undefined (deny-by-default)
+#   "password_hash":       string     // absent when username is unknown
+#   "max_session_seconds": int        // Maximum number of seconds the session can take, if allowed, <= 0 for infinite. For users where this field is not applicable, it will not be present.
 # }
 
 package corshub.rover
@@ -73,3 +74,6 @@ allow if {
 # Expose the stored bcrypt hash for application-layer password verification.
 # Undefined (absent) when the username is unknown.
 password_hash := data.corshub.rovers[input.username].password_hash
+
+# The `anonymous` user has a limited session duration.
+max_session_seconds := 60 if input.username == "anonymous"

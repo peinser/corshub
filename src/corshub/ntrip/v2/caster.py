@@ -410,19 +410,27 @@ class NTRIPCaster(Caster):
         metrics.auth_requests_total.labels(role="base_station", result="success" if allowed else "failure").inc()
         return allowed
 
-    async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> bool:
+    async def authenticate_rover(
+        self, username: str, password: str, mountpoint: str
+    ) -> tuple[bool, int | None]:
+        """Authenticate a rover against the OPA policy.
+
+        Returns a ``(allowed, max_session_seconds)`` tuple.  ``max_session_seconds``
+        is ``None`` when the policy imposes no session limit.
+        """
         if self._opa is None:
-            return False
+            return False, None
 
         result = await self._opa.query("corshub/rover", {"username": username, "mountpoint": mountpoint})
         if not result.get("allow"):
             metrics.auth_requests_total.labels(role="rover", result="failure").inc()
-            return False
+            return False, None
 
         stored_hash: str = result.get("password_hash", "")
         allowed = bool(stored_hash) and await secrets.verify(password, stored_hash)
         metrics.auth_requests_total.labels(role="rover", result="success" if allowed else "failure").inc()
-        return allowed
+        max_session_seconds: int | None = result.get("max_session_seconds")
+        return allowed, (max_session_seconds if allowed else None)
 
     async def publish(self, mountpoint: str, frame: bytes) -> int:
         transport = self._transports.get(mountpoint)

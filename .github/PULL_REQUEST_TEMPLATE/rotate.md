@@ -15,11 +15,10 @@ of your original onboarding.
 
 1. The bot runs automatically. It verifies that this PR is opened by the
    registered owner of the entry, then generates a new password and posts it
-   encrypted in a comment. Only you can decrypt it:
-   ```sh
-   # Copy the age-encrypted block from the PR comment, then:
-   echo '<paste block here>' | age -d -i ~/.ssh/your-private-key
-   ```
+   encrypted in a comment. The comment includes a ready-to-run decrypt command
+   with the block already inlined and the fingerprints of the keys it was
+   encrypted to. Replace `~/.ssh/your-private-key` with the matching key and
+   run it.
 2. The bot commits the updated entry directly to main and closes this PR. You
    do not need to wait for a maintainer and should not try to merge it yourself.
 3. Your old password stops working on the next deployment. Use the new one from

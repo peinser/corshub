@@ -244,15 +244,22 @@ def generate_credential(username: str, role: str, errors: list[str]) -> Credenti
     return Credential(pw_hash=pw_hash, encrypted=encrypted, fingerprints=fingerprints)
 
 
-def _post_credential_comment(username: str, role: str, encrypted: str) -> None:
+def _post_credential_comment(
+    username: str, role: str, encrypted: str, fingerprints: list[str]
+) -> None:
+    fp_lines = "\n".join(f"- `{fp}`" for fp in fingerprints)
+    decrypt_cmd = (
+        "age -d -i ~/.ssh/your-private-key <<'EOF'\n"
+        f"{encrypted.strip()}\n"
+        "EOF"
+    )
     body = (
         f"Credentials issued for `{username}` ({role})\n\n"
-        f"Encrypted with the SSH keys registered to @{GITHUB_ACTOR} on GitHub.\n\n"
-        f"```\n{encrypted.strip()}\n```\n\n"
-        "Decrypt with:\n"
-        "```sh\n"
-        "echo '<paste above>' | age -d -i ~/.ssh/your-private-key\n"
-        "```\n\n"
+        f"Encrypted to the following SSH keys registered to @{GITHUB_ACTOR}:\n\n"
+        f"{fp_lines}\n\n"
+        "Run the following to decrypt (replace `~/.ssh/your-private-key` with the "
+        "matching private key):\n\n"
+        f"```sh\n{decrypt_cmd}\n```\n\n"
         "Store this password securely. It will not be shown again.\n"
         "To rotate, open a new PR using the Credential rotation template."
     )
@@ -373,7 +380,7 @@ def main() -> None:
 
     # Post credential comments only after hashes are durably stored.
     for (role, username), cred in results.items():
-        _post_credential_comment(username, role, cred.encrypted)
+        _post_credential_comment(username, role, cred.encrypted, cred.fingerprints)
 
     n_stations = sum(1 for role, _ in results if role == "base_stations")
     n_rovers   = sum(1 for role, _ in results if role == "rovers")

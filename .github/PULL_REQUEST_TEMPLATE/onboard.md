@@ -39,12 +39,10 @@ opa:
 1. The bot runs automatically. It validates that only your entry was added to
    ops/values.yaml, generates a random password, and posts it encrypted in a
    comment on this PR. Only you can decrypt it.
-2. Decrypt the password with:
-   ```sh
-   # Copy the age-encrypted block from the PR comment, then:
-   echo '<paste block here>' | age -d -i ~/.ssh/your-private-key
-   ```
-   If you have multiple SSH keys, try every registered key until one works.
+2. The comment includes a ready-to-run decrypt command with the encrypted block
+   already inlined and a list of the SSH key fingerprints it was encrypted to.
+   Copy the command, replace `~/.ssh/your-private-key` with the matching key,
+   and run it.
 3. The bot commits your entry directly to main and closes this PR. You do not
    need to wait for a maintainer and should not try to merge it yourself.
 4. Store the decrypted password securely. It will not be shown again. To
