@@ -32,6 +32,11 @@ data:
         listen 8080;
         server_name _;
 
+        location = /healthz {
+          return 200 "ok\n";
+          add_header Content-Type text/plain;
+        }
+
         location = /statistics {
           return 301 /statistics/;
         }
