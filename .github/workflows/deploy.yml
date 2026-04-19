@@ -42,9 +42,14 @@ jobs:
         run: |
           echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
 
+      - name: Prepare age key and show public key
+        run: |
+          printf "%s" "${{ secrets.SOPS_AGE_KEY }}" > /tmp/age.key
+          echo "SOPS_AGE_KEY_FILE=/tmp/age.key" >> $GITHUB_ENV
+          chmod 600 /tmp/age.key
+          age-keygen -y /tmp/age.key
+
       - name: Prepare values.yaml
-        env:
-            SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
         run:
           sops -d ops/values.yaml > /tmp/values-plain.yaml
 
