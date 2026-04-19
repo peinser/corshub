@@ -35,7 +35,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
         run: |
-          changed=$(git diff --name-only HEAD pr-head)
+          changed=$(git diff --name-only "$(git merge-base HEAD pr-head)" pr-head)
           echo "Files changed in PR:"
           echo "$changed"
 
