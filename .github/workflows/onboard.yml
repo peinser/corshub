@@ -1,7 +1,7 @@
 name: Onboard
 
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - ops/values.yaml
     types: [opened, synchronize]
@@ -17,12 +17,17 @@ jobs:
       pull-requests: write
 
     steps:
-      - name: Checkout PR branch
+      - name: Checkout base repo at HEAD
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.base_ref }}
           fetch-depth: 0
           token: ${{ github.token }}
+
+      - name: Fetch ops/values.yaml from PR branch only
+        run: |
+          git fetch origin refs/pull/${{ github.event.pull_request.number }}/head:pr-head
+          git checkout pr-head -- ops/values.yaml
 
       - name: Install Python dependencies
         run: pip install --quiet bcrypt PyYAML
