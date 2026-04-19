@@ -2,10 +2,165 @@
 
 Continuously Operating Reference Station Hub: Python-based NTRIP (V2) caster for aggregating RTK corrections from a network of CORS base stations and distributing them to NTRIP clients.
 
+The network is open. Anyone can connect a rover to receive RTK corrections, or contribute a base station to extend coverage.
+
+---
+
+## Joining the Network
+
+### Caster
+
+```
+https://corshub.peinser.com
+```
+
+### How registration works
+
+Access is managed through a pull request to this repository. You add your entry to `ops/values.yaml`, open the PR, and a bot generates your credentials automatically once a maintainer approves. The password is encrypted with your SSH public key from GitHub and posted as a comment on the PR. Only you can decrypt it.
+
+You do not need to be a collaborator. Fork the repository, make your change, and open the PR from your fork.
+
+No `password_hash` or `github_user` field is required in your entry. The bot fills in the hash; your GitHub identity is taken from whoever opens the PR.
+
+---
+
+### Joining as a rover
+
+A rover receives RTK corrections from any registered base station. Use the mountpoint `*` to accept corrections from the nearest available base station, or specify a mountpoint name to pin to a specific one.
+
+#### 1. Fork this repository and open `ops/values.yaml`
+
+Add your entry under `opa.registry.rovers`:
+
+```yaml
+opa:
+  registry:
+    rovers:
+      your-chosen-username:
+        mountpoints: ["*"]
+        valid_from: "YYYY-MM-DD"
+        valid_until: "YYYY-MM-DD"
+```
+
+Replace `your-chosen-username` with whatever NTRIP username you want to use. Set `valid_until` to when you expect to stop using the service (you can always rotate or extend with another PR).
+
+To pin to a specific base station instead of any:
+
+```yaml
+        mountpoints: ["MOUNTPOINT_NAME"]
+```
+
+See the [available mountpoints](#available-mountpoints) section below.
+
+#### 2. Open a PR using the New NTRIP registration template
+
+Go to: `https://github.com/peinser/corshub/compare`
+
+Select the template "New NTRIP registration" when creating the PR.
+
+#### 3. Wait for maintainer approval
+
+A maintainer reviews your entry and approves the credential issuance. The bot then posts a comment on your PR containing your encrypted password.
+
+#### 4. Decrypt your password
+
+Install [age](https://github.com/FiloSottile/age) if you do not already have it:
+
+```sh
+# macOS
+brew install age
+
+# Linux
+apt install age   # or download from https://github.com/FiloSottile/age/releases
+```
+
+Copy the encrypted block from the PR comment (the full `-----BEGIN AGE ENCRYPTED FILE-----` block) and decrypt it:
+
+```sh
+echo '-----BEGIN AGE ENCRYPTED FILE-----
+<paste the full block here>
+-----END AGE ENCRYPTED FILE-----' | age -d -i ~/.ssh/id_ed25519
+```
+
+If you have multiple SSH keys, try each until one works. The bot encrypts to all ed25519 and RSA keys registered on your GitHub account.
+
+#### 5. Configure your NTRIP client
+
+| Setting | Value |
+|---|---|
+| Host | `corshub.peinser.com` |
+| Port | `443` |
+| TLS | yes |
+| Mountpoint | the mountpoint(s) you listed, or any available one |
+| Username | the username you chose in `ops/values.yaml` |
+| Password | the decrypted password from step 4 |
+
+Store the password securely. It will not be shown again. To get a new one, see [rotating credentials](#rotating-credentials) below.
+
+---
+
+### Joining as a base station
+
+A base station streams RTCM corrections from a fixed antenna to the caster. Other users' rovers can then use your corrections for RTK positioning. The practical range of a single base station is roughly 30-50 km.
+
+#### 1. Choose a mountpoint name
+
+The mountpoint identifies your base station on the caster. Pick something descriptive, for example `BRUSSELS-0` or `GHENT-ROOFTOP`. It must be unique across all registered base stations.
+
+#### 2. Fork this repository and open `ops/values.yaml`
+
+Add your entry under `opa.registry.base_stations`:
+
+```yaml
+opa:
+  registry:
+    base_stations:
+      your-chosen-username:
+        mountpoint: YOUR_MOUNTPOINT
+        valid_from: "YYYY-MM-DD"
+        valid_until: "YYYY-MM-DD"
+```
+
+The `username` field (the map key) is the NTRIP username your base station software will use to authenticate when pushing corrections. The `mountpoint` field is the name rovers will see and connect to.
+
+#### 3. Open a PR and receive your credentials
+
+Follow steps 2-4 from the rover guide above. The process is identical.
+
+#### 4. Stream corrections to the caster
+
+The `tools/here4-base-caster.py` script handles this automatically for Here4 u-blox receivers. See the [Tools](#tools) section for full usage. For other receivers, configure your NTRIP client in push mode:
+
+| Setting | Value |
+|---|---|
+| Host | `corshub.peinser.com` |
+| Port | `443` |
+| TLS | yes |
+| Mountpoint | the mountpoint you registered |
+| Username | the username you chose |
+| Password | the decrypted password |
+
+The connection uses HTTP PUT (NTRIP v2). Ensure your client supports NTRIP v2 and is not buffering the stream.
+
+---
+
+### Rotating credentials
+
+To get a new password for an existing entry, open a PR that removes only the `password_hash` field from your entry in `ops/values.yaml`. Leave everything else unchanged. Use the "Credential rotation" PR template.
+
+The bot verifies that the PR is opened by the same GitHub account that originally registered the entry, then issues a new credential. The old password stops working as soon as the PR is merged and the deployment rolls out.
+
+---
+
+### Available mountpoints
+
+The list of active base stations and their approximate locations can be found in `ops/values.yaml` under `opa.registry.base_stations`. The `mountpoint` field of each entry is the name to use in your NTRIP client.
+
 ---
 
 ## Table of Contents
 
+- [Joining the Network](#joining-the-network)
 - [Tools](#tools)
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
