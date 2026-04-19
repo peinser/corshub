@@ -51,7 +51,7 @@ statistics:
     className: nginx
     annotations:
         cert-manager.io/cluster-issuer: letsencrypt-production
-    host: corshub.example.com
+    host: corshub.peinser.com
     tls:
         - secretName: corshub-tls
           hosts:
