@@ -44,8 +44,7 @@ jobs:
 
       - name: Decrypt values.yaml
         run: |
-          export SOPS_AGE_KEY="AGE-SECRET-KEY-1VCN0K2QU7Q4QY70X6M7E3Y5MKS7AHDA94UNM83099VWPGFZ7MQTS799QL5"
-          sops -d ops/values.yaml > /tmp/values-plain.yaml
+          SOPS_AGE_KEY="${{ secrets.SOPS_AGE_KEY }}" sops -d ops/values.yaml > /tmp/values-plain.yaml
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
