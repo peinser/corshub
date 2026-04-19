@@ -143,7 +143,7 @@ jobs:
           exit 1
 
       - name: Install Python dependencies
-        run: pip3 install --quiet bcrypt PyYAML
+        run: pip3 install --break-system-packages --quiet bcrypt PyYAML
 
       - name: Configure git identity for bot commits
         run: |
@@ -187,6 +187,12 @@ jobs:
               return 1
             fi
           }
+
+          curl_check "create label" -X POST "$api/repos/$REPO/labels" "${auth[@]}" \
+            -d '{"name":"onboarded","color":"0E8A16","description":"Credentials successfully issued"}' || true
+
+          curl_check "apply label" -X POST "$api/repos/$REPO/issues/$PR/labels" "${auth[@]}" \
+            -d '{"labels":["onboarded"]}'
 
           curl_check "post comment" -X POST "$api/repos/$REPO/issues/$PR/comments" "${auth[@]}" \
             -d '{"body":"Credentials have been issued and committed directly to main. This PR is now closed. There is nothing to merge."}'
