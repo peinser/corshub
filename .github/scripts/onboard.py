@@ -122,15 +122,30 @@ def fetch_ssh_keys(github_user: str) -> list[str]:
     return [entry["key"] for entry in data if "key" in entry]
 
 
-def post_comment(body: str) -> None:
-    result = subprocess.run(
-        ["gh", "pr", "comment", PR_NUMBER, "--repo", REPO, "--body", body],
-        capture_output=True, text=True,
-        env={**os.environ, "GH_TOKEN": GH_TOKEN},
-        timeout=SUBPROCESS_TIMEOUT,
+def _github_post(path: str, payload: dict[str, Any]) -> Any:
+    url = f"https://api.github.com{path}"
+    data = json.dumps(payload).encode()
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={
+            "Authorization": f"Bearer {GH_TOKEN}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+            "Content-Type": "application/json",
+        },
     )
-    if result.returncode != 0:
-        raise RuntimeError(f"gh pr comment failed: {result.stderr.strip()}")
+    try:
+        with urllib.request.urlopen(req, timeout=SUBPROCESS_TIMEOUT) as resp:
+            return json.loads(resp.read())
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(
+            f"GitHub API {url} returned {exc.code}: {exc.read().decode()}"
+        ) from exc
+
+
+def post_comment(body: str) -> None:
+    _github_post(f"/repos/{REPO}/issues/{PR_NUMBER}/comments", {"body": body})
 
 
 def key_fingerprint(pubkey: str) -> str | None:
