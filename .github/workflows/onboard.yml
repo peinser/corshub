@@ -29,8 +29,42 @@ jobs:
           git fetch origin refs/pull/${{ github.event.pull_request.number }}/head:pr-head
           git checkout pr-head -- ops/values.yaml
 
+      - name: Verify PR contains only additions to ops/values.yaml
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          # Lines removed from ops/values.yaml, excluding diff headers and
+          # password_hash (absent in a legitimate rotation PR).
+          removed=$(git diff HEAD -- ops/values.yaml \
+            | grep '^-' | grep -v '^---' | grep -v 'password_hash')
+
+          [ -z "$removed" ] && exit 0
+
+          api="https://api.github.com"
+          auth=(-H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json")
+
+          # Create or update the violation label.
+          curl -sf -X POST "$api/repos/$REPO/labels" "${auth[@]}" \
+            -d '{"name":"violation","color":"B60205","description":"PR removes or modifies existing configuration"}' \
+            -o /dev/null || true
+          curl -sf -X POST "$api/repos/$REPO/issues/$PR/labels" "${auth[@]}" \
+            -d '{"labels":["violation"]}' -o /dev/null
+
+          # Post a comment explaining the rejection.
+          body="This PR removes or modifies existing lines in ops/values.yaml.\n\nOnly additions are permitted. Changes to existing entries or other sections of the file must go through the repository maintainers directly.\n\nRemoved lines:\n\`\`\`diff\n${removed}\n\`\`\`\n\nThis PR has been closed. Open a new one containing only the additions for your entry."
+          curl -sf -X POST "$api/repos/$REPO/issues/$PR/comments" "${auth[@]}" \
+            -d "{\"body\":\"$body\"}" -o /dev/null
+
+          # Close the PR.
+          curl -sf -X PATCH "$api/repos/$REPO/pulls/$PR" "${auth[@]}" \
+            -d '{"state":"closed"}' -o /dev/null
+
+          exit 1
+
       - name: Install Python dependencies
-        run: pip install --quiet bcrypt PyYAML
+        run: pip3 install --quiet bcrypt PyYAML
 
       - name: Configure git identity for bot commits
         run: |
