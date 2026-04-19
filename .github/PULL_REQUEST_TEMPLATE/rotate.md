@@ -1,14 +1,15 @@
 ## Credential rotation
 
 **This PR must be opened by the GitHub account that originally registered the entry.**
+
 The bot verifies your identity against the key fingerprints recorded at the time
 of your original onboarding.
 
 ### Checklist
 
-- [ ] I am the original owner of the entry I want to rotate
-- [ ] I have removed **only** the `password_hash` field from my entry in `ops/values.yaml` — nothing else
-- [ ] My GitHub account still has the same ed25519 or RSA SSH key registered (or I have added a new one at https://github.com/settings/keys before opening this PR)
+ 1. I am the original owner of the entry I want to rotate
+ 2. I have removed **only** the `password_hash` field from my entry in `ops/values.yaml` — nothing else
+ 3. My GitHub account still has the same ed25519 or RSA SSH key registered (or I have added a new one at https://github.com/settings/keys before opening this PR)
 
 ### What happens next
 

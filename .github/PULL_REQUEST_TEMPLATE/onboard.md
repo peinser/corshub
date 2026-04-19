@@ -5,10 +5,10 @@ Make sure your account has at least one ed25519 or RSA SSH key registered at htt
 
 ### Checklist
 
-- [ ] I have added my entry under `opa.registry.base_stations` or `opa.registry.rovers` in `ops/values.yaml`
-- [ ] I have **not** included a `password_hash` field (the bot generates it)
-- [ ] I have **not** included a `github_user` field (inferred from this PR's author)
-- [ ] My GitHub account has an ed25519 or RSA SSH key registered
+ 1. I have added my entry under `opa.registry.base_stations` or `opa.registry.rovers` in `ops/values.yaml`
+ 2. I have **not** included a `password_hash` field (the bot generates it)
+ 3. I have **not** included a `github_user` field (inferred from this PR's author)
+ 4. My GitHub account has an ed25519 or RSA SSH key registered
 
 ### Entry format
 

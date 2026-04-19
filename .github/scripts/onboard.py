@@ -150,7 +150,7 @@ def age_encrypt(plaintext: str, pubkeys: list[str]) -> str:
         f.write("\n".join(pubkeys))
         f.flush()
         result = subprocess.run(
-            ["age", "-R", f.name],
+            ["age", "-a", "-R", f.name],
             input=plaintext, capture_output=True, text=True, check=True,
             timeout=SUBPROCESS_TIMEOUT,
         )
