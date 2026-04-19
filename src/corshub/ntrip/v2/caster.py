@@ -19,6 +19,7 @@ import asyncio
 import re
 import time
 
+from io import BytesIO
 from abc import ABC
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
@@ -70,7 +71,7 @@ def _observe_rtcm_quality(mountpoint: str, frame: bytes) -> None:
     and increments the error counter partial frames at chunk boundaries are
     expected and do not count as errors.
     """
-    reader = RTCMReader(frame, quitonerror=2, parsed=True)
+    reader = RTCMReader(BytesIO(frame), quitonerror=2, parsed=True)
 
     while True:
         try:
@@ -106,10 +107,11 @@ def _observe_rtcm_quality(mountpoint: str, frame: bytes) -> None:
         if nsat:
             metrics.rtcm_satellites_tracked.labels(mountpoint=mountpoint, constellation=constellation).observe(nsat)
 
-        # CNR (DF403_XX) is only present in MSM4, MSM5, MSM6, MSM7.
+        # CNR is present in MSM4-7: DF403 (MSM4/5) or DF408 extended (MSM6/7).
         if msm_variant >= 4:
+            cnr_prefix = "DF408_" if msm_variant >= 6 else "DF403_"
             for attr, val in msg_attrs.items():
-                if attr.startswith("DF403_") and isinstance(val, (int, float)) and val > 0:
+                if attr.startswith(cnr_prefix) and isinstance(val, (int, float)) and val > 0:
                     metrics.rtcm_signal_cnr_dbhz.labels(mountpoint=mountpoint, constellation=constellation).observe(
                         float(val)
                     )

@@ -10,6 +10,8 @@ services:
     environment:
     - OPA_URL=http://opa:8181
     ports: []
+    expose:
+    - "8000"
     volumes:
     - ..:/workspace:cached
     networks:
@@ -39,6 +41,8 @@ services:
   prometheus:
     image: docker.io/prom/prometheus:latest
     container_name: prometheus
+    depends_on:
+    - devcontainer
     ports:
     - "9090:9090"
     volumes:
