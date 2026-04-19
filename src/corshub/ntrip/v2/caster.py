@@ -63,14 +63,10 @@ _MSM_CONSTELLATION: dict[int, str] = {
 }
 
 # ARP deviation above this threshold (metres) counts as a position change.
-_ARP_CHANGE_THRESHOLD: float = env.extract(
-    "GNSS_ARP_CHANGE_THRESHOLD", default="0.01", dtype=float
-)
+_ARP_CHANGE_THRESHOLD: float = env.extract("GNSS_ARP_CHANGE_THRESHOLD", default="0.01", dtype=float)
 
 # CNR observations above this level are counted as anomalously high.
-_HIGH_CNR_THRESHOLD_DBHZ: float = env.extract(
-    "GNSS_CNR_DBHZ_HIGH_THRESHOLD", default="55.0", dtype=float
-)
+_HIGH_CNR_THRESHOLD_DBHZ: float = env.extract("GNSS_CNR_DBHZ_HIGH_THRESHOLD", default="55.0", dtype=float)
 
 
 def _observe_rtcm_quality(
