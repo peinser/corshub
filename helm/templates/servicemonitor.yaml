@@ -13,6 +13,10 @@ spec:
   selector:
     matchLabels:
       {{- include "corshub.selectorLabels" . | nindent 6 }}
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: NotIn
+        values: [statistics]
   endpoints:
     - port: http
       path: /.info/v1/metrics/

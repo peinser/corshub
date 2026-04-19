@@ -28,6 +28,10 @@ data:
 
       limit_req_zone $binary_remote_addr zone=stats_rl:5m rate=20r/s;
 
+      # Use the cluster DNS resolver so the upstream hostname is resolved
+      # dynamically at request time rather than once at config-load.
+      resolver kube-dns.kube-system.svc.cluster.local valid=30s ipv6=off;
+
       server {
         listen 8080;
         server_name _;
@@ -49,7 +53,10 @@ data:
           # mode parameters cannot be overridden by the caller).
           set $args "";
 
-          proxy_pass            {{ .Values.statistics.shareableUrl }};
+          # Variable assignment forces nginx to use the resolver above for
+          # dynamic DNS lookup instead of a one-shot resolution at startup.
+          set $upstream {{ .Values.statistics.shareableUrl }};
+          proxy_pass            $upstream;
           proxy_ssl_server_name on;
           proxy_set_header      Host $proxy_host;
 
