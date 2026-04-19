@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       chart_version:
-        description: "Helm chart version to deploy (e.g. 0.0.1-abc1234). Defaults to 'latest'."
+        description: "Helm chart version to deploy (e.g. 0.0.1-abc1234 or @sha...). Defaults to '0.0.0-latest'."
         required: false
-        default: latest
+        default: 0.0.0-latest
   push:
     branches:
       - main
@@ -56,10 +56,9 @@ jobs:
           export KUBECONFIG=$(pwd)/kubeconfig
 
           echo "🛳️ Deploying to Kubernetes (chart: $CHART_VERSION)..."
-          VERSION_FLAG=$([[ "$CHART_VERSION" != "latest" ]] && echo "--version $CHART_VERSION" || echo "")
           helm upgrade --install production \
             oci://${{ vars.OCI_REGISTRY }}/uas/charts/corshub \
-            $VERSION_FLAG \
+            --version $CHART_VERSION \
             --values /tmp/values-plain.yaml \
             --namespace corshub \
             --atomic \
