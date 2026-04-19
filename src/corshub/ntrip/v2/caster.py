@@ -19,7 +19,6 @@ import asyncio
 import re
 import time
 
-from io import BytesIO
 from abc import ABC
 from abc import abstractmethod
 from collections.abc import AsyncGenerator
@@ -28,6 +27,7 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 from pyrtcm import RTCMReader
