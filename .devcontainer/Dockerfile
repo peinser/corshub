@@ -90,15 +90,15 @@ LABEL artifact=false
 ENV EDITOR=vim
 ENV PATH=/workspace/bin:$PATH
 
+ARG ARCH=$(dpkg --print-architecture)
+
 # Install 'act' for local GitHub Actions testing
 RUN ACT_VERSION=0.2.74 && \
-    ARCH=$(dpkg --print-architecture) && \
     curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_Linux_${ARCH}.tar.gz" \
         | tar xz -C /usr/local/bin act
 
 # Install `helm'
 RUN HELM_VERSION=3.17.3 && \
-    ARCH=$(dpkg --print-architecture) && \
     curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${ARCH}.tar.gz" \
         | tar xz -C /tmp && \
     mv /tmp/linux-${ARCH}/helm /usr/local/bin/helm && \
@@ -108,12 +108,18 @@ RUN HELM_VERSION=3.17.3 && \
 ARG SOPS_VERSION=3.12.2
 ARG AGE_VERSION=1.3.1
 ARG COSIGN_VERSION=3.0.6
+ARG CRANE_VERSION=0.21.5
+
 RUN set -eux; \
-    curl -fsSL -o /usr/local/bin/sops \
-      "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.amd64" && \
-    chmod +x /usr/local/bin/sops; \
-    curl -fsSL "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-amd64.tar.gz" \
-      | tar -xz -C /usr/local/bin --strip-components=1 age/age age/age-keygen; \
-    curl -fsSL -o /usr/local/bin/cosign \
-      "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" && \
-    chmod +x /usr/local/bin/cosign
+    CRANE_ARCH="$([ "${ARCH}" = "amd64" ] && echo "x86_64" || echo "${ARCH}")"; \
+    sudo curl -fsSL -o /usr/local/bin/sops \
+      "https://github.com/getsops/sops/releases/download/v${SOPS_VERSION}/sops-v${SOPS_VERSION}.linux.${ARCH}" && \
+    sudo chmod +x /usr/local/bin/sops; \
+    curl -fsSL "https://github.com/FiloSottile/age/releases/download/v${AGE_VERSION}/age-v${AGE_VERSION}-linux-${ARCH}.tar.gz" \
+      | sudo tar -xz -C /usr/local/bin --strip-components=1 age/age age/age-keygen; \
+    sudo curl -fsSL -o /usr/local/bin/cosign \
+      "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-${ARCH}" && \
+    sudo chmod +x /usr/local/bin/cosign && \
+    curl -sL "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_${CRANE_ARCH}.tar.gz" \
+      | sudo tar -xz -C /usr/local/bin crane && \
+    sudo chmod +x /usr/local/bin/crane
