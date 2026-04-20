@@ -421,6 +421,9 @@ class NTRIPCaster(Caster):
         self._arp_reference: dict[str, tuple[float, float, float]] = {}
         self._frame_buffer: dict[str, bytes] = {}
         self._quality: dict[str, MountpointQuality] = {}
+        # Keyed by mountpoint → {connection_id → (lat, lon)}.  Updated by the
+        # GGA reader in the rover GET handler; cleared on disconnect/reaper.
+        self._rover_positions: dict[str, dict[str, tuple[float, float]]] = {}
 
     async def register(self, mountpoint: str, **kwargs: dict) -> Mountpoint:
         if mountpoint in self._mountpoints:
@@ -452,6 +455,20 @@ class NTRIPCaster(Caster):
 
         return self._transports.get(mountpoint) is not None
 
+    def set_rover_position(self, mountpoint: str, connection_id: str, lat: float, lon: float) -> None:
+        self._rover_positions.setdefault(mountpoint, {})[connection_id] = (lat, lon)
+
+    def clear_rover_position(self, mountpoint: str, connection_id: str) -> None:
+        per_mp = self._rover_positions.get(mountpoint)
+        if per_mp is not None:
+            per_mp.pop(connection_id, None)
+            if not per_mp:
+                self._rover_positions.pop(mountpoint, None)
+
+    def get_rover_positions(self, mountpoint: str) -> dict[str, tuple[float, float]]:
+        """Return {rover_id: (lat, lon)} for all rovers with a known position on *mountpoint*."""
+        return dict(self._rover_positions.get(mountpoint, {}))
+
     async def close(self, mountpoint: str) -> None:
         if mountpoint not in self._mountpoints:
             return
@@ -460,6 +477,7 @@ class NTRIPCaster(Caster):
         del self._transports[mountpoint]
         self._frame_buffer.pop(mountpoint, None)
         self._quality.pop(mountpoint, None)
+        self._rover_positions.pop(mountpoint, None)
         await transport.shutdown()  # Signal the subscribers the base-station is leaving.
 
     async def unregister(self, mountpoint: str) -> None:
@@ -469,6 +487,7 @@ class NTRIPCaster(Caster):
         transport = self._transports.pop(mountpoint, None)
         self._frame_buffer.pop(mountpoint, None)
         self._quality.pop(mountpoint, None)
+        self._rover_positions.pop(mountpoint, None)
         del self._mountpoints[mountpoint]
 
         if transport is not None:

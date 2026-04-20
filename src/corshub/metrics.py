@@ -126,6 +126,12 @@ base_station_arp_ecef_meters: Gauge = Gauge(
     ["mountpoint", "axis"],
 )
 
+rover_gga_updates_total: Counter = Counter(
+    "ntrip_rover_gga_updates_total",
+    "NMEA GGA position updates received from rovers during active streaming sessions.",
+    ["mountpoint"],
+)
+
 base_station_arp_changes_total: Counter = Counter(
     "ntrip_base_station_arp_changes_total",
     "Number of times the ARP position in RTCM 1005/1006 deviated from the first observed value by more "
