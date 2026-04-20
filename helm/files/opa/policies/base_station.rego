@@ -1,0 +1,1 @@
+../../../../src/opa/policies/corshub/base_station.rego
