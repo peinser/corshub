@@ -5,7 +5,7 @@
 # Pin to an explicit image tag in production; never use "latest".
 image:
     repository: harbor.peinser.com/uas/corshub
-    tag: 0.0.1.dev0-7b7320c
+    tag: 0.0.1.dev0-27c74e3
 # README before scaling beyond 1 (in-process QueueTransport is per-pod).
 replicaCount: 1
 resources:
@@ -49,11 +49,6 @@ opa:
         # valid_from / valid_until: optional ISO 8601 dates (YYYY-MM-DD).
         # Connections are denied before valid_from and on/after valid_until.
         base_stations:
-            joerih:
-                mountpoint: TEST-JOERIH
-                valid_from: "2026-04-20"
-                valid_until: "2026-05-30"
-                password_hash: ENC[AES256_GCM,data:8uz4aHIqBiHuMXKmHrQlA7Ph32vUt70MB63h0XdvrNaiUjrsMkaHg9T+02uSxeLL3wiTQe8PPzT1hW0X,iv:rBcutWP8WHhWyklY/bg/YS5wMbNCLqfmIRjPy7FYgqo=,tag:5xMMbPn+Kcs56f+6yyOS8g==,type:str]
             peinser-mobile:
                 mountpoint: MOBILE-PEINSER-0
                 valid_from: "2025-01-01"

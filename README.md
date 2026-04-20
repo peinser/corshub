@@ -19,7 +19,7 @@ https://corshub.peinser.com
 You can connect a rover without registering using the credentials `anonymous` / `anonymous`. Anonymous access is limited:
 
 - one concurrent connection
-- nearest base station only (mountpoint `*`), no pinning to a specific station
+- all base-stations (mountpoint `*`), no pinning to a specific station
 - sessions are time-limited (1 minute)
 
 This is intended for evaluating the network. For production use, register a rover to get a persistent identity, unlimited sessions, and the ability to pin to a specific mountpoint.
