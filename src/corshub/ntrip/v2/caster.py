@@ -501,6 +501,11 @@ class NTRIPCaster(Caster):
     def transports(self) -> dict[str, Transport]:
         return self._transports
 
+    @property
+    def rover_positions(self) -> dict[str, dict[str, tuple[float, float]]]:
+        """Live view of {mountpoint: {rover_id: (lat, lon)}} for all connected rovers with a known position."""
+        return self._rover_positions
+
     async def authenticate_base_station(self, username: str, password: str, mountpoint: str) -> bool:
         if self._opa is None:
             return False

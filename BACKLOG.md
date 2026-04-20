@@ -29,20 +29,6 @@ Tracked bugs, quality issues, and planned features. Grouped by effort.
 
 ---
 
-## GGA position streaming from rover
-
-NTRIP v2 allows rovers to send periodic NMEA GGA sentences back to the caster
-on the same connection to update their position.  The read endpoint ignores the
-request body after the initial headers.
-
-- [x] Read the request body asynchronously in `read.py`'s `stream_frames` coroutine, parse each `$GGA` line, and expose the latest rover position on the caster. Background task reads `request.stream`; works when the NTRIP client sends chunked GGA updates.
-- [ ] Use updated rover position for dynamic nearest-mountpoint handoff: re-evaluate `haversine` distance every N seconds and transparently switch the RTCM source when a closer mountpoint is available (with hysteresis to avoid oscillation).
-- [x] Add `ntrip_rover_gga_updates_total` counter (label: `mountpoint`) to track GGA update rate per mountpoint.
-- [ ] Add `rover_position` metric to stream rover location to Prometheus / Grafana as well.
-- [x] Quality endpoint: `rover_positions` field shows `[{rover_id, lat, lon}]` for all rovers with a known position connected to the mountpoint.
-
----
-
 ## Docker Compose deployment
 
 For operators without Kubernetes infrastructure.

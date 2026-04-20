@@ -276,5 +276,22 @@ class NTRIPCasterCollector(Collector):
 
         yield info_gauge
 
+        rover_pos_gauge = GaugeMetricFamily(
+            "ntrip_rover_position",
+            "Last known rover position from NMEA GGA. Value is always 1; "
+            "use latitude/longitude labels for Grafana Geomap. "
+            "Only emitted for rovers with a known GGA position.",
+            labels=["mountpoint", "rover_id", "latitude", "longitude"],
+        )
+
+        for mountpoint, positions in caster.rover_positions.items():
+            for rover_id, (lat, lon) in positions.items():
+                rover_pos_gauge.add_metric(
+                    [mountpoint, rover_id, str(round(lat, 6)), str(round(lon, 6))],
+                    1.0,
+                )
+
+        yield rover_pos_gauge
+
     def describe(self) -> list[Metric]:
         return []
