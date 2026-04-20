@@ -11,6 +11,29 @@ Thank you for contributing! This document explains how to get started, how to ru
 - Add tests and docs for new features or bug fixes.
 - Run linters and tests locally before submitting the PR.
 
+### Git commit signing in the dev container
+
+The dev container mounts your host `~/.gitconfig` and `~/.ssh` directly, so commit signing works without any extra setup — as long as your signing key path uses a tilde rather than an absolute path. Absolute paths (e.g. `/Users/yourname/.ssh/id.github.pub`) do not resolve inside the container where `HOME=/root`.
+
+Check your current config:
+
+```bash
+git config --global user.signingkey
+```
+
+If the output is an absolute path, fix it:
+
+```bash
+git config --global user.signingkey "~/.ssh/id.github.pub"
+```
+
+Verify signing works end-to-end by making a test commit and checking the signature:
+
+```bash
+git commit --allow-empty -m "test signing"
+git log --show-signature -1
+```
+
 ---
 
 ## Run GitHub Actions locally with act 💡

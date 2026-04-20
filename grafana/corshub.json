@@ -25,7 +25,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -79,7 +79,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(ntrip_mountpoints_online) or on() vector(0)",
@@ -94,7 +94,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -144,7 +144,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(ntrip_rovers_connected) or on() vector(0)",
@@ -159,7 +159,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -209,7 +209,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(rate(ntrip_frames_published_total[$__range])) or vector(0)",
@@ -224,7 +224,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -274,7 +274,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(rate(ntrip_bytes_published_total[$__range])) or on() vector(0)",
@@ -289,7 +289,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -343,7 +343,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ceil( increase(ntrip_auth_requests_total{result=\"failure\"}[$__range]) ) or on() vector(0)",
@@ -358,7 +358,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -412,7 +412,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "sum(increase(ntrip_mountpoints_reaped_total[$__range])) or on() vector(0)",
@@ -440,7 +440,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Dot colour: green = data fresh (< 10 s), yellow = slightly stale (< 60 s), red = stale / offline. Coverage circle is proportional to the configured rover range (mask; 0 = unlimited, shown as 50 km).",
       "fieldConfig": {
@@ -582,7 +582,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ntrip_mountpoint_info * on(mountpoint) group_left() (clamp_min(1 - (ntrip_mountpoint_last_seen_seconds / 60), 0))",
@@ -648,7 +648,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -727,7 +727,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "rate(ntrip_frames_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
           "legendFormat": "{{mountpoint}}",
@@ -740,7 +740,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -819,7 +819,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "rate(ntrip_bytes_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
           "legendFormat": "{{mountpoint}}",
@@ -844,7 +844,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -924,7 +924,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "ntrip_rovers_connected{mountpoint=~\"$mountpoint\"}",
           "legendFormat": "{{mountpoint}}",
@@ -937,7 +937,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1016,7 +1016,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "rate(ntrip_rover_sessions_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
           "legendFormat": "{{mountpoint}}",
@@ -1041,7 +1041,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1129,7 +1129,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "ntrip_queue_depth{mountpoint=~\"$mountpoint\"}",
           "legendFormat": "{{mountpoint}}",
@@ -1142,7 +1142,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Delivered frames / published frames per mountpoint. Equals the number of rovers successfully receiving each correction.",
       "fieldConfig": {
@@ -1223,7 +1223,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "rate(ntrip_frames_delivered_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])\n/ on(mountpoint) rate(ntrip_frames_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
@@ -1250,7 +1250,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1346,7 +1346,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "rate(ntrip_auth_requests_total[$__rate_interval])",
@@ -1361,7 +1361,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1450,7 +1450,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "(\n  sum by (role) (rate(ntrip_auth_requests_total{result=\"success\"}[$__range]))\n  /\n  sum by (role) (rate(ntrip_auth_requests_total[$__range]))\n) ",
@@ -1477,7 +1477,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -1556,7 +1556,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "histogram_quantile(0.50, sum by (le, mountpoint) (rate(ntrip_frame_size_bytes_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
           "legendFormat": "p50 \u2014 {{mountpoint}}",
@@ -1565,7 +1565,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "histogram_quantile(0.95, sum by (le, mountpoint) (rate(ntrip_frame_size_bytes_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
           "legendFormat": "p95 \u2014 {{mountpoint}}",
@@ -1574,7 +1574,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "histogram_quantile(0.99, sum by (le, mountpoint) (rate(ntrip_frame_size_bytes_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
           "legendFormat": "p99 \u2014 {{mountpoint}}",
@@ -1599,7 +1599,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Median and 95th-percentile time between consecutive frames from each base station. Spikes in p95 indicate dropped or delayed frames. Typical RTCM correction rates are 0.2\u20131 Hz (0.5\u20135 s intervals).",
       "fieldConfig": {
@@ -1680,7 +1680,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.50, sum by (le, mountpoint) (rate(ntrip_frame_interval_seconds_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
@@ -1691,7 +1691,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.95, sum by (le, mountpoint) (rate(ntrip_frame_interval_seconds_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
@@ -1706,7 +1706,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Seconds since the last frame was received from each mountpoint. Values above 30 s indicate a stale or offline base station.",
       "fieldConfig": {
@@ -1795,7 +1795,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ntrip_mountpoint_last_seen_seconds{mountpoint=~\"$mountpoint\"}",
@@ -1822,7 +1822,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Median carrier-to-noise density (CNR) per constellation from RTCM MSM4\u20137 messages. Healthy open-sky signals: 35\u201350 dBHz. Values below 30 dBHz suggest poor reception. Anomalously uniform CNR across all satellites (all satellites at exactly the same level) is a potential spoofing indicator.",
       "fieldConfig": {
@@ -1912,7 +1912,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.50, sum by (le, mountpoint, constellation) (rate(ntrip_rtcm_signal_cnr_dbhz_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
@@ -1927,7 +1927,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Median number of satellites tracked per MSM frame, by constellation. Sudden drops may indicate jamming, antenna obstruction, or loss of a constellation. Spoofed signals often show an unrealistically high or fixed satellite count.",
       "fieldConfig": {
@@ -2009,7 +2009,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "histogram_quantile(0.50, sum by (le, mountpoint, constellation) (rate(ntrip_rtcm_satellites_tracked_bucket{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
@@ -2024,7 +2024,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Rate of each RTCM message type received. Useful for verifying that the expected correction message set (e.g. 1077 GPS MSM7, 1087 GLONASS MSM7, 1097 Galileo MSM7, 1005 antenna reference) is being streamed.",
       "fieldConfig": {
@@ -2104,7 +2104,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "topk(15, sum by (message_type) (rate(ntrip_rtcm_messages_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
@@ -2119,7 +2119,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Rate of RTCM frames that failed to parse (CRC error, truncated message, unknown format). A non-zero rate may indicate link corruption, a misconfigured base station, or an unsupported encoding.",
       "fieldConfig": {
@@ -2204,7 +2204,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "rate(ntrip_rtcm_parse_errors_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
@@ -2231,7 +2231,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2311,7 +2311,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "rate(process_cpu_seconds_total[$__rate_interval])",
           "legendFormat": "CPU",
@@ -2324,7 +2324,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2404,7 +2404,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "process_resident_memory_bytes",
           "legendFormat": "RSS",
@@ -2417,7 +2417,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2497,7 +2497,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "process_open_fds",
           "legendFormat": "Open FDs",
@@ -2510,7 +2510,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "fieldConfig": {
         "defaults": {
@@ -2568,7 +2568,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "min(time() - process_start_time_seconds)",
           "instant": true,
@@ -2594,7 +2594,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Number of times the base station Antenna Reference Point (ARP) position in RTCM 1005/1006 deviated by more than 1 cm from its first observed value. A fixed base station should report an identical position on every message. Any non-zero count is a potential spoofing or physical tampering indicator.",
       "fieldConfig": {
@@ -2646,7 +2646,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ceil(increase(ntrip_base_station_arp_changes_total{mountpoint=~\"$mountpoint\"}[$__range])) or on() vector(0)",
@@ -2661,7 +2661,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Fraction of CNR observations above 55 dBHz per constellation from MSM4-7 messages. Natural open-sky signals peak around 45-50 dBHz. A sustained high fraction (>20%) suggests abnormally strong transmissions, which is a common characteristic of spoofed signals.",
       "fieldConfig": {
@@ -2748,10 +2748,10 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "1 - on(mountpoint, constellation) group_left() (rate(ntrip_rtcm_signal_cnr_dbhz_bucket{mountpoint=~\"$mountpoint\",le=\"55\"}[$__rate_interval]) / rate(ntrip_rtcm_signal_cnr_dbhz_count{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
+          "expr": "1 - (rate(ntrip_rtcm_signal_cnr_dbhz_bucket{mountpoint=~\"$mountpoint\",le=\"55\"}[$__rate_interval]) / on(mountpoint, constellation) group_left() rate(ntrip_rtcm_signal_cnr_dbhz_count{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
           "legendFormat": "{{mountpoint}} \u2014 {{constellation}}",
           "range": true,
           "refId": "A"
@@ -2763,7 +2763,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "ECEF X, Y, Z coordinates of the base station Antenna Reference Point (ARP) from RTCM 1005/1006. For a fixed installation these values must remain constant. Any step change or drift is a direct indicator of position spoofing or antenna movement.",
       "fieldConfig": {
@@ -2833,7 +2833,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"x\"}",
@@ -2844,7 +2844,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"y\"}",
@@ -2855,7 +2855,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"z\"}",
@@ -2870,7 +2870,7 @@
     {
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "description": "Rate of satellite-signal CNR observations above 55 dBHz per constellation. An elevated rate indicates the receiver is seeing unusually strong signals. Cross-check against the ARP position \u2014 simultaneous position drift and high CNR is a strong spoofing signal.",
       "fieldConfig": {
@@ -2951,7 +2951,7 @@
         {
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "editorMode": "code",
           "expr": "rate(ntrip_rtcm_high_cnr_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
@@ -2974,6 +2974,16 @@
   "templating": {
     "list": [
       {
+        "hide": 0,
+        "includeAll": false,
+        "name": "datasource",
+        "options": [],
+        "query": "prometheus",
+        "refresh": 1,
+        "type": "datasource",
+        "label": "Datasource"
+      },
+      {
         "allValue": ".*",
         "current": {
           "selected": false,
@@ -2982,7 +2992,7 @@
         },
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "${datasource}"
         },
         "definition": "label_values(ntrip_rovers_connected, mountpoint)",
         "hide": 0,

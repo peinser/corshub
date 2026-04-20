@@ -141,7 +141,7 @@ Follow steps 2-4 from the rover guide above. The process is identical.
 
 #### 4. Stream corrections to the caster
 
-The `tools/here4-base-caster.py` script handles this automatically for Here4 u-blox receivers. See the [Tools](#tools) section for full usage. For other receivers, configure your NTRIP client in push mode:
+The `tools/here4-base-caster.py` script handles this automatically for (Here4) u-blox receivers. See the [Tools](#tools) section for full usage. For other receivers, configure your NTRIP client in push mode:
 
 | Setting | Value |
 |---|---|
@@ -402,12 +402,6 @@ docker build -f docker/Dockerfile -t corshub:local .
 # Run
 docker run --rm corshub:local
 ```
-
----
-
-## TODO
-
-- [ ] Add token bucket rate-limiter for auth based on connection fingerprint
 
 ---
 

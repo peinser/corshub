@@ -27,48 +27,39 @@
 # Result document returned at /v1/data/corshub/rover
 # --------------------------------------------------
 # {
-#   "allow":               bool,      // false when undefined (deny-by-default)
-#   "password_hash":       string     // absent when username is unknown
-#   "max_session_seconds": int        // Maximum number of seconds the session can take, if allowed, <= 0 for infinite. For users where this field is not applicable, it will not be present.
+#   "allow":               bool,   // false when undefined (deny-by-default)
+#   "password_hash":       string  // absent when username is unknown
+#   "max_session_seconds": int     // absent for unlimited sessions
 # }
 
 package corshub.rover
 
 import rego.v1
 
+import data.corshub.utils
+
 default allow := false
 
-rover := data.corshub.rovers[input.username]
-
-# Resolve valid_from to nanoseconds; default to the epoch (open lower bound).
-_from_ns := time.parse_rfc3339_ns(concat("", [rover.valid_from, "T00:00:00Z"])) if rover.valid_from
-
-_from_ns := 0 if not rover.valid_from
-
-# Resolve valid_until to nanoseconds; default to year 9999 (open upper bound).
-_until_ns := time.parse_rfc3339_ns(concat("", [rover.valid_until, "T00:00:00Z"])) if rover.valid_until
-
-_until_ns := 253402300800000000000 if not rover.valid_until
-
-# Shared validity check used by both allow rules below.
-_within_window if {
+_within_window(r) if {
+	from_ns := utils.date_ns(object.get(r, "valid_from", "1970-01-01"))
+	until_ns := utils.date_ns(object.get(r, "valid_until", "9999-12-31"))
 	now := time.now_ns()
-	now >= _from_ns
-	now < _until_ns
+	now >= from_ns
+	now < until_ns
 }
 
 # Explicit mountpoint match.
 allow if {
-	rover
-	input.mountpoint in rover.mountpoints
-	_within_window
+	r := data.corshub.rovers[input.username]
+	input.mountpoint in r.mountpoints
+	_within_window(r)
 }
 
 # Wildcard: rover is granted access to every mountpoint.
 allow if {
-	rover
-	"*" in rover.mountpoints
-	_within_window
+	r := data.corshub.rovers[input.username]
+	"*" in r.mountpoints
+	_within_window(r)
 }
 
 # Expose the stored bcrypt hash for application-layer password verification.

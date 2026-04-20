@@ -462,8 +462,10 @@ class NTRIPCaster(Caster):
         stored_hash: str = result.get("password_hash", "")
         allowed = bool(stored_hash) and await secrets.verify(password, stored_hash)
         metrics.auth_requests_total.labels(role="rover", result="success" if allowed else "failure").inc()
+        # Policy decides whether this should be returned.
         max_session_seconds: int | None = result.get("max_session_seconds")
-        return allowed, (max_session_seconds if allowed else None)
+
+        return allowed, max_session_seconds
 
     async def publish(self, mountpoint: str, frame: bytes) -> int:
         transport = self._transports.get(mountpoint)

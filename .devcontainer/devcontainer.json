@@ -12,7 +12,9 @@
 		}
 	},
 	"mounts": [
-		"source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached"
+		"source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig.host,type=bind,readonly",
+		"source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached",
+		"source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind,consistency=cached"
   	],
 	"customizations": {
 		"vscode": {
@@ -49,6 +51,6 @@
 			}
 		}
 	},
-	"postCreateCommand": "./.devcontainer/startup.sh",
+	"postStartCommand": "./.devcontainer/startup.sh",
 	"forwardPorts": []
 }

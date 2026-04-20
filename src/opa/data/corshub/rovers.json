@@ -1,5 +1,11 @@
 {
     "rovers": {
+        "anonymous": {
+            "mountpoints": ["*"],
+            "valid_from": "2025-01-01",
+            "valid_until": "2027-01-01",
+            "password_hash": "$2b$12$5iBME87caoqf260gWCaj6uzB5T0869TdAjEHMmdA7UDUcnO/eKRk6"
+        },
         "demo": {
             "valid_from": "2025-01-01",
             "valid_until": "2027-01-01",
