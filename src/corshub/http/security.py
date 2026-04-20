@@ -16,8 +16,6 @@ from .sessions import HTTPRequestManager
 
 
 if TYPE_CHECKING:
-    from sanic import HTTPResponse
-    from sanic import Request
     from sanic import Sanic
 
 
@@ -85,5 +83,3 @@ class JWKSManager:
                     await asyncio.sleep(delay=refresh_interval)
 
             app.add_task(_update)
-
-
