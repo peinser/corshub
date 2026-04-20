@@ -50,6 +50,9 @@ async def find_and_read(request: Request) -> HTTPResponse:
     best_dist = float("inf")
 
     for mp_id, mp in caster.mountpoints.items():
+        if mp.latitude is None or mp.longitude is None:
+            continue
+
         dist = haversine(mp.latitude, mp.longitude, rover_lat, rover_lon)
 
         if mp.mask > 0.0 and dist > mp.mask:

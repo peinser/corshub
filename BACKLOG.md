@@ -4,16 +4,6 @@ Tracked bugs, quality issues, and planned features. Grouped by effort.
 
 ---
 
-## Quick fixes
-
-- [ ] `nearest.py`: `haversine(mp.latitude, mp.longitude, ...)` is called without a `None` guard. Both fields are `Optional[float]` on `Mountpoint`; a base station that connects without coordinates causes a `TypeError` for every rover requesting the nearest mountpoint. Filter out mountpoints with `None` coordinates before passing to haversine.
-- [ ] `Mountpoint.__post_init__`: `if self.latitude and not -90 <= ...` skips validation when `latitude == 0.0` because `0.0` is falsy. The equator and prime meridian are valid coordinates. Change the guard to `if self.latitude is not None` (same fix needed for `longitude`).
-- [ ] `NTRIPCaster._METADATA_FIELDS` is typed `Final[dict]` but is actually a `set`. Correct to `Final[set[str]]`.
-- [ ] `http/security.py` contains a dead `protected` decorator. A leftover from an earlier iteration. The active one lives in `http/middleware.py`. Remove the dead copy to avoid confusion.
-- [ ] `websocket.py` cleanup docstring references "chargepoint sessions", copied from an OCPP/EV-charging project. Fix the docstring.
-
----
-
 ## Medium effort
 
 - [ ] Docker `validate` stage has `--cov` commented out of the pytest invocation, so the 75 % coverage threshold from `pyproject.toml` is never enforced in CI. Re-enable coverage in the Dockerfile.

@@ -7,13 +7,9 @@ from __future__ import annotations
 import asyncio
 import os
 
-from functools import wraps
 from typing import TYPE_CHECKING
 
-import jwt
-
 from corshub import crypto
-from corshub import exceptions
 from corshub.logging import logger
 
 from .sessions import HTTPRequestManager
@@ -91,27 +87,3 @@ class JWKSManager:
             app.add_task(_update)
 
 
-def protected(f: callable) -> callable:
-    @wraps(f)
-    async def _wrapped(request: Request, **kwargs) -> HTTPResponse:
-        token = request.token
-
-        if not token:
-            raise exceptions.http.UnauthorizedError
-
-        try:
-            headers = jwt.get_unverified_header(token)
-            kid = headers.get("kid", None)
-            manager = request.app.ctx.jwks_manager
-            public_key, signing_algorithm = manager.get(kid)
-
-            claims = jwt.decode(token, key=public_key, algorithms=[signing_algorithm], options={"verify_aud": False})
-
-        except Exception as ex:
-            raise exceptions.http.UnauthorizedError from ex
-
-        request.ctx.claims = claims
-
-        return await f(request, **kwargs)
-
-    return _wrapped

@@ -269,9 +269,9 @@ class Mountpoint:
             )
         if self.country and not re.match(r"^[A-Z]{3}$", self.country):
             raise ValueError(f"Country {self.country!r} is invalid: must be an ISO 3166-1 alpha-3 code (e.g. 'BEL').")
-        if self.latitude and not -90.0 <= self.latitude <= 90.0:
+        if self.latitude is not None and not -90.0 <= self.latitude <= 90.0:
             raise ValueError(f"Latitude {self.latitude} is out of range [-90, 90].")
-        if self.longitude and not -180.0 <= self.longitude <= 180.0:
+        if self.longitude is not None and not -180.0 <= self.longitude <= 180.0:
             raise ValueError(f"Longitude {self.longitude} is out of range [-180, 180].")
         if self.mask < 0.0:
             raise ValueError(f"Mask {self.mask} must be >= 0.")
@@ -376,7 +376,7 @@ class NTRIPCaster(Caster):
             stale mountpoints.
     """
 
-    _METADATA_FIELDS: Final[dict] = {
+    _METADATA_FIELDS: Final[set[str]] = {
         "name",
         "format",
         "format_detail",
