@@ -15,7 +15,7 @@ metadata:
 data:
   {{- range $path, $content := .Files.Glob "files/opa/policies/*.rego" }}
   {{ base $path }}: |
-    {{ $content | nindent 4 }}
+    {{ $content | toString | nindent 4 }}
   {{- end }}
 ---
 # ConfigMap: OPA registry data.
