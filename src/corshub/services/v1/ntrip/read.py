@@ -144,9 +144,7 @@ async def read(request: Request, mountpoint: str) -> HTTPResponse:
         if initial_gga is not None:
             caster.set_rover_position(mountpoint, connection_id, *initial_gga)
 
-        gga_task = asyncio.create_task(
-            _read_rover_gga(request, mountpoint, connection_id, caster)
-        )
+        gga_task = asyncio.create_task(_read_rover_gga(request, mountpoint, connection_id, caster))
 
         try:
             async with asyncio.timeout(max_session_seconds):
@@ -154,13 +152,13 @@ async def read(request: Request, mountpoint: str) -> HTTPResponse:
                     while (frame := await sub.get()) is not None:
                         await stream.write(frame)
 
-        except (KeyError, TimeoutError):
+        except KeyError, TimeoutError:
             pass  # Mountpoint closed, or session limit reached.
         finally:
             gga_task.cancel()
             try:
                 await gga_task
-            except (asyncio.CancelledError, Exception):
+            except asyncio.CancelledError, Exception:
                 pass
             caster.clear_rover_position(mountpoint, connection_id)
 

@@ -82,8 +82,7 @@ def _mountpoint_quality_dict(request: Request, mountpoint: str) -> dict:
     rover_positions = caster.get_rover_positions(mountpoint)
     if rover_positions:
         result["rover_positions"] = [
-            {"rover_id": rover_id, "lat": lat, "lon": lon}
-            for rover_id, (lat, lon) in rover_positions.items()
+            {"rover_id": rover_id, "lat": lat, "lon": lon} for rover_id, (lat, lon) in rover_positions.items()
         ]
 
     return result
