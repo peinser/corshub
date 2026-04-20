@@ -45,10 +45,11 @@ def _run_observe(
     *messages: MagicMock,
 ) -> None:
     """Call _observe_rtcm_quality with a sequence of mock parsed messages."""
-    with patch("corshub.ntrip.v2.caster.RTCMReader") as MockReader:
-        instance = MockReader.return_value
-        instance.read.side_effect = [(b"raw", m) for m in messages] + [(None, None)]
-        _observe_rtcm_quality(_MOUNTPOINT, b"dummy", arp_reference)
+    dummy_frames = [b"frame"] * len(messages)
+    with patch("corshub.ntrip.v2.caster._split_rtcm_frames", return_value=(dummy_frames, b"")), \
+         patch("corshub.ntrip.v2.caster.RTCMReader") as MockReader:
+        MockReader.return_value.read.side_effect = [(b"raw", m) for m in messages]
+        _observe_rtcm_quality(_MOUNTPOINT, b"dummy", arp_reference, {})
 
 
 def _arp_changes(mountpoint: str = _MOUNTPOINT) -> float:

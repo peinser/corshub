@@ -69,37 +69,78 @@ _ARP_CHANGE_THRESHOLD: float = env.extract("GNSS_ARP_CHANGE_THRESHOLD", default=
 _HIGH_CNR_THRESHOLD_DBHZ: float = env.extract("GNSS_CNR_DBHZ_HIGH_THRESHOLD", default="55.0", dtype=float)
 
 
+_RTCM3_PREAMBLE = 0xD3
+_RTCM3_MAX_FRAME = 1029  # 3 header + 1023 max payload + 3 CRC
+
+
+def _split_rtcm_frames(data: bytes) -> tuple[list[bytes], bytes]:
+    """Extract complete RTCM3 frames from *data*.
+
+    RTCM3 framing: 0xD3 preamble, 10-bit length in bytes 1-2, payload, 3-byte
+    CRC.  Total frame = length + 6 bytes.  Returns a list of complete frames
+    and any trailing bytes that form an incomplete frame, which should be
+    prepended to the next incoming chunk.
+
+    Discards bytes before a preamble and frames that exceed the RTCM3 maximum
+    size, both of which indicate corruption or non-RTCM data.
+    """
+    frames: list[bytes] = []
+    i = 0
+    while i < len(data):
+        if data[i] != _RTCM3_PREAMBLE:
+            i += 1
+            continue
+        if i + 3 > len(data):
+            break  # Need more bytes to read the length field.
+        length = ((data[i + 1] & 0x03) << 8) | data[i + 2]
+        total = length + 6
+        if total > _RTCM3_MAX_FRAME:
+            i += 1  # Spurious 0xD3 byte; keep scanning.
+            continue
+        if i + total > len(data):
+            break  # Incomplete frame; wait for the next chunk.
+        frames.append(data[i : i + total])
+        i += total
+    return frames, data[i:]
+
+
 def _observe_rtcm_quality(
     mountpoint: str,
-    frame: bytes,
+    chunk: bytes,
     arp_reference: dict[str, tuple[float, float, float]],
+    frame_buffer: dict[str, bytes],
 ) -> None:
-    """Parse RTCM messages in *frame* and record signal-quality metrics.
+    """Accumulate *chunk* into a per-mountpoint buffer and parse complete RTCM3
+    frames, recording signal-quality metrics for each.
 
-    Iterates all RTCM3 messages in the raw chunk.  For each message the type
-    counter is incremented.  For MSM4-7 frames the per-cell CNR values and
-    satellite count are also recorded.  RTCM 1005/1006 messages are used to
-    track the base station ARP position; any deviation beyond 1 cm from the
-    first observed position increments the ARP-changes counter.  A single
-    parse error aborts the loop and increments the error counter; partial
-    frames at chunk boundaries are expected and do not count as errors.
+    HTTP chunks are not RTCM frame-aligned. Incomplete frames at the end of a
+    chunk are held in *frame_buffer* and prepended to the next chunk so that
+    every frame is parsed exactly once regardless of chunk boundaries.
+
+    For each complete frame the message type counter is incremented.  MSM4-7
+    frames also record per-cell CNR and satellite count.  RTCM 1005/1006
+    messages track the ARP position and increment the change counter on any
+    deviation beyond the configured threshold.
     """
-    reader = RTCMReader(BytesIO(frame), quitonerror=2, parsed=True)
+    data = frame_buffer.pop(mountpoint, b"") + chunk
+    complete_frames, remainder = _split_rtcm_frames(data)
 
-    while True:
+    # Discard buffers that are growing without yielding complete frames —
+    # this guards against a base station that sends non-RTCM data indefinitely.
+    if remainder and len(remainder) < _RTCM3_MAX_FRAME:
+        frame_buffer[mountpoint] = remainder
+
+    for frame in complete_frames:
+        reader = RTCMReader(BytesIO(frame), quitonerror=2, parsed=True)
         try:
-            raw, msg = reader.read()
-
+            _, msg = reader.read()
         except Exception as ex:
             logger.exception(ex)
             metrics.rtcm_parse_errors_total.labels(mountpoint=mountpoint).inc()
-            break
-
-        if raw is None:
-            break
+            continue
 
         if msg is None:
-            continue
+            continue  # Unknown message type — pyrtcm returns (raw, None) for unrecognised IDs.
 
         msg_type = int(msg.identity)
 
@@ -370,6 +411,7 @@ class NTRIPCaster(Caster):
         self._transports: dict[str, Transport] = {}
         self._reaper_task: asyncio.Task[None] | None = None
         self._arp_reference: dict[str, tuple[float, float, float]] = {}
+        self._frame_buffer: dict[str, bytes] = {}
 
     async def register(self, mountpoint: str, **kwargs: dict) -> Mountpoint:
         if mountpoint in self._mountpoints:
@@ -407,6 +449,7 @@ class NTRIPCaster(Caster):
 
         transport = self._transports[mountpoint]
         del self._transports[mountpoint]
+        self._frame_buffer.pop(mountpoint, None)
         await transport.shutdown()  # Signal the subscribers the base-station is leaving.
 
     async def unregister(self, mountpoint: str) -> None:
@@ -414,6 +457,7 @@ class NTRIPCaster(Caster):
             return  # Idempotent
 
         transport = self._transports.pop(mountpoint, None)
+        self._frame_buffer.pop(mountpoint, None)
         del self._mountpoints[mountpoint]
 
         if transport is not None:
@@ -485,7 +529,7 @@ class NTRIPCaster(Caster):
         metrics.frames_delivered_total.labels(mountpoint=mountpoint).inc(delivered)
         metrics.frame_interval_seconds.labels(mountpoint=mountpoint).observe(interval)
 
-        _observe_rtcm_quality(mountpoint, frame, self._arp_reference)
+        _observe_rtcm_quality(mountpoint, frame, self._arp_reference, self._frame_buffer)
 
         return delivered
 
