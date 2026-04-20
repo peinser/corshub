@@ -585,7 +585,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ntrip_mountpoint_info * on(mountpoint) group_left() (clamp_min(1 - (ntrip_mountpoint_last_seen_seconds / 60), 0))",
+          "expr": "max by (mountpoint, latitude, longitude, identifier, country, mask) (ntrip_mountpoint_info)\n* on(mountpoint) group_left()\nclamp_min(1 - min by (mountpoint) (ntrip_mountpoint_last_seen_seconds) / 60, 0)",
           "format": "table",
           "instant": true,
           "legendFormat": "",
@@ -729,7 +729,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "rate(ntrip_frames_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
+          "expr": "sum by (mountpoint) (rate(ntrip_frames_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -821,7 +821,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "rate(ntrip_bytes_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
+          "expr": "sum by (mountpoint) (rate(ntrip_bytes_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -926,7 +926,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "ntrip_rovers_connected{mountpoint=~\"$mountpoint\"}",
+          "expr": "sum by (mountpoint) (ntrip_rovers_connected{mountpoint=~\"$mountpoint\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -1018,7 +1018,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "rate(ntrip_rover_sessions_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
+          "expr": "sum by (mountpoint) (rate(ntrip_rover_sessions_total{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -1131,7 +1131,7 @@
             "type": "prometheus",
             "uid": "${datasource}"
           },
-          "expr": "ntrip_queue_depth{mountpoint=~\"$mountpoint\"}",
+          "expr": "sum by (mountpoint) (ntrip_queue_depth{mountpoint=~\"$mountpoint\"})",
           "legendFormat": "{{mountpoint}}",
           "refId": "A"
         }
@@ -1226,7 +1226,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rate(ntrip_frames_delivered_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])\n/ on(mountpoint) rate(ntrip_frames_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
+          "expr": "sum by (mountpoint) (rate(ntrip_frames_delivered_total{mountpoint=~\"$mountpoint\"}[$__rate_interval]))\n/ on(mountpoint) sum by (mountpoint) (rate(ntrip_frames_published_total{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
           "legendFormat": "{{mountpoint}}",
           "range": true,
           "refId": "A"
@@ -1349,7 +1349,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rate(ntrip_auth_requests_total[$__rate_interval])",
+          "expr": "sum by (role, result) (rate(ntrip_auth_requests_total[$__rate_interval]))",
           "legendFormat": "{{role}} \u2014 {{result}}",
           "range": true,
           "refId": "A"
@@ -1798,7 +1798,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ntrip_mountpoint_last_seen_seconds{mountpoint=~\"$mountpoint\"}",
+          "expr": "min by (mountpoint) (ntrip_mountpoint_last_seen_seconds{mountpoint=~\"$mountpoint\"})",
           "legendFormat": "{{mountpoint}}",
           "range": true,
           "refId": "A"
@@ -2107,7 +2107,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "topk(15, sum by (message_type) (rate(ntrip_rtcm_messages_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
+          "expr": "topk(15, sum by (message_type, mountpoint) (rate(ntrip_rtcm_messages_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])))",
           "legendFormat": "{{message_type}}",
           "range": true,
           "refId": "A"
@@ -2207,7 +2207,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rate(ntrip_rtcm_parse_errors_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
+          "expr": "sum by (mountpoint) (rate(ntrip_rtcm_parse_errors_total{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
           "legendFormat": "{{mountpoint}}",
           "range": true,
           "refId": "A"
@@ -2649,7 +2649,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ceil(increase(ntrip_base_station_arp_changes_total{mountpoint=~\"$mountpoint\"}[$__range])) or on() vector(0)",
+          "expr": "ceil(sum by (mountpoint) (increase(ntrip_base_station_arp_changes_total{mountpoint=~\"$mountpoint\"}[$__range]))) or on() vector(0)",
           "legendFormat": "{{mountpoint}}",
           "range": true,
           "refId": "A"
@@ -2751,7 +2751,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "1 - (rate(ntrip_rtcm_signal_cnr_dbhz_bucket{mountpoint=~\"$mountpoint\",le=\"55\"}[$__rate_interval]) / on(mountpoint, constellation) group_left() rate(ntrip_rtcm_signal_cnr_dbhz_count{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
+          "expr": "1 - (\n  sum by (mountpoint, constellation) (rate(ntrip_rtcm_signal_cnr_dbhz_bucket{mountpoint=~\"$mountpoint\",le=\"55\"}[$__rate_interval]))\n  / on(mountpoint, constellation) group_left()\n  sum by (mountpoint, constellation) (rate(ntrip_rtcm_signal_cnr_dbhz_count{mountpoint=~\"$mountpoint\"}[$__rate_interval]))\n)",
           "legendFormat": "{{mountpoint}} \u2014 {{constellation}}",
           "range": true,
           "refId": "A"
@@ -2836,7 +2836,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"x\"}",
+          "expr": "max by (mountpoint) (ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"x\"})",
           "legendFormat": "{{mountpoint}} X",
           "range": true,
           "refId": "A"
@@ -2847,7 +2847,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"y\"}",
+          "expr": "max by (mountpoint) (ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"y\"})",
           "legendFormat": "{{mountpoint}} Y",
           "range": true,
           "refId": "B"
@@ -2858,7 +2858,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"z\"}",
+          "expr": "max by (mountpoint) (ntrip_base_station_arp_ecef_meters{mountpoint=~\"$mountpoint\", axis=\"z\"})",
           "legendFormat": "{{mountpoint}} Z",
           "range": true,
           "refId": "C"
@@ -2954,7 +2954,7 @@
             "uid": "${datasource}"
           },
           "editorMode": "code",
-          "expr": "rate(ntrip_rtcm_high_cnr_total{mountpoint=~\"$mountpoint\"}[$__rate_interval])",
+          "expr": "sum by (mountpoint, constellation) (rate(ntrip_rtcm_high_cnr_total{mountpoint=~\"$mountpoint\"}[$__rate_interval]))",
           "legendFormat": "{{mountpoint}} \u2014 {{constellation}}",
           "range": true,
           "refId": "A"
