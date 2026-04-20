@@ -209,7 +209,7 @@ class NTRIPCasterCollector(Collector):
         caster = self._caster
 
         mountpoints = caster.mountpoints
-        transports = caster._transports
+        transports = caster.transports
 
         yield GaugeMetricFamily(
             "ntrip_mountpoints_registered",

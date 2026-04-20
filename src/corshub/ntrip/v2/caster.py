@@ -37,6 +37,7 @@ import corshub.metrics as metrics
 from corshub import env
 from corshub.crypto import secrets
 from corshub.logging import logger
+from corshub.ntrip.v2.quality import MountpointQuality
 from corshub.ntrip.v2.transport import QueueTransport
 
 
@@ -109,6 +110,7 @@ def _observe_rtcm_quality(
     chunk: bytes,
     arp_reference: dict[str, tuple[float, float, float]],
     frame_buffer: dict[str, bytes],
+    quality_snapshots: dict[str, MountpointQuality] | None = None,
 ) -> None:
     """Accumulate *chunk* into a per-mountpoint buffer and parse complete RTCM3
     frames, recording signal-quality metrics for each.
@@ -180,16 +182,22 @@ def _observe_rtcm_quality(
         nsat = sum(1 for k in msg_attrs if k.startswith("PRN_"))
         if nsat:
             metrics.rtcm_satellites_tracked.labels(mountpoint=mountpoint, constellation=constellation).observe(nsat)
+            if quality_snapshots is not None:
+                quality_snapshots.setdefault(mountpoint, MountpointQuality()).record_sat_count(constellation, nsat)
 
         # CNR is present in MSM4-7: DF403 (MSM4/5) or DF408 extended (MSM6/7).
         if msm_variant >= 4:
             cnr_prefix = "DF408_" if msm_variant >= 6 else "DF403_"
+            cnr_batch: list[float] = []
             for attr, val in msg_attrs.items():
                 if attr.startswith(cnr_prefix) and isinstance(val, (int, float)) and val > 0:
                     cnr = float(val)
                     metrics.rtcm_signal_cnr_dbhz.labels(mountpoint=mountpoint, constellation=constellation).observe(cnr)
                     if cnr > _HIGH_CNR_THRESHOLD_DBHZ:
                         metrics.rtcm_high_cnr_total.labels(mountpoint=mountpoint, constellation=constellation).inc()
+                    cnr_batch.append(cnr)
+            if cnr_batch and quality_snapshots is not None:
+                quality_snapshots.setdefault(mountpoint, MountpointQuality()).record_cnr(constellation, cnr_batch)
 
 
 _IDENTIFIER_RE = re.compile(r"[^;]+")
@@ -412,6 +420,7 @@ class NTRIPCaster(Caster):
         self._reaper_task: asyncio.Task[None] | None = None
         self._arp_reference: dict[str, tuple[float, float, float]] = {}
         self._frame_buffer: dict[str, bytes] = {}
+        self._quality: dict[str, MountpointQuality] = {}
 
     async def register(self, mountpoint: str, **kwargs: dict) -> Mountpoint:
         if mountpoint in self._mountpoints:
@@ -450,6 +459,7 @@ class NTRIPCaster(Caster):
         transport = self._transports[mountpoint]
         del self._transports[mountpoint]
         self._frame_buffer.pop(mountpoint, None)
+        self._quality.pop(mountpoint, None)
         await transport.shutdown()  # Signal the subscribers the base-station is leaving.
 
     async def unregister(self, mountpoint: str) -> None:
@@ -458,6 +468,7 @@ class NTRIPCaster(Caster):
 
         transport = self._transports.pop(mountpoint, None)
         self._frame_buffer.pop(mountpoint, None)
+        self._quality.pop(mountpoint, None)
         del self._mountpoints[mountpoint]
 
         if transport is not None:
@@ -466,6 +477,10 @@ class NTRIPCaster(Caster):
     @property
     def mountpoints(self) -> dict[str, Mountpoint]:
         return self._mountpoints
+
+    @property
+    def transports(self) -> dict[str, Transport]:
+        return self._transports
 
     async def authenticate_base_station(self, username: str, password: str, mountpoint: str) -> bool:
         if self._opa is None:
@@ -529,7 +544,7 @@ class NTRIPCaster(Caster):
         metrics.frames_delivered_total.labels(mountpoint=mountpoint).inc(delivered)
         metrics.frame_interval_seconds.labels(mountpoint=mountpoint).observe(interval)
 
-        _observe_rtcm_quality(mountpoint, frame, self._arp_reference, self._frame_buffer)
+        _observe_rtcm_quality(mountpoint, frame, self._arp_reference, self._frame_buffer, self._quality)
 
         return delivered
 

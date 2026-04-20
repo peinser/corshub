@@ -7,7 +7,6 @@ Tracked bugs, quality issues, and planned features. Grouped by effort.
 ## Medium effort
 
 - [ ] Docker `validate` stage has `--cov` commented out of the pytest invocation, so the 75 % coverage threshold from `pyproject.toml` is never enforced in CI. Re-enable coverage in the Dockerfile.
-- [ ] `NTRIPCasterCollector.collect()` directly accesses `caster._transports`, a private attribute. Add a public `transports` property on `NTRIPCaster` mirroring the existing `mountpoints` property.
 - [ ] `sanic-testing` is pinned at 24.6 while Sanic is at 25.12. Verify API compatibility and update the pin.
 - [ ] Dropped-frame counter: frames silently evicted by the bounded queue drop-oldest policy are not counted. Add a `ntrip_frames_dropped_total` counter (labels: `mountpoint`) incremented in `QueueTransportSubscriber.publish` on eviction and on the `QueueFull` fallback path. Expose in Grafana.
 - [ ] `frame_interval_seconds` measures inter-arrival time at the caster using `time.monotonic()`, not end-to-end latency from GNSS generation. Extract the GNSS epoch timestamp from MSM frames (DF004 for GPS time-of-week, DF416 for GLONASS) and compute the delta against wall-clock UTC to get true generation-to-caster latency. Requires GPS time-of-week rollover and UTC offset handling.
@@ -19,6 +18,28 @@ Tracked bugs, quality issues, and planned features. Grouped by effort.
 - [ ] Onboarding bot (`onboard.py`) verifies that only `ops/values.yaml` is touched but does not verify that only the submitter's own entry was modified. A malicious PR could alter another user's `mountpoints`, `valid_until`, or other fields. Fix: parse the before/after YAML and assert that only keys nested under the submitter's username changed.
 - [ ] Graceful shutdown: `NTRIPCaster.stop()` only cancels the reaper task; it does not drain active rover connections or signal base stations. Decide on a drain timeout and propagate shutdown through all active transports.
 - [ ] Add token bucket rate-limiter for auth endpoints based on connection fingerprint. `bcrypt.verify` is CPU-heavy and the lack of rate limiting makes it a viable DoS vector.
+
+---
+
+## OpenAPI specification
+
+- [ ] Write a complete, versioned OpenAPI 3.1 spec (`openapi.yaml` at repo root or `docs/openapi.yaml`) covering all routes: source table, read, put, nearest, quality. Include request/response schemas, error shapes, security schemes (Basic auth), and example values.
+- [ ] Expose the spec at `GET /api/v1/openapi.json` and serve Swagger UI or Redoc at `GET /api/v1/docs` in development mode.
+- [ ] Validate the spec in CI (`spectral lint` or `openapi-spec-validator`) to prevent drift.
+
+---
+
+## GGA position streaming from rover
+
+NTRIP v2 allows rovers to send periodic NMEA GGA sentences back to the caster
+on the same connection to update their position.  The read endpoint ignores the
+request body after the initial headers.
+
+- [ ] Read the request body asynchronously in `read.py`'s `stream_frames` coroutine using `request.transport` directly, parse each `$GGA` line, and expose the latest rover position on the subscription object.
+- [ ] Use updated rover position for dynamic nearest-mountpoint handoff: re-evaluate `haversine` distance every N seconds and transparently switch the RTCM source when a closer mountpoint is available (with hysteresis to avoid oscillation).
+- [ ] Add `Ntrip-GGA` update rate metric to detect rovers that never re-send position.
+- [ ] Add `rover_position` metric to stream to location to Prometheus / Grafana as well.
+- [ ] Quality endpoint: add `rover_position` field showing last-known rover coordinates when available.
 
 ---
 

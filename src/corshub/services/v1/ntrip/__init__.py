@@ -4,11 +4,12 @@ from corshub.services.base import Service
 
 from . import nearest
 from . import put
+from . import quality
 from . import read
 from . import sourcetable
 
 
-__all__ = ["nearest", "put", "read", "sourcetable"]
+__all__ = ["nearest", "put", "quality", "read", "sourcetable"]
 
 from .base import bp
 
