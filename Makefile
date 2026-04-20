@@ -89,7 +89,7 @@ dev: ## Run the application in development mode (if applicable)
 	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload --workers=1
 
 .PHONY: helm-sync-policies
-helm-sync-policies: ## Copy OPA Rego policies from src/opa/policies into helm/files/opa/policies/ (run before helm package / chart distribution)
+helm-sync-policies: ## Replace dev-time symlinks in helm/files/opa/policies/ with real copies for self-contained chart packaging (run automatically by CI before helm package)
 	@echo -e "$(INFO_COLOR)Syncing OPA policies into Helm chart files...$(NO_COLOR)"
 	find helm/files/opa/policies -maxdepth 1 -name '*.rego' -delete
 	cp src/opa/policies/corshub/*.rego helm/files/opa/policies/

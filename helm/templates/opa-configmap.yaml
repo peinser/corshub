@@ -13,12 +13,10 @@ metadata:
   labels:
     {{- include "corshub.labels" . | nindent 4 }}
 data:
-  base_station.rego: |
-    {{- .Files.Get "files/opa/policies/base_station.rego" | nindent 4 }}
-  rover.rego: |
-    {{- .Files.Get "files/opa/policies/rover.rego" | nindent 4 }}
-  utils.rego: |
-    {{- .Files.Get "files/opa/policies/utils.rego" | nindent 4 }}
+  {{- range $path, $content := .Files.Glob "files/opa/policies/*.rego" }}
+  {{ base $path }}: |
+    {{ $content | nindent 4 }}
+  {{- end }}
 ---
 # ConfigMap: OPA registry data.
 # Loaded by the OPA sidecar from /data/corshub/ so that policy rules can
