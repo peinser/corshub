@@ -72,14 +72,12 @@ spec:
             # load each .rego file twice (once via the named link, once via the
             # hidden ..timestamp/ path), which would trigger "multiple default
             # rules" errors at startup.
+            {{- range $path, $_ := .Files.Glob "files/opa/policies/*.rego" }}
             - name: opa-policies
-              mountPath: /policies/base_station.rego
-              subPath: base_station.rego
+              mountPath: /policies/{{ base $path }}
+              subPath: {{ base $path }}
               readOnly: true
-            - name: opa-policies
-              mountPath: /policies/rover.rego
-              subPath: rover.rego
-              readOnly: true
+            {{- end }}
             - name: opa-data
               mountPath: /data/corshub/stations.json
               subPath: stations.json
