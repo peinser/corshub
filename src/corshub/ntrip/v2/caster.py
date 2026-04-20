@@ -421,7 +421,7 @@ class NTRIPCaster(Caster):
         self._arp_reference: dict[str, tuple[float, float, float]] = {}
         self._frame_buffer: dict[str, bytes] = {}
         self._quality: dict[str, MountpointQuality] = {}
-        # Keyed by mountpoint → {connection_id → (lat, lon)}.  Updated by the
+        # Keyed by mountpoint → {rover_username → (lat, lon)}.  Updated by the
         # GGA reader in the rover GET handler; cleared on disconnect/reaper.
         self._rover_positions: dict[str, dict[str, tuple[float, float]]] = {}
 
@@ -455,13 +455,13 @@ class NTRIPCaster(Caster):
 
         return self._transports.get(mountpoint) is not None
 
-    def set_rover_position(self, mountpoint: str, connection_id: str, lat: float, lon: float) -> None:
-        self._rover_positions.setdefault(mountpoint, {})[connection_id] = (lat, lon)
+    def set_rover_position(self, mountpoint: str, rover_username: str, lat: float, lon: float) -> None:
+        self._rover_positions.setdefault(mountpoint, {})[rover_username] = (lat, lon)
 
-    def clear_rover_position(self, mountpoint: str, connection_id: str) -> None:
+    def clear_rover_position(self, mountpoint: str, rover_username: str) -> None:
         per_mp = self._rover_positions.get(mountpoint)
         if per_mp is not None:
-            per_mp.pop(connection_id, None)
+            per_mp.pop(rover_username, None)
             if not per_mp:
                 self._rover_positions.pop(mountpoint, None)
 
