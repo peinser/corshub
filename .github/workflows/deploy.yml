@@ -47,7 +47,7 @@ jobs:
           SOPS_AGE_KEY="${{ secrets.SOPS_AGE_KEY }}" sops -d ops/values.yaml > /tmp/values-plain.yaml
 
       - name: Install kubectl
-        uses: azure/setup-kubectl@v4
+        uses: azure/setup-kubectl@v5
 
       - name: Deploy to Kubernetes using Helm
         working-directory: ./ops
