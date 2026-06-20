@@ -1,0 +1,158 @@
+// CORSHub direct-to-rover RTCM correction transport (datagram).
+//
+// This is the shared wire contract between the CORSHub caster (server, this
+// repository) and the rover-side daemon (client, separate repository). Every
+// UDP packet on the correction channel is exactly one `Datagram`.
+//
+// Design invariants (see docs/architecture/rtcm-udp.md):
+//   * One complete RTCM3 frame per `CorrectionFrame`; one `Datagram` per UDP packet.
+//   * Ed25519 signatures are computed and verified over the OPAQUE serialized
+//     bytes of `CorrectionFrame` carried in `SignedCorrection.payload`. Never
+//     re-serialize before verifying — protobuf serialization is not guaranteed
+//     canonical across implementations.
+//   * `SignedCorrection` is signed once per frame per mountpoint and fanned out
+//     unchanged to every session; only the enclosing `Datagram` (session_id, seq)
+//     differs per recipient.
+//   * Sessions are demultiplexed by `session_id`, not by UDP 5-tuple, so a
+//     session survives carrier-grade NAT port rebinding.
+
+syntax = "proto3";
+
+package corshub.rtcm.v1;
+
+// ---------------------------------------------------------------------------
+// Envelope
+// ---------------------------------------------------------------------------
+
+// The outer framing for every UDP packet. Unsigned: it carries only routing
+// and ordering metadata. Authenticity of correction data comes from the
+// Ed25519 signature inside `SignedCorrection`.
+message Datagram {
+  // Protocol version. Currently 1. A receiver MUST drop datagrams whose major
+  // version it does not understand.
+  uint32 version = 1;
+
+  // Session identifier assigned by the caster in `HelloAck`. MUST be 0 in the
+  // initial `Hello` (no session yet) and the assigned value on every datagram
+  // thereafter, in both directions.
+  fixed64 session_id = 2;
+
+  // Per-session monotonic sequence number set by the sender. Used by the
+  // receiver for ordering and drop-stale (newest wins) decisions. Wraps modulo
+  // 2^32; receivers MUST handle wrap.
+  uint32 seq = 3;
+
+  oneof body {
+    Hello hello = 16;
+    HelloAck hello_ack = 17;
+    SignedCorrection correction = 18;
+    KeepAlive keepalive = 19;
+    SwitchMountpoint switch_mountpoint = 20;
+    Bye bye = 21;
+    Error error = 22;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Session control plane
+// ---------------------------------------------------------------------------
+
+// Rover -> caster. Opens a session. Sent with session_id = 0.
+message Hello {
+  // Short-lived session token (JWT) obtained from the HTTPS bootstrap endpoint
+  // `POST /api/v1/rtcm/session`. Carries the authorized mountpoint and an
+  // expiry; verified cheaply by the caster (no bcrypt on the UDP path).
+  string token = 1;
+
+  // Requested mountpoint name, or the literal "NEAREST" to let the caster pick
+  // the closest in-range base station from `position`.
+  string mountpoint = 2;
+
+  // Approximate rover position. Required when `mountpoint == "NEAREST"` or when
+  // the resolved mountpoint enforces a distance mask.
+  optional GgaPosition position = 3;
+
+  // Highest protocol version the client supports.
+  uint32 client_version = 4;
+}
+
+// Caster -> rover. Confirms a session and returns its parameters.
+message HelloAck {
+  // Assigned session identifier. Echoed by the rover on every subsequent datagram.
+  fixed64 session_id = 1;
+
+  // Resolved mountpoint (a "NEAREST" request is resolved to a concrete name here).
+  string mountpoint = 2;
+
+  // JWK `kid` (RFC 7638 thumbprint) of the caster's active Ed25519 signing key.
+  // The rover selects this key from the JWKS served at `GET /api/v1/rtcm/jwks.json`
+  // and pins it for the lifetime of the session.
+  string signing_kid = 3;
+
+  // Interval at which the rover should send `KeepAlive`, in seconds.
+  uint32 keepalive_interval_s = 4;
+
+  // Idle timeout after which the caster discards the session, in seconds.
+  uint32 session_ttl_s = 5;
+}
+
+// Rover -> caster. Holds the NAT mapping open and signals liveness. MAY carry
+// an updated position; for a "NEAREST" session this drives dynamic handoff.
+message KeepAlive {
+  optional GgaPosition position = 1;
+}
+
+// Rover -> caster. Re-points an existing session to a different mountpoint
+// without re-running the bootstrap. The token's authorization still applies.
+message SwitchMountpoint {
+  string mountpoint = 1;  // concrete name or "NEAREST"
+  optional GgaPosition position = 2;
+}
+
+// Either direction. Graceful teardown.
+message Bye {
+  string reason = 1;
+}
+
+// Caster -> rover. Terminal error for a session or datagram.
+message Error {
+  uint32 code = 1;     // see docs for the code table
+  string message = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Correction data plane
+// ---------------------------------------------------------------------------
+
+// A signed correction. `payload` is the serialized bytes of a `CorrectionFrame`.
+// The signature is computed over those exact bytes and MUST be verified over the
+// bytes as received, before parsing.
+message SignedCorrection {
+  bytes payload = 1;    // serialized CorrectionFrame
+  bytes signature = 2;  // Ed25519 signature (64 bytes) over `payload`
+}
+
+// The signed inner message. Serialized, signed, then embedded in
+// `SignedCorrection.payload`. Identical bytes are fanned out to all sessions on
+// the same mountpoint (sign once, send many).
+message CorrectionFrame {
+  // Caster send time in milliseconds since the Unix epoch. The receiver rejects
+  // frames whose timestamp is outside an acceptance window (replay/freshness).
+  int64 timestamp_ms = 1;
+
+  // Source mountpoint, bound into the signature so a frame cannot be replayed
+  // as if it came from a different mountpoint.
+  string mountpoint = 2;
+
+  // Exactly one complete RTCM3 frame (preamble .. CRC).
+  bytes rtcm = 3;
+}
+
+// ---------------------------------------------------------------------------
+// Shared types
+// ---------------------------------------------------------------------------
+
+message GgaPosition {
+  double latitude = 1;   // WGS-84 decimal degrees, [-90, 90]
+  double longitude = 2;  // WGS-84 decimal degrees, [-180, 180]
+}
