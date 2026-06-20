@@ -16,7 +16,7 @@ from corshub.ntrip.v2.headers import haversine
 from corshub.ntrip.v2.headers import parse_ntrip_gga
 
 from .base import bp
-from .read import read
+from .read import stream_mountpoint
 
 
 if TYPE_CHECKING:
@@ -65,7 +65,7 @@ async def find_and_read(request: Request) -> HTTPResponse:
     if best_id is None:
         raise NotFound("No mountpoint found within range of the rover's reported position.")
 
-    return await read(request, best_id)
+    return await stream_mountpoint(request, best_id)
 
 
 @bp.get("/NEAR")

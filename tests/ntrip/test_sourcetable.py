@@ -20,11 +20,8 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
-
-from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
-from corshub.ntrip.v2.sourcetable import format_sourcetable  # noqa: E402
+from corshub.ntrip.v2.sourcetable import format_sourcetable
 
 
 def _str_lines(table: str) -> list[str]:

@@ -29,11 +29,13 @@ LABEL artifact=false
 ENV OPA_URL=http://opa:8181
 
 RUN uv sync --frozen && \
-    uv run ruff format --check src/corshub && \
-    uv run ruff check src/corshub && \
-    # uv run coverage run -m pytest --cov=src/corshub && \
-    uv run pytest && \
+    uv run ruff format --check src/corshub tests && \
+    uv run ruff check src/corshub tests && \
+    uv run pytest --cov=src/corshub && \
     uv run bandit -r src --severity-level medium
+# NOTE: mypy is intentionally not gated here yet — `src/corshub` currently has
+# pre-existing strict-mode errors (see BACKLOG). Run `make lint` locally for the
+# full type check; promote it to a CI gate once the error count reaches zero.
 
 # production ##################################################################
 

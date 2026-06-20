@@ -13,19 +13,21 @@ to be constructed.
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
 import corshub.metrics as metrics
+
+from corshub.ntrip.v2.caster import _ARP_CHANGE_THRESHOLD
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.ntrip.v2.caster import _observe_rtcm_quality
-from corshub.ntrip.v2.caster import _ARP_CHANGE_THRESHOLD
 
 
 # Brussels ECEF coordinates (approximate), in metres.
 _X = 3975478.0
-_Y =  302283.0
+_Y = 302283.0
 _Z = 4986670.0
 
 _MOUNTPOINT = "BASE1"
@@ -46,8 +48,10 @@ def _run_observe(
 ) -> None:
     """Call _observe_rtcm_quality with a sequence of mock parsed messages."""
     dummy_frames = [b"frame"] * len(messages)
-    with patch("corshub.ntrip.v2.caster._split_rtcm_frames", return_value=(dummy_frames, b"")), \
-         patch("corshub.ntrip.v2.caster.RTCMReader") as MockReader:
+    with (
+        patch("corshub.ntrip.v2.caster._split_rtcm_frames", return_value=(dummy_frames, b"")),
+        patch("corshub.ntrip.v2.caster.RTCMReader") as MockReader,
+    ):
         MockReader.return_value.read.side_effect = [(b"raw", m) for m in messages]
         _observe_rtcm_quality(_MOUNTPOINT, b"dummy", arp_reference, {})
 
@@ -116,14 +120,15 @@ class TestARPChangeDetection:
         _run_observe(ref, _arp_msg(_X + 2.0, _Y, _Z))
         assert _arp_changes() == before + 2
 
-    @pytest.mark.parametrize("axis,dx,dy,dz", [
-        ("x", 1.0,  0.0,  0.0),
-        ("y", 0.0,  1.0,  0.0),
-        ("z", 0.0,  0.0,  1.0),
-    ])
-    def test_change_detected_on_each_axis(
-        self, axis: str, dx: float, dy: float, dz: float
-    ) -> None:
+    @pytest.mark.parametrize(
+        "axis,dx,dy,dz",
+        [
+            ("x", 1.0, 0.0, 0.0),
+            ("y", 0.0, 1.0, 0.0),
+            ("z", 0.0, 0.0, 1.0),
+        ],
+    )
+    def test_change_detected_on_each_axis(self, axis: str, dx: float, dy: float, dz: float) -> None:
         ref: dict = {}
         before = _arp_changes()
         _run_observe(ref, _arp_msg(_X, _Y, _Z))

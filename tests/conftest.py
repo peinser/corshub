@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from sanic import Sanic
 
-from unittest.mock import AsyncMock
-
 from corshub import http
-from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.services.v1.ntrip import service as ntrip_service
+
 
 ntrip_blueprint = ntrip_service.blueprint()
 

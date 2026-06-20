@@ -142,8 +142,14 @@ class QueueTransportSubscriber(TransportSubscriber):
 
         self.cleanup()  # Perform cleanup and signal producers to stop
 
-    async def publish(self, frame: bytes) -> bool:
-        """Publish a frame to this subscriber's queue, evicting the oldest frame if full."""
+    def publish(self, frame: bytes) -> bool:
+        """Publish a frame to this subscriber's queue, evicting the oldest frame if full.
+
+        Synchronous by design: every operation here (``full``/``get_nowait``/
+        ``put_nowait``) is non-blocking, so there is no suspension point.  Keeping
+        it sync lets the fan-out loop deliver to N subscribers without allocating
+        and scheduling N coroutines per frame on the hot path.
+        """
         if self.cancelled:
             return False
 
@@ -159,10 +165,6 @@ class QueueTransportSubscriber(TransportSubscriber):
 
         except asyncio.QueueFull:
             return False  # lost race between the eviction and put_nowait; drop this frame
-
-        except asyncio.CancelledError:
-            self.cancelled = True
-            raise
 
     async def get(self, timeout: float | None = None) -> bytes | None:
         """Get the next frame from the queue, or None if cancelled. Note, this method can raise asyncio.TimeoutError if the timeout is reached before a frame is available."""
@@ -234,14 +236,14 @@ class QueueTransport(Transport):
         if not subscribers:
             return 0
 
-        fanout_results = await asyncio.gather(
-            *(subscriber.publish(frame) for subscriber in list(subscribers)),
-            return_exceptions=True,
-        )
-
+        # Synchronous fan-out: subscriber.publish never suspends, so iterating
+        # directly avoids creating and scheduling one coroutine per subscriber
+        # per frame.  Snapshot the list so a concurrent subscribe/unsubscribe
+        # (which can only happen at an await boundary elsewhere) cannot mutate
+        # it mid-iteration.
         acks = 0
-        for result in fanout_results:
-            if result is True:
+        for subscriber in list(subscribers):
+            if subscriber.publish(frame):
                 acks += 1
 
         return acks

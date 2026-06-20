@@ -14,10 +14,11 @@ import asyncio
 import base64
 import time
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from sanic import Sanic
-from unittest.mock import AsyncMock
 
 from corshub import http
 from corshub.ntrip.v2.caster import NTRIPCaster
@@ -69,30 +70,22 @@ class TestSessionTimeout:
         app = _make_app(caster, _TEST_TIMEOUT_S)
 
         start = time.monotonic()
-        _, response = await app.asgi_client.get(
-            "/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH}
-        )
+        _, response = await app.asgi_client.get("/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH})
         elapsed = time.monotonic() - start
 
         assert response.status_code == 200
         # Stream should have closed shortly after the timeout fired, not hung.
         assert elapsed < _TEST_TIMEOUT_S + 2.0
 
-    async def test_stream_closed_by_timeout_receives_no_frames(
-        self, caster: NTRIPCaster
-    ) -> None:
+    async def test_stream_closed_by_timeout_receives_no_frames(self, caster: NTRIPCaster) -> None:
         """No RTCM frames are published during the timeout window, so the body is empty."""
         app = _make_app(caster, _TEST_TIMEOUT_S)
 
-        _, response = await app.asgi_client.get(
-            "/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH}
-        )
+        _, response = await app.asgi_client.get("/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH})
 
         assert response.body == b""
 
-    async def test_unlimited_session_closes_when_mountpoint_shuts_down(
-        self, caster: NTRIPCaster
-    ) -> None:
+    async def test_unlimited_session_closes_when_mountpoint_shuts_down(self, caster: NTRIPCaster) -> None:
         """A rover with no session limit (None) stays connected until the transport shuts down."""
         app = _make_app(caster, None)
 
@@ -104,9 +97,7 @@ class TestSessionTimeout:
         asyncio.create_task(_shutdown_after_delay())
 
         start = time.monotonic()
-        _, response = await app.asgi_client.get(
-            "/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH}
-        )
+        _, response = await app.asgi_client.get("/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH})
         elapsed = time.monotonic() - start
 
         assert response.status_code == 200

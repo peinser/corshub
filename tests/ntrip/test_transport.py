@@ -58,7 +58,7 @@ class TestLifecycle:
                 try:
                     while (frame := await sub.get(timeout=1.0)) is not None:
                         frames.append(frame)  # pragma: no cover
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
 
         task = asyncio.create_task(consumer())

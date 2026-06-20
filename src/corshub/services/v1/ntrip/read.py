@@ -55,6 +55,10 @@ if TYPE_CHECKING:
     from corshub.ntrip.v2.caster import NTRIPCaster
 
 
+# A GGA sentence is < 100 bytes; anything larger between newlines is not GGA.
+_MAX_GGA_BUFFER = 4096
+
+
 async def _read_rover_gga(
     request: Request,
     mountpoint: str,
@@ -67,7 +71,15 @@ async def _read_rover_gga(
     same GET connection while receiving RTCM frames.  This coroutine runs as a
     background task alongside the frame-delivery loop; it silently exits if the
     rover sends no body or the stream ends.
+
+    The line buffer is bounded: a GGA sentence is well under 100 bytes, so a
+    buffer that grows past _MAX_GGA_BUFFER without a newline is junk (or a
+    misbehaving/malicious rover) and is discarded rather than retained, which
+    would otherwise be an unbounded-memory vector on a long-lived connection.
     """
+    if request.stream is None:
+        return  # Route is not in streaming mode; no request body to read.
+
     buf = b""
 
     try:
@@ -82,14 +94,20 @@ async def _read_rover_gga(
                     lat, lon = gga
                     caster.set_rover_position(mountpoint, rover_username, lat, lon)
                     metrics.rover_gga_updates_total.labels(mountpoint=mountpoint).inc()
+            if len(buf) > _MAX_GGA_BUFFER:
+                buf = b""  # No newline within a sane bound; drop the garbage.
 
     except Exception:
         pass  # Rover sent no body, stream ended, or Sanic doesn't expose GET body.
 
 
-@bp.get("/<mountpoint:str>")
-async def read(request: Request, mountpoint: str) -> HTTPResponse:
-    """Stream RTCM correction frames to a rover.
+async def stream_mountpoint(request: Request, mountpoint: str) -> HTTPResponse:
+    """Validate a rover request and stream RTCM frames from *mountpoint*.
+
+    Shared implementation behind both the ``GET /<mountpoint>`` route and the
+    ``NEAR``/``NEAREST`` endpoints.  Kept as a plain coroutine (not a route
+    handler) so callers can invoke it directly without depending on Sanic's
+    decorator internals.
 
     Validates the Ntrip-Version header and Basic credentials, then opens a
     chunked streaming response that forwards every frame published on
@@ -168,3 +186,14 @@ async def read(request: Request, mountpoint: str) -> HTTPResponse:
             "Cache-Control": "no-store, no-cache",
         },
     )
+
+
+@bp.get("/<mountpoint:str>", stream=True)
+async def read(request: Request, mountpoint: str) -> HTTPResponse:
+    """Route entrypoint for the rover stream; delegates to stream_mountpoint.
+
+    ``stream=True`` exposes the request body as ``request.stream`` so the rover
+    can push periodic NMEA GGA position updates on the same connection while
+    receiving RTCM frames.
+    """
+    return await stream_mountpoint(request, mountpoint)

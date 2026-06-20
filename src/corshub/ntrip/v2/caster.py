@@ -86,19 +86,21 @@ def _split_rtcm_frames(data: bytes) -> tuple[list[bytes], bytes]:
     size, both of which indicate corruption or non-RTCM data.
     """
     frames: list[bytes] = []
+    n = len(data)
     i = 0
-    while i < len(data):
-        if data[i] != _RTCM3_PREAMBLE:
-            i += 1
-            continue
-        if i + 3 > len(data):
+    while i < n:
+        # Skip non-preamble bytes in C rather than one Python loop iteration each.
+        i = data.find(_RTCM3_PREAMBLE, i)
+        if i < 0:
+            return frames, b""  # No preamble left; discard the trailing junk.
+        if i + 3 > n:
             break  # Need more bytes to read the length field.
         length = ((data[i + 1] & 0x03) << 8) | data[i + 2]
         total = length + 6
         if total > _RTCM3_MAX_FRAME:
             i += 1  # Spurious 0xD3 byte; keep scanning.
             continue
-        if i + total > len(data):
+        if i + total > n:
             break  # Incomplete frame; wait for the next chunk.
         frames.append(data[i : i + total])
         i += total
@@ -410,14 +412,21 @@ class NTRIPCaster(Caster):
         transport_factory: type[Transport] | None = None,
         expiry: float | None = 3600.0,
         reap_interval: float = 10.0,
+        quality_queue_maxsize: int = 4096,
     ) -> None:
         self._opa = opa
         self._transport_factory: type[Transport] = transport_factory or QueueTransport
         self._expiry = expiry
         self._reap_interval = reap_interval
+        self._quality_queue_maxsize = quality_queue_maxsize
         self._mountpoints: dict[str, Mountpoint] = {}
         self._transports: dict[str, Transport] = {}
         self._reaper_task: asyncio.Task[None] | None = None
+        # Quality parsing (pyrtcm decode) is CPU-bound and runs off the delivery
+        # path via this bounded queue + worker.  Created in start(); until then
+        # _enqueue_quality falls back to inline parsing.
+        self._quality_queue: asyncio.Queue[tuple[str, bytes]] | None = None
+        self._quality_task: asyncio.Task[None] | None = None
         self._arp_reference: dict[str, tuple[float, float, float]] = {}
         self._frame_buffer: dict[str, bytes] = {}
         self._quality: dict[str, MountpointQuality] = {}
@@ -568,9 +577,55 @@ class NTRIPCaster(Caster):
         metrics.frames_delivered_total.labels(mountpoint=mountpoint).inc(delivered)
         metrics.frame_interval_seconds.labels(mountpoint=mountpoint).observe(interval)
 
-        _observe_rtcm_quality(mountpoint, frame, self._arp_reference, self._frame_buffer, self._quality)
+        # Signal-quality parsing is deliberately kept off the delivery path.
+        self._enqueue_quality(mountpoint, frame)
 
         return delivered
+
+    def _enqueue_quality(self, mountpoint: str, frame: bytes) -> None:
+        """Hand a raw frame to the quality pipeline without blocking delivery.
+
+        After start(), the frame is queued and parsed by the background worker so
+        that pyrtcm decode cost never adds latency or jitter to rover delivery.
+        The queue is bounded and sheds the *newest* sample on overload — quality
+        metrics are best-effort, so dropping a sample is strictly preferable to
+        stalling the event loop.  Frame delivery is never affected.
+
+        Before start() (e.g. unit tests) there is no worker, so the frame is
+        parsed inline to preserve deterministic, synchronous semantics.
+        """
+        queue = self._quality_queue
+        if queue is None:
+            self._process_quality(mountpoint, frame)
+            return
+
+        try:
+            queue.put_nowait((mountpoint, frame))
+        except asyncio.QueueFull:
+            metrics.rtcm_quality_samples_dropped_total.labels(mountpoint=mountpoint).inc()
+
+    def _process_quality(self, mountpoint: str, frame: bytes) -> None:
+        """Parse one frame for signal-quality metrics.
+
+        Single seam for an out-of-process parser (Option B): replace this body
+        with a ProcessPoolExecutor call that returns summaries to apply to the
+        metrics here, and nothing else in the caster needs to change.
+        """
+        _observe_rtcm_quality(mountpoint, frame, self._arp_reference, self._frame_buffer, self._quality)
+
+    async def _quality_loop(self) -> None:
+        """Drain the quality queue, parsing frames off the delivery hot path."""
+        queue = self._quality_queue
+        assert queue is not None  # set by start() before this task is created
+
+        while True:
+            mountpoint, frame = await queue.get()
+            try:
+                self._process_quality(mountpoint, frame)
+            except Exception as ex:
+                logger.exception(ex)  # a single bad frame must not kill the worker
+            finally:
+                queue.task_done()
 
     @asynccontextmanager
     async def _metered_subscribe(self, mountpoint: str, transport: Transport) -> AsyncGenerator[TransportSubscriber]:
@@ -586,19 +641,25 @@ class NTRIPCaster(Caster):
         return self._metered_subscribe(mountpoint, transport)
 
     async def start(self) -> None:
+        self._quality_queue = asyncio.Queue(maxsize=self._quality_queue_maxsize)
+        self._quality_task = asyncio.create_task(self._quality_loop())
+
         if self._expiry is not None:
             self._reaper_task = asyncio.create_task(self._reap_loop())
 
     async def stop(self) -> None:
-        if self._reaper_task is not None:
-            self._reaper_task.cancel()
-
+        for task in (self._reaper_task, self._quality_task):
+            if task is None:
+                continue
+            task.cancel()
             try:
-                await self._reaper_task
+                await task
             except asyncio.CancelledError:
                 pass
 
-            self._reaper_task = None
+        self._reaper_task = None
+        self._quality_task = None
+        self._quality_queue = None
 
     async def _reap_loop(self) -> None:
         """Periodically unregister mountpoints that have gone silent."""

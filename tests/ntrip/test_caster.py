@@ -73,23 +73,23 @@ class TestMountpointValidation:
         Mountpoint(**self._base(name="BASE-1"))  # Must not raise
 
     def test_country_two_letters_raises(self) -> None:
-        with pytest.raises(ValueError, match="[Cc]ountry"):
+        with pytest.raises(ValueError, match=r"[Cc]ountry"):
             Mountpoint(**self._base(country="BE"))
 
     def test_country_four_letters_raises(self) -> None:
-        with pytest.raises(ValueError, match="[Cc]ountry"):
+        with pytest.raises(ValueError, match=r"[Cc]ountry"):
             Mountpoint(**self._base(country="BELG"))
 
     def test_country_lowercase_raises(self) -> None:
-        with pytest.raises(ValueError, match="[Cc]ountry"):
+        with pytest.raises(ValueError, match=r"[Cc]ountry"):
             Mountpoint(**self._base(country="bel"))
 
     def test_latitude_above_90_raises(self) -> None:
-        with pytest.raises(ValueError, match="[Ll]atitude"):
+        with pytest.raises(ValueError, match=r"[Ll]atitude"):
             Mountpoint(**self._base(latitude=90.1))
 
     def test_latitude_below_minus_90_raises(self) -> None:
-        with pytest.raises(ValueError, match="[Ll]atitude"):
+        with pytest.raises(ValueError, match=r"[Ll]atitude"):
             Mountpoint(**self._base(latitude=-90.1))
 
     def test_latitude_boundary_values_accepted(self) -> None:
@@ -97,11 +97,11 @@ class TestMountpointValidation:
         Mountpoint(**self._base(latitude=-90.0))
 
     def test_longitude_above_180_raises(self) -> None:
-        with pytest.raises(ValueError, match="[Ll]ongitude"):
+        with pytest.raises(ValueError, match=r"[Ll]ongitude"):
             Mountpoint(**self._base(longitude=180.1))
 
     def test_longitude_below_minus_180_raises(self) -> None:
-        with pytest.raises(ValueError, match="[Ll]ongitude"):
+        with pytest.raises(ValueError, match=r"[Ll]ongitude"):
             Mountpoint(**self._base(longitude=-180.1))
 
     def test_longitude_boundary_values_accepted(self) -> None:
@@ -128,13 +128,7 @@ class TestMountpointRegistry:
 
     async def test_raise_invalid_country(self, caster: NTRIPCaster) -> None:
         with pytest.raises(ValueError):
-            await caster.register(
-                **{
-                    "name": "BASE3",
-                    "mountpoint": "BASE3",
-                    "country": "INVALID",
-                }
-            )
+            await caster.register(name="BASE3", mountpoint="BASE3", country="INVALID")
 
     async def test_unregister_removes_mountpoint(self, caster: NTRIPCaster) -> None:
         await caster.unregister("BASE1")
@@ -374,3 +368,62 @@ class TestReaper:
         caster.mountpoints["BASE1"].last_seen = 0.0
         await caster.publish("BASE1", b"\xd3\x00\x00")
         assert caster.mountpoints["BASE1"].last_seen >= before
+
+
+class TestQualityWorker:
+    """The signal-quality parser runs off the delivery hot path (Option A)."""
+
+    async def test_worker_processes_published_frames(self, caster: NTRIPCaster) -> None:
+        processed: list[tuple[str, bytes]] = []
+        original = caster._process_quality
+
+        def _spy(mountpoint: str, frame: bytes) -> None:
+            processed.append((mountpoint, frame))
+            original(mountpoint, frame)
+
+        caster._process_quality = _spy  # type: ignore[method-assign]
+
+        await caster.start()
+        try:
+            await caster.publish("BASE1", b"\xd3\x00\x13")
+            assert caster._quality_queue is not None
+            await caster._quality_queue.join()  # block until the worker drains it
+            assert processed == [("BASE1", b"\xd3\x00\x13")]
+        finally:
+            await caster.stop()
+
+    async def test_inline_fallback_before_start(self, caster: NTRIPCaster) -> None:
+        """Without a running worker, parsing happens inline on the publish call."""
+        processed: list[tuple[str, bytes]] = []
+        original = caster._process_quality
+
+        def _spy(mountpoint: str, frame: bytes) -> None:
+            processed.append((mountpoint, frame))
+            original(mountpoint, frame)
+
+        caster._process_quality = _spy  # type: ignore[method-assign]
+
+        await caster.publish("BASE1", b"\xd3\x00\x13")  # no start() → inline
+        assert processed == [("BASE1", b"\xd3\x00\x13")]
+
+    async def test_full_queue_drops_sample_and_counts_it(self, caster: NTRIPCaster) -> None:
+        import corshub.metrics as m
+
+        # Install a bounded queue without a worker so it cannot drain.
+        caster._quality_queue = asyncio.Queue(maxsize=1)
+
+        label = m.rtcm_quality_samples_dropped_total.labels(mountpoint="BASE1")
+        before = label._value.get()
+
+        await caster.publish("BASE1", b"\xd3\x00\x13")  # fills the single slot
+        await caster.publish("BASE1", b"\xd3\x00\x13")  # queue full → dropped
+
+        assert label._value.get() - before == 1
+
+    async def test_stop_cancels_quality_task(self) -> None:
+        c = NTRIPCaster(expiry=None)
+        await c.start()
+        assert c._quality_task is not None
+        await c.stop()
+        assert c._quality_task is None
+        assert c._quality_queue is None

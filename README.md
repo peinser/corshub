@@ -256,7 +256,7 @@ All required packages are included in the project's main dependency set (`aiohtt
 - [VS Code](https://code.visualstudio.com/) with the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers)
 
 **For Option B (local):**
-- Python 3.12 or newer
+- Python 3.14 or newer
 - [uv](https://docs.astral.sh/uv/getting-started/installation/)
 
 ---

@@ -24,14 +24,16 @@ from __future__ import annotations
 import asyncio
 import base64
 
+from unittest.mock import AsyncMock
+
 import pytest
 
 from sanic import Sanic
-from unittest.mock import AsyncMock
 
 from corshub import http
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.services.v1.ntrip import service as ntrip_service
+
 
 ntrip_blueprint = ntrip_service.blueprint()
 
@@ -311,7 +313,7 @@ class TestMountpointMaskField:
     def test_negative_mask_raises(self) -> None:
         from corshub.ntrip.v2.caster import Mountpoint
 
-        with pytest.raises(ValueError, match="[Mm]ask"):
+        with pytest.raises(ValueError, match=r"[Mm]ask"):
             Mountpoint(
                 name="X",
                 identifier="X",

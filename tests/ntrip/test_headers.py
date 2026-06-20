@@ -8,12 +8,10 @@ Functions under test:
 
 from __future__ import annotations
 
-import pytest
-
+from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.headers import haversine
 from corshub.ntrip.v2.headers import parse_ntrip_gga
 from corshub.ntrip.v2.headers import parse_ntrip_str
-from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.sourcetable import _str_record
 
 

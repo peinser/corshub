@@ -111,6 +111,13 @@ rtcm_parse_errors_total: Counter = Counter(
     ["mountpoint"],
 )
 
+rtcm_quality_samples_dropped_total: Counter = Counter(
+    "ntrip_rtcm_quality_samples_dropped_total",
+    "Frames dropped from the signal-quality parsing queue because it was full. "
+    "Delivery is unaffected; only best-effort quality metrics are shed under load.",
+    ["mountpoint"],
+)
+
 rtcm_signal_cnr_dbhz: Histogram = Histogram(
     "ntrip_rtcm_signal_cnr_dbhz",
     "GNSS signal carrier-to-noise density (CNR) per satellite-signal cell from MSM4-7 messages, in dBHz. "

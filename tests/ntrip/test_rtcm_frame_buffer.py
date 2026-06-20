@@ -23,17 +23,12 @@ framing logic directly.
 
 from __future__ import annotations
 
-import struct
-
 import pytest
 
-from corshub.ntrip.v2.caster import (
-    _ARP_CHANGE_THRESHOLD,  # noqa: PLC2701
-    _RTCM3_MAX_FRAME,  # noqa: PLC2701
-    _RTCM3_PREAMBLE,  # noqa: PLC2701
-    _observe_rtcm_quality,  # noqa: PLC2701
-    _split_rtcm_frames,  # noqa: PLC2701
-)
+from corshub.ntrip.v2.caster import _RTCM3_MAX_FRAME
+from corshub.ntrip.v2.caster import _RTCM3_PREAMBLE
+from corshub.ntrip.v2.caster import _observe_rtcm_quality
+from corshub.ntrip.v2.caster import _split_rtcm_frames
 
 
 def _make_frame(payload_length: int, *, preamble: int = 0xD3) -> bytes:
@@ -42,11 +37,13 @@ def _make_frame(payload_length: int, *, preamble: int = 0xD3) -> bytes:
     The payload is filled with 0x00.  The CRC field is also 0x00 × 3 — we only
     test framing logic here, not CRC validation.
     """
-    header = bytes([
-        preamble,
-        (payload_length >> 8) & 0x03,  # upper 2 bits of 10-bit length
-        payload_length & 0xFF,          # lower 8 bits
-    ])
+    header = bytes(
+        [
+            preamble,
+            (payload_length >> 8) & 0x03,  # upper 2 bits of 10-bit length
+            payload_length & 0xFF,  # lower 8 bits
+        ]
+    )
     payload = b"\x00" * payload_length
     crc = b"\x00\x00\x00"
     return header + payload + crc
@@ -204,7 +201,6 @@ class TestObserveBuffering:
         buf: dict[str, bytes] = {}
         # Pass only partial data — no complete frames, remainder stored
         with pytest.MonkeyPatch().context() as mp:
-            parsed_calls: list = []
 
             def fake_split(data: bytes):
                 return [], data  # No complete frames, everything is remainder
@@ -248,11 +244,13 @@ class TestObserveBuffering:
         # Build a frame header that claims a large payload, but only provide half
         # the bytes — this is a genuine incomplete frame the parser should buffer.
         payload_length = 200
-        partial = bytes([
-            _RTCM3_PREAMBLE,
-            (payload_length >> 8) & 0x03,
-            payload_length & 0xFF,
-        ]) + b"\x00" * (payload_length // 2)  # Only half the payload delivered
+        partial = bytes(
+            [
+                _RTCM3_PREAMBLE,
+                (payload_length >> 8) & 0x03,
+                payload_length & 0xFF,
+            ]
+        ) + b"\x00" * (payload_length // 2)  # Only half the payload delivered
         assert len(partial) < _RTCM3_MAX_FRAME
         buf: dict[str, bytes] = {}
         _observe_rtcm_quality(_MP, partial, {}, buf)

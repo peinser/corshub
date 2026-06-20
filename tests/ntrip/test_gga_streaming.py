@@ -12,10 +12,12 @@ from __future__ import annotations
 import asyncio
 import base64
 
+from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
+
 import pytest
 
 from sanic import Sanic
-from unittest.mock import AsyncMock, MagicMock, patch
 
 from corshub import http
 from corshub.ntrip.v2.caster import NTRIPCaster
@@ -75,7 +77,7 @@ class _FakeStream:
         try:
             return next(self._chunks)
         except StopIteration:
-            raise StopAsyncIteration
+            raise StopAsyncIteration from None
 
 
 def _make_request(chunks: list[bytes], username: str = "rover1") -> MagicMock:
@@ -220,9 +222,7 @@ class TestReadRouteGgaHeader:
             headers={**NTRIP_HEADERS, "Authorization": _basic_auth(username), **headers},
         )
 
-    async def test_position_seeded_from_gga_header_during_connection(
-        self, app: Sanic, caster: NTRIPCaster
-    ) -> None:
+    async def test_position_seeded_from_gga_header_during_connection(self, app: Sanic, caster: NTRIPCaster) -> None:
         """While connected, position stored under rover's username."""
         positions_seen: list[dict] = []
 
@@ -234,28 +234,20 @@ class TestReadRouteGgaHeader:
 
         caster.set_rover_position = _capturing_set  # type: ignore[method-assign]
 
-        await self._connect_and_close(
-            app, caster, {"Ntrip-GGA": _VALID_GGA}, username="rover1"
-        )
+        await self._connect_and_close(app, caster, {"Ntrip-GGA": _VALID_GGA}, username="rover1")
 
         assert len(positions_seen) >= 1
         assert positions_seen[0]["mountpoint"] == "BASE1"
         assert positions_seen[0]["rover_id"] == "rover1"
         assert abs(positions_seen[0]["lat"] - 48.117) < 0.01
 
-    async def test_position_cleared_after_disconnect(
-        self, app: Sanic, caster: NTRIPCaster
-    ) -> None:
+    async def test_position_cleared_after_disconnect(self, app: Sanic, caster: NTRIPCaster) -> None:
         """After the rover disconnects the entry is removed from the caster."""
-        await self._connect_and_close(
-            app, caster, {"Ntrip-GGA": _VALID_GGA}, username="rover1"
-        )
+        await self._connect_and_close(app, caster, {"Ntrip-GGA": _VALID_GGA}, username="rover1")
         # Stream has ended; clear_rover_position should have been called.
         assert "rover1" not in caster.get_rover_positions("BASE1")
 
-    async def test_no_gga_header_does_not_set_position(
-        self, app: Sanic, caster: NTRIPCaster
-    ) -> None:
+    async def test_no_gga_header_does_not_set_position(self, app: Sanic, caster: NTRIPCaster) -> None:
         """Rover without any GGA leaves no position entry."""
         cleared_calls: list[tuple] = []
         original_clear = caster.clear_rover_position
@@ -272,9 +264,7 @@ class TestReadRouteGgaHeader:
         assert ("BASE1", "rover1") in cleared_calls
         assert "rover1" not in caster.get_rover_positions("BASE1")
 
-    async def test_rover_username_used_as_position_key(
-        self, app: Sanic, caster: NTRIPCaster
-    ) -> None:
+    async def test_rover_username_used_as_position_key(self, app: Sanic, caster: NTRIPCaster) -> None:
         """The position is stored under the rover's authenticated username."""
         set_calls: list[str] = []
         original_set = caster.set_rover_position
@@ -285,8 +275,85 @@ class TestReadRouteGgaHeader:
 
         caster.set_rover_position = _track  # type: ignore[method-assign]
 
-        await self._connect_and_close(
-            app, caster, {"Ntrip-GGA": _VALID_GGA}, username="myrobot"
-        )
+        await self._connect_and_close(app, caster, {"Ntrip-GGA": _VALID_GGA}, username="myrobot")
 
         assert "myrobot" in set_calls
+
+
+class TestReadRouteGgaBody:
+    """End-to-end bidirectional stream: the rover pushes GGA up the request body
+    while receiving RTCM down the same connection.
+
+    This exercises the full route wiring (``stream=True`` + the background
+    ``_read_rover_gga`` task), which the ``_read_rover_gga`` unit tests above do
+    not cover — they call the reader directly with a fake stream.
+    """
+
+    async def _connect_with_body(
+        self,
+        app: Sanic,
+        caster: NTRIPCaster,
+        body: bytes,
+        *,
+        headers: dict | None = None,
+        username: str = "rover1",
+        delay: float = _TEST_TIMEOUT_S,
+    ) -> None:
+        async def _shutdown() -> None:
+            await asyncio.sleep(delay)
+            for transport in list(caster._transports.values()):
+                await transport.shutdown()
+
+        asyncio.create_task(_shutdown())
+        # .request() (not .get()) so we can attach a body — NTRIP v2 rovers stream
+        # GGA as the body of the GET while corrections flow back on the response.
+        await app.asgi_client.request(
+            "GET",
+            "/BASE1",
+            headers={**NTRIP_HEADERS, "Authorization": _basic_auth(username), **(headers or {})},
+            content=body,
+        )
+
+    async def test_body_gga_sets_position_during_stream(self, app: Sanic, caster: NTRIPCaster) -> None:
+        """With no Ntrip-GGA header, a position can only come from the body feed."""
+        captured: list[tuple[str, float, float]] = []
+        original_set = caster.set_rover_position
+
+        def _capture(mp: str, rover_id: str, lat: float, lon: float) -> None:
+            captured.append((rover_id, lat, lon))
+            original_set(mp, rover_id, lat, lon)
+
+        caster.set_rover_position = _capture  # type: ignore[method-assign]
+
+        # _VALID_GGA_2 = _gga(51.0, 3.72) (Ghent); no header is sent.
+        await self._connect_with_body(app, caster, (_VALID_GGA_2 + "\n").encode(), username="rover1")
+
+        assert captured, "no position recorded from the request-body GGA feed"
+        rover_id, lat, lon = captured[0]
+        assert rover_id == "rover1"
+        assert abs(lat - 51.0) < 0.01
+        assert abs(lon - 3.72) < 0.01
+
+    async def test_multiple_body_gga_lines_update_position(self, app: Sanic, caster: NTRIPCaster) -> None:
+        """Successive GGA sentences in the body each move the tracked position."""
+        captured: list[tuple[float, float]] = []
+        original_set = caster.set_rover_position
+
+        def _capture(mp: str, rover_id: str, lat: float, lon: float) -> None:
+            captured.append((lat, lon))
+            original_set(mp, rover_id, lat, lon)
+
+        caster.set_rover_position = _capture  # type: ignore[method-assign]
+
+        # Munich (48.117, 11.517) then Ghent (51.0, 3.72), as two body lines.
+        body = (_VALID_GGA + "\n" + _VALID_GGA_2 + "\n").encode()
+        await self._connect_with_body(app, caster, body, username="rover1")
+
+        assert len(captured) >= 2
+        assert abs(captured[0][0] - 48.117) < 0.01  # first line: Munich
+        assert abs(captured[-1][0] - 51.0) < 0.01  # last line: Ghent
+
+    async def test_body_gga_position_cleared_after_disconnect(self, app: Sanic, caster: NTRIPCaster) -> None:
+        """The body-fed position is removed once the rover disconnects."""
+        await self._connect_with_body(app, caster, (_VALID_GGA_2 + "\n").encode(), username="rover1")
+        assert "rover1" not in caster.get_rover_positions("BASE1")

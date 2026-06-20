@@ -23,10 +23,12 @@ import asyncio
 import base64
 import socket
 import threading
+
 from queue import Queue
 from unittest.mock import AsyncMock
 
 import pytest
+
 from pygnssutils.gnssntripclient import GNSSNTRIPClient
 from sanic import Sanic
 
