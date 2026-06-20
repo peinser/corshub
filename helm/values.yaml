@@ -59,6 +59,58 @@ gnss:
   # multiple satellites simultaneously may indicate spoofed transmissions.
   highCnrThresholdDbhz: 55.0
 
+# Direct-to-rover RTCM corrections over signed UDP (optional, off by default).
+# A second correction egress alongside NTRIP/HTTP: the caster streams raw RTCM
+# frames as signed UDP datagrams to internet-connected rovers. See
+# docs/architecture/rtcm-udp.md. When disabled, nothing below is rendered and the
+# caster behaves exactly as an NTRIP-over-HTTP server.
+rtcmUdp:
+  enabled: false
+
+  # UDP port the egress listens on inside the container.
+  port: 5009
+
+  # Public endpoint (host:port) advertised to rovers in the session bootstrap
+  # response. Must be reachable from the internet. REQUIRED when enabled.
+  advertisedEndpoint: ""
+
+  # Session token lifetime and session idle/keepalive timings (seconds).
+  sessionTokenTtl: 60
+  sessionTtl: 30
+  keepaliveInterval: 10
+
+  # Ed25519 per-frame signing. Strongly recommended in production so rovers can
+  # verify provenance against the published key (GET /api/v1/rtcm/jwks.json).
+  signing:
+    enabled: true
+    # Allow a non-persistent ephemeral key when none is supplied. Dev/testing
+    # only: ephemeral keys cannot be pinned across restarts. With signing on and
+    # no key and this false, the app fails fast at startup (by design).
+    allowEphemeral: false
+
+  # Secret material (session-token HMAC secret + signing key). Either reference
+  # an existing Secret, or let the chart render one from the values below.
+  secret:
+    # Use an existing Secret with keys `token-secret` and (optionally)
+    # `signing-key.pem` instead of rendering one from this chart.
+    existingSecret: ""
+    # HMAC secret for session tokens (>= 32 bytes). If left empty, the chart
+    # generates one and preserves it across upgrades via a lookup.
+    tokenSecret: ""
+    # Ed25519 private key (PEM). Mounted as a file; RTCM_SIGNING_KEY_PATH points
+    # at it. Leave empty to rely on signing.allowEphemeral (dev only).
+    signingKeyPem: ""
+
+  # UDP Service exposing the egress. Kept separate from the HTTP Service so the
+  # two protocols do not require mixed-protocol LoadBalancer support.
+  service:
+    type: LoadBalancer
+    port: 5009
+    annotations: {}
+    # Pin a stable address for rovers (recommended for a public caster).
+    loadBalancerIP: ""
+    # nodePort: 32509
+
 # Extra environment variables injected into the container.
 extraEnv: []
   # - name: MY_VAR

@@ -2,7 +2,8 @@
 
 | | |
 |---|---|
-| **Status** | Draft / proposed |
+| **Status** | Implemented (caster side); rover daemon is external |
+| **Caster modules** | `corshub.rtcm` (udp, keys, tokens), `corshub.services.v1.rtcm` (endpoints) |
 | **Availability** | Optional, opt-in — disabled by default (`RTCM_UDP_ENABLED=false`) |
 | **Scope** | Caster (this repo) + rover-side daemon (separate repo) |
 | **Wire contract** | `proto/corshub/rtcm/v1/rtcm_udp.proto` |
@@ -315,7 +316,9 @@ All via `env.extract` (`src/corshub/env.py`), with dev-safe defaults.
 | `RTCM_UDP_ENABLED` | `false` | Master switch for the UDP egress |
 | `RTCM_UDP_HOST` | `0.0.0.0` | Bind address |
 | `RTCM_UDP_PORT` | `5009` | Single listener port for all mountpoints |
+| `RTCM_UDP_ENDPOINT` | `host:port` | Public endpoint advertised to rovers in the bootstrap response |
 | `RTCM_UDP_SIGNING_ENABLED` | `false` | Sign outgoing frames (off only in dev) |
+| `RTCM_SIGNING_ALLOW_EPHEMERAL` | `false` | Allow a non-persistent ephemeral key when none is supplied (dev only) |
 | `RTCM_SIGNING_KEY_PATH` | — | Path to Ed25519 private key (PEM); e.g. a mounted secret |
 | `RTCM_SIGNING_PUBKEY_PATH` | — | Optional path to public key (PEM); derived from private if unset |
 | `RTCM_SIGNING_PRIVATE_KEY` | — | Inline private key (PEM/base64); takes precedence over the path |
@@ -323,8 +326,22 @@ All via `env.extract` (`src/corshub/env.py`), with dev-safe defaults.
 | `RTCM_UDP_SESSION_TTL` | `30` | Idle seconds before a session is reaped |
 | `RTCM_UDP_KEEPALIVE_INTERVAL` | `10` | Advertised keepalive interval (s) |
 | `RTCM_UDP_MAX_DATAGRAM` | `1200` | Max datagram bytes (under IPv6 min MTU) |
-| `RTCM_SESSION_TOKEN_SECRET` | — | HS256 secret for the bootstrap JWT |
+| `RTCM_SESSION_TOKEN_SECRET` | — | HS256 secret for the bootstrap JWT (>= 32 bytes; required when enabled) |
 | `RTCM_SESSION_TOKEN_TTL` | `60` | Bootstrap token lifetime (s) |
+
+Notes: the public key is always derived from the private key, so
+`RTCM_SIGNING_PUBKEY_PATH` / `RTCM_SIGNING_PUBLIC_KEY` are reserved and not
+required. `RTCM_UDP_MAX_DATAGRAM` is advisory today (standard RTCM frames stay
+well under one MTU); explicit oversize-drop enforcement is a follow-up.
+
+### Helm
+
+The whole feature is driven by the Helm chart under the `rtcmUdp` key — enable
+with `rtcmUdp.enabled=true`. The chart renders the env above onto the Deployment,
+opens the container UDP port, creates a dedicated UDP `Service`
+(`rtcmUdp.service`), and manages the token secret + signing key as a `Secret`
+(generated and preserved across upgrades, or `rtcmUdp.secret.existingSecret`).
+When disabled (the default), none of those resources are rendered.
 
 ## Protobuf contract and codegen
 

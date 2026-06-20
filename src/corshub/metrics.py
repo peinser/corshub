@@ -118,6 +118,47 @@ rtcm_quality_samples_dropped_total: Counter = Counter(
     ["mountpoint"],
 )
 
+# -- RTCM UDP egress ---------------------------------------------------------
+
+rtcm_udp_hello_total: Counter = Counter(
+    "rtcm_udp_hello_total",
+    "RTCM UDP session Hello datagrams, by result (accepted|rejected).",
+    ["result"],
+)
+
+rtcm_udp_token_rejected_total: Counter = Counter(
+    "rtcm_udp_token_rejected_total",
+    "RTCM UDP Hellos rejected because the session token was invalid or expired.",
+)
+
+rtcm_udp_datagrams_sent_total: Counter = Counter(
+    "rtcm_udp_datagrams_sent_total",
+    "Correction datagrams sent to rovers over the UDP egress, per mountpoint.",
+    ["mountpoint"],
+)
+
+rtcm_udp_bytes_sent_total: Counter = Counter(
+    "rtcm_udp_bytes_sent_total",
+    "Bytes sent to rovers over the UDP egress, per mountpoint.",
+    ["mountpoint"],
+)
+
+rtcm_udp_frames_signed_total: Counter = Counter(
+    "rtcm_udp_frames_signed_total",
+    "Correction frames signed (Ed25519) for the UDP egress, per mountpoint.",
+    ["mountpoint"],
+)
+
+rtcm_udp_sessions_reaped_total: Counter = Counter(
+    "rtcm_udp_sessions_reaped_total",
+    "RTCM UDP sessions removed by the idle reaper.",
+)
+
+rtcm_udp_sessions: Gauge = Gauge(
+    "rtcm_udp_sessions",
+    "Currently active RTCM UDP correction sessions.",
+)
+
 rtcm_signal_cnr_dbhz: Histogram = Histogram(
     "ntrip_rtcm_signal_cnr_dbhz",
     "GNSS signal carrier-to-noise density (CNR) per satellite-signal cell from MSM4-7 messages, in dBHz. "
