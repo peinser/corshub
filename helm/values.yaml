@@ -47,6 +47,16 @@ app:
   # HTTP port the Sanic server listens on inside the container.
   port: 8000
 
+# Token-bucket rate limiting on authentication endpoints (NTRIP base/rover auth
+# and the RTCM session bootstrap). Protects the CPU-heavy bcrypt path from
+# floods. Keyed by client IP (honors the reverse-proxy real-IP configuration).
+authRateLimit:
+  enabled: true
+  # Burst: maximum attempts allowed instantly per client.
+  capacity: 5
+  # Sustained refill rate (tokens per second per client).
+  refillPerSecond: 1.0
+
 # GNSS signal-quality and spoofing-detection thresholds.
 gnss:
   # ARP position change threshold in metres.  Any deviation greater than this

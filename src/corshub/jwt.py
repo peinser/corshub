@@ -23,9 +23,24 @@ from corshub.oidc.constants import JWKS
 
 
 if TYPE_CHECKING:
+    from typing import Any
     from typing import Final
 
     from sanic import Sanic
+
+
+def _public_key_from_jwk(jwk: dict[str, Any]) -> Any:
+    """Build a public key from a JWK, dispatching on the key type.
+
+    Supports RSA (RS*) and OKP/Ed25519 (EdDSA). The latter lets the caster verify
+    tokens signed with its own Ed25519 key (e.g. the RTCM signing JWKS).
+    """
+    kty = jwk.get("kty")
+    if kty == "RSA":
+        return jwt.algorithms.RSAAlgorithm.from_jwk(jwk)
+    if kty == "OKP":
+        return jwt.algorithms.OKPAlgorithm.from_jwk(jwk)
+    raise InvalidTokenError(f"Unsupported JWK key type: {kty!r}")
 
 
 @dataclass(frozen=True)
@@ -155,7 +170,7 @@ class JWKSManager:
                     # A provider and it's public key are searchable by the `kid` as well. This of course
                     # imposes the constraint that a kid should be unique among the set of configured providers.
                     # Typically, this is the case.
-                    cache[kid] = jwt.algorithms.RSAAlgorithm.from_jwk(key)
+                    cache[kid] = _public_key_from_jwk(key)
                     metadata[kid] = _provider
 
     def provider(self, aud: str):
@@ -191,7 +206,7 @@ class JWKSManager:
         return jwt.decode(
             token,
             public_key,
-            algorithms=["RS256"],
+            algorithms=["RS256", "EdDSA"],
             audience=provider.aud,
             issuer=provider.iss,
             options={

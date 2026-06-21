@@ -20,20 +20,6 @@ Tracked bugs, quality issues, and planned features. Grouped by effort.
 
 - [ ] Onboarding bot (`onboard.py`) verifies that only `ops/values.yaml` is touched but does not verify that only the submitter's own entry was modified. A malicious PR could alter another user's `mountpoints`, `valid_until`, or other fields. Fix: parse the before/after YAML and assert that only keys nested under the submitter's username changed.
 - [ ] Graceful shutdown: `NTRIPCaster.stop()` only cancels the reaper task; it does not drain active rover connections or signal base stations. Decide on a drain timeout and propagate shutdown through all active transports.
-- [ ] Add token bucket rate-limiter for auth endpoints based on connection fingerprint. `bcrypt.verify` is CPU-heavy and the lack of rate limiting makes it a viable DoS vector.
-
----
-
-## RTCM UDP egress (follow-ups)
-
-The caster side shipped (see `docs/architecture/rtcm-udp.md`). Remaining:
-
-- [ ] Rover-side daemon (separate repo): UDP client that runs the handshake, verifies the Ed25519 signature against the published JWKS, and emits `GPS_RTCM_DATA` to mavlink-router over loopback. The shared contract is `proto/corshub/rtcm/v1/rtcm_udp.proto`.
-- [ ] Continuous mask enforcement: disconnect a dynamic session whose `KeepAlive` position roams beyond its mountpoint's configured mask (NEAREST handoff already follows the rover; this is the eviction half).
-- [ ] Multi-replica: UDP sessions are per-replica like the QueueTransport. A shared transport/session backend is needed before scaling the UDP egress beyond one replica.
-- [ ] Token-bucket rate limiter now also covers `POST /api/v1/rtcm/session` (a second bcrypt-running auth endpoint); see the auth rate-limiter item above.
-- [ ] `JWKSManager` is RS256-only; add `EdDSA`/`OKP` support if the caster ever needs to verify its own JWKS in-process.
-- [ ] CI: wire `buf lint` / breaking-change checks for `proto/`, and a `make proto` drift check (generated stubs vs `.proto`).
 
 ## OpenAPI specification
 

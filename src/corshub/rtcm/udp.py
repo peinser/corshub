@@ -58,6 +58,7 @@ class ErrorCode:
     MOUNTPOINT_UNAVAILABLE = 3
     MISSING_POSITION = 4
     INTERNAL = 5
+    OUT_OF_RANGE = 6
 
 
 @dataclass
@@ -268,14 +269,20 @@ class RTCMDatagramServer:
             return
 
         lat, lon = keepalive.position.latitude, keepalive.position.longitude
+        position = (lat, lon)
         self._caster.set_rover_position(session.mountpoint, str(session.session_id), lat, lon)
 
-        # Dynamic (NEAREST) sessions follow the rover: re-point to a nearer base
-        # as it moves, staying within the token's authorized scope.
         if session.dynamic:
-            nearest = self._nearest((lat, lon))
-            if nearest is not None and self._scope_allows(session.scope, nearest):
+            # Follow the rover to the nearest in-range base; evict it if it has
+            # roamed beyond every mountpoint's mask (no base left in range).
+            nearest = self._nearest(position)
+            if nearest is None:
+                self._spawn(self._evict(session, ErrorCode.OUT_OF_RANGE, "No mountpoint in range."))
+            elif self._scope_allows(session.scope, nearest):
                 self._repoint(session, nearest)
+        elif self._out_of_range(session.mountpoint, position):
+            # Pinned session: enforce the mountpoint's configured mask continuously.
+            self._spawn(self._evict(session, ErrorCode.OUT_OF_RANGE, f"Beyond mask of {session.mountpoint!r}."))
 
     async def _on_switch(self, session: Session, switch: pb.SwitchMountpoint) -> None:
         position = (switch.position.latitude, switch.position.longitude) if switch.HasField("position") else None
@@ -301,6 +308,13 @@ class RTCMDatagramServer:
     @staticmethod
     def _scope_allows(scope: str, mountpoint: str) -> bool:
         return scope in _WILDCARD_SCOPES or scope == mountpoint
+
+    def _out_of_range(self, mountpoint: str, position: tuple[float, float]) -> bool:
+        """True if *position* lies beyond *mountpoint*'s configured mask (km)."""
+        mp = self._caster.mountpoints.get(mountpoint)
+        if mp is None or mp.mask <= 0.0 or mp.latitude is None or mp.longitude is None:
+            return False
+        return haversine(mp.latitude, mp.longitude, position[0], position[1]) > mp.mask
 
     # -- egress ------------------------------------------------------------
 
@@ -423,6 +437,11 @@ class RTCMDatagramServer:
 
     def _send_error(self, addr: tuple[str, int], code: int, message: str) -> None:
         self._send(addr, pb.Datagram(version=PROTOCOL_VERSION, error=pb.Error(code=code, message=message)))
+
+    async def _evict(self, session: Session, code: int, message: str) -> None:
+        """Notify the rover with an Error and tear the session down."""
+        self._send_error(session.addr, code, message)
+        await self._teardown(session)
 
     async def _teardown(self, session: Session) -> None:
         if self._sessions.pop(session.session_id, None) is None:

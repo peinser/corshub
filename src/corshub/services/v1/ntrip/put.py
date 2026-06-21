@@ -26,6 +26,7 @@ from sanic import response
 from sanic.exceptions import Unauthorized
 
 from corshub.exceptions.http import BadRequestError
+from corshub.http.ratelimit import enforce_auth_rate_limit
 from corshub.logging import logger
 from corshub.ntrip.v2.headers import CONTENT_TYPE_GNSS
 from corshub.ntrip.v2.headers import NTRIP_STR
@@ -56,6 +57,9 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
 
     if not request.credentials:
         raise Unauthorized("Basic credentials required.", scheme="Basic")
+
+    # Throttle auth attempts per client before the bcrypt path.
+    enforce_auth_rate_limit(request)
 
     # Note, this implicitly checks wheter a transport is NOT available.
     caster = request.app.ctx.ntrip_caster

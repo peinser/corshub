@@ -366,8 +366,10 @@ When disabled (the default), none of those resources are rendered.
   the daemon selects by the `kid` advertised in `HelloAck`, so rotation is a JWKS
   publish plus a `kid` switch. Rotate loudly and keep the old key in the set during a
   grace window.
-- **DoS.** UDP `Hello` floods only cost a JWT verification (cheap, constant time),
-  never bcrypt. Rate-limit `Hello` per source address.
+- **DoS.** The bcrypt path is the bootstrap endpoint, which is token-bucket
+  rate-limited per client IP (`AUTH_RATELIMIT_*`, shared with the NTRIP auth
+  routes). UDP `Hello` floods only cost a JWT verification (cheap, constant time),
+  never bcrypt.
 
 ## Observability
 

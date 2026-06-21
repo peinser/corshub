@@ -15,6 +15,7 @@ from sanic.exceptions import NotFound
 from sanic.exceptions import Unauthorized
 
 from corshub.exceptions.http import BadRequestError
+from corshub.http.ratelimit import enforce_auth_rate_limit
 from corshub.rtcm.tokens import issue_session_token
 
 from .base import bp
@@ -42,6 +43,9 @@ async def create_session(request: Request) -> HTTPResponse:
     mountpoint = body.get("mountpoint")
     if not mountpoint or not isinstance(mountpoint, str):
         raise BadRequestError("Field 'mountpoint' (string) is required.")
+
+    # Throttle auth attempts per client before the bcrypt path.
+    enforce_auth_rate_limit(request)
 
     caster = request.app.ctx.ntrip_caster
     allowed, _ = await caster.authenticate_rover(

@@ -40,10 +40,21 @@ def _config(*, enabled: bool = True, signing: bool = True) -> RTCMConfig:
     )
 
 
-def _request(*, config, credentials, json_body, signing_key=None, authenticate=(True, None)):
+def _request(*, config, credentials, json_body, signing_key=None, authenticate=(True, None), limiter=None):
     caster = SimpleNamespace(authenticate_rover=AsyncMock(return_value=authenticate))
-    ctx = SimpleNamespace(rtcm_config=config, ntrip_caster=caster, rtcm_signing_key=signing_key)
-    return SimpleNamespace(app=SimpleNamespace(ctx=ctx), credentials=credentials, json=json_body)
+    ctx = SimpleNamespace(
+        rtcm_config=config,
+        ntrip_caster=caster,
+        rtcm_signing_key=signing_key,
+        auth_rate_limiter=limiter,
+    )
+    return SimpleNamespace(
+        app=SimpleNamespace(ctx=ctx),
+        credentials=credentials,
+        json=json_body,
+        remote_addr="203.0.113.7",
+        ip="203.0.113.7",
+    )
 
 
 def _creds(username: str = "rover1", password: str = "secret"):
@@ -92,6 +103,18 @@ class TestSessionEndpoint:
         )
         with pytest.raises(Unauthorized):
             await create_session(req)
+
+    async def test_rate_limited_returns_429(self) -> None:
+        from corshub.exceptions.http import RateLimitedError
+        from corshub.http.ratelimit import RateLimiter
+
+        limiter = RateLimiter(capacity=1, refill_per_second=0.0)  # shared across both requests
+        ok = _request(config=_config(), credentials=_creds(), json_body={"mountpoint": "BASE1"}, limiter=limiter)
+        await create_session(ok)  # consumes the only token
+
+        throttled = _request(config=_config(), credentials=_creds(), json_body={"mountpoint": "BASE1"}, limiter=limiter)
+        with pytest.raises(RateLimitedError):
+            await create_session(throttled)
 
 
 class TestJwksEndpoint:

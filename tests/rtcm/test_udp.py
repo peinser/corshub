@@ -262,6 +262,63 @@ class TestHandoff:
         assert server._sessions[sid].mountpoint == "BASE1"
 
 
+class TestMaskEnforcement:
+    def _sid(self, server: RTCMDatagramServer) -> int:
+        return next(m for m in _sent_messages(server) if m.WhichOneof("body") == "hello_ack").hello_ack.session_id
+
+    def _keepalive(self, session_id: int, lat: float, lon: float) -> bytes:
+        ka = pb.KeepAlive(position=pb.GgaPosition(latitude=lat, longitude=lon))
+        return pb.Datagram(version=1, session_id=session_id, keepalive=ka).SerializeToString()
+
+    async def test_pinned_session_evicted_when_out_of_range(
+        self, server: RTCMDatagramServer, caster: NTRIPCaster
+    ) -> None:
+        caster.mountpoints["BASE1"].mask = 10.0  # km
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        await asyncio.sleep(0)
+        sid = self._sid(server)
+
+        server.handle_datagram(self._keepalive(sid, 0.0, 0.0), _ADDR)  # thousands of km away
+        await asyncio.sleep(0)
+
+        assert server.session_count == 0
+        errors = [m for m in _sent_messages(server) if m.WhichOneof("body") == "error"]
+        assert any(e.error.code == ErrorCode.OUT_OF_RANGE for e in errors)
+
+    async def test_pinned_session_kept_when_in_range(self, server: RTCMDatagramServer, caster: NTRIPCaster) -> None:
+        caster.mountpoints["BASE1"].mask = 10.0
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        await asyncio.sleep(0)
+        sid = self._sid(server)
+
+        server.handle_datagram(self._keepalive(sid, 50.85, 4.36), _ADDR)  # < 1 km from BASE1
+        await asyncio.sleep(0)
+        assert server.session_count == 1
+
+    async def test_unlimited_mask_never_evicts(self, server: RTCMDatagramServer) -> None:
+        await server._on_hello(_hello("BASE1"), _ADDR)  # BASE1 has mask 0.0 (unlimited)
+        await asyncio.sleep(0)
+        sid = self._sid(server)
+
+        server.handle_datagram(self._keepalive(sid, 0.0, 0.0), _ADDR)
+        await asyncio.sleep(0)
+        assert server.session_count == 1
+
+    async def test_dynamic_session_evicted_when_out_of_all_masks(
+        self, server: RTCMDatagramServer, caster: NTRIPCaster
+    ) -> None:
+        caster.mountpoints["BASE1"].mask = 10.0
+        caster.mountpoints["BASE2"].mask = 10.0
+        await server._on_hello(_hello("NEAREST", token_mountpoint="*", position=(50.84, 4.36)), _ADDR)
+        await asyncio.sleep(0)
+        sid = self._sid(server)
+        assert server._sessions[sid].mountpoint == "BASE1"
+
+        server.handle_datagram(self._keepalive(sid, 0.0, 0.0), _ADDR)  # beyond both masks
+        await asyncio.sleep(0)
+        assert server.session_count == 0
+
+
 class TestMaxDatagram:
     async def test_oversize_datagram_dropped_and_counted(self, caster: NTRIPCaster) -> None:
         import corshub.metrics as m

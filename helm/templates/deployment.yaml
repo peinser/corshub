@@ -59,6 +59,12 @@ spec:
               value: {{ .Values.gnss.arpChangeThresholdMeters | quote }}
             - name: GNSS_CNR_DBHZ_HIGH_THRESHOLD
               value: {{ .Values.gnss.highCnrThresholdDbhz | quote }}
+            - name: AUTH_RATELIMIT_ENABLED
+              value: {{ .Values.authRateLimit.enabled | quote }}
+            - name: AUTH_RATELIMIT_CAPACITY
+              value: {{ .Values.authRateLimit.capacity | quote }}
+            - name: AUTH_RATELIMIT_REFILL_PER_SECOND
+              value: {{ .Values.authRateLimit.refillPerSecond | quote }}
             {{- if .Values.metrics.enabled }}
             - name: PROMETHEUS_DISABLE_CREATED_SERIES
               value: "True"

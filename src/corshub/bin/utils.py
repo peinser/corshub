@@ -36,5 +36,6 @@ def create_app(name: str, arguments: Namespace | None = None) -> Sanic:
 
     # Initialize the HTTP context.
     http.initialize_http_sessions(app)
+    http.initialize_rate_limiter(app)
 
     return app
