@@ -8,7 +8,7 @@ no bcrypt and no database lookup, keeping the unauthenticated UDP path free of
 DoS-amplifying work.
 
 The token binds the authorized mountpoint and a short expiry. It is intentionally
-*not* a full identity token — it authorizes one correction session, nothing else.
+*not* a full identity token - it authorizes one correction session, nothing else.
 """
 
 from __future__ import annotations

@@ -1,5 +1,5 @@
 """
-RTCM signing-key publication — GET /api/v1/rtcm/jwks.json
+RTCM signing-key publication - GET /api/v1/rtcm/jwks.json
 
 Serves the Ed25519 signing public key as a standard JWK Set (kty=OKP,
 crv=Ed25519). Rovers select the key by the ``kid`` advertised in ``HelloAck``

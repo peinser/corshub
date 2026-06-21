@@ -1,5 +1,5 @@
 """
-RTCM UDP session bootstrap — POST /api/v1/rtcm/session
+RTCM UDP session bootstrap - POST /api/v1/rtcm/session
 
 Authenticates a rover with HTTP Basic (the same OPA + bcrypt path as the NTRIP
 routes) and mints a short-lived session token. The rover presents that token in

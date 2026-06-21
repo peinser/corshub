@@ -105,7 +105,7 @@ class RTCMDatagramServer:
         self,
         caster: NTRIPCaster,
         *,
-        host: str = "0.0.0.0",
+        host: str = "0.0.0.0",  # nosec B104  (bind-all; exposure gated by k8s Service/NetworkPolicy)
         port: int = 5009,
         token_secret: str,
         signing_key: SigningKey | None = None,

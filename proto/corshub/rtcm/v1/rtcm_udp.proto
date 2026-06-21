@@ -8,7 +8,7 @@
 //   * One complete RTCM3 frame per `CorrectionFrame`; one `Datagram` per UDP packet.
 //   * Ed25519 signatures are computed and verified over the OPAQUE serialized
 //     bytes of `CorrectionFrame` carried in `SignedCorrection.payload`. Never
-//     re-serialize before verifying — protobuf serialization is not guaranteed
+//     re-serialize before verifying - protobuf serialization is not guaranteed
 //     canonical across implementations.
 //   * `SignedCorrection` is signed once per frame per mountpoint and fanned out
 //     unchanged to every session; only the enclosing `Datagram` (session_id, seq)

@@ -56,7 +56,9 @@ class RTCMConfig:
 
 def load_config() -> RTCMConfig:
     enabled = _flag("RTCM_UDP_ENABLED")
-    host = env.extract("RTCM_UDP_HOST", default="0.0.0.0")
+    # Bind all interfaces by default: this is a containerized service whose
+    # exposure is governed by the k8s Service/NetworkPolicy, not the bind address.
+    host = env.extract("RTCM_UDP_HOST", default="0.0.0.0")  # nosec B104
     port = env.extract("RTCM_UDP_PORT", default="5009", dtype=int)
     token_secret = env.extract("RTCM_SESSION_TOKEN_SECRET", default="") or ""
 

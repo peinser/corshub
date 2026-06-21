@@ -4,7 +4,7 @@
 |---|---|
 | **Status** | Implemented (caster side); rover daemon is external |
 | **Caster modules** | `corshub.rtcm` (udp, keys, tokens), `corshub.services.v1.rtcm` (endpoints) |
-| **Availability** | Optional, opt-in — disabled by default (`RTCM_UDP_ENABLED=false`) |
+| **Availability** | Optional, opt-in - disabled by default (`RTCM_UDP_ENABLED=false`) |
 | **Scope** | Caster (this repo) + rover-side daemon (separate repo) |
 | **Wire contract** | `proto/corshub/rtcm/v1/rtcm_udp.proto` |
 | **Transport** | Authenticated, rover-initiated UDP |
@@ -28,12 +28,12 @@ Both the feature and its signing are settings; CORSHub's existing behaviour is
 unchanged unless you opt in.
 
 - **The UDP egress is opt-in and off by default** (`RTCM_UDP_ENABLED=false`). When
-  disabled, none of this is wired up — no UDP socket is bound and no bootstrap or
+  disabled, none of this is wired up - no UDP socket is bound and no bootstrap or
   public-key route is registered. The caster runs exactly as it does today, NTRIP
   over HTTP only.
 - **Signing is independently optional** (`RTCM_UDP_SIGNING_ENABLED`). Turn it on in
   production so rovers can verify provenance against the published key. Turning it
-  off sends frames in the clear — a deliberate convenience for **development and
+  off sends frames in the clear - a deliberate convenience for **development and
   integration testing**, where standing up an Ed25519 key and pinning fingerprints
   is needless friction. When signing is off the rover daemon runs with verification
   off to match, and `SignedCorrection.signature` is left empty. Do not run unsigned
@@ -46,13 +46,13 @@ unchanged unless you opt in.
   constrained telemetry radio. A drone with its own internet link can receive
   corrections directly, cutting the relay and the radio bottleneck.
 - **Wrong transport for the job.** RTCM corrections are time-critical and
-  short-lived. TCP's head-of-line blocking retransmits *stale* corrections —
+  short-lived. TCP's head-of-line blocking retransmits *stale* corrections -
   reliably delivering data that is already useless on arrival. The correct
   semantic on a flaky link is **drop-and-supersede**: lose an epoch, the next
   1 Hz epoch replaces it. That is a datagram. The caster already embodies this
   with its drop-oldest per-subscriber queue.
 - **Open verification.** On a public caster, unauthenticated RTCM injected into a
-  flight controller is a spoofing vector — the inverse of what the caster exists
+  flight controller is a spoofing vector - the inverse of what the caster exists
   to detect. Frames must be verifiable. MAVLink 2 signing is symmetric HMAC with
   a shared secret (no public key), so it cannot offer "publish a key, anyone
   verifies." An application-layer Ed25519 signature can, and is what we use.
@@ -120,7 +120,7 @@ authenticity lives in the signed inner `CorrectionFrame`.
 Putting bcrypt behind an unauthenticated UDP packet would be a DoS amplifier, so
 authentication happens over the existing TLS HTTP surface and yields a cheap token.
 
-`POST /api/v1/rtcm/session` — `Authorization: Basic <user:pass>`
+`POST /api/v1/rtcm/session` - `Authorization: Basic <user:pass>`
 
 ```json
 // 200 OK
@@ -177,7 +177,7 @@ The caster **demultiplexes inbound datagrams by `session_id`, never by UDP
 any authenticated datagram from a known `session_id`, the caster updates
 `last_addr` and keeps sending there. (This is exactly what QUIC connection IDs
 do; we hand-roll the minimum needed for plain UDP. A future QUIC migration is a
-natural evolution — see Future work.)
+natural evolution - see Future work.)
 
 ### Complete flow
 
@@ -225,7 +225,7 @@ sequenceDiagram
   `crypto/sign.py` (today HMAC-only); adds a
   `cryptography` dependency.
 - **Signed bytes:** the opaque serialized `CorrectionFrame` (`SignedCorrection.payload`).
-  Verify over the received bytes, then parse. Never re-serialize before verifying —
+  Verify over the received bytes, then parse. Never re-serialize before verifying -
   proto3 output is not guaranteed canonical across implementations.
 - **What the signature binds:** `timestamp_ms` (freshness/replay window) and
   `mountpoint` (a frame cannot be replayed as another mountpoint's), plus the RTCM
@@ -233,12 +233,12 @@ sequenceDiagram
 - **Optional (`RTCM_UDP_SIGNING_ENABLED`).** On in production; off is a
   development / integration-testing convenience (see [Optionality](#optionality)).
   When off, frames are sent with an empty `SignedCorrection.signature` and the
-  daemon verifies nothing — never in production.
+  daemon verifies nothing - never in production.
 - **Key provisioning (two supported forms, pick either):**
-    - *File mount* — `RTCM_SIGNING_KEY_PATH` points at the private-key PEM (e.g. a
+    - *File mount* - `RTCM_SIGNING_KEY_PATH` points at the private-key PEM (e.g. a
       mounted Kubernetes Secret), optionally with `RTCM_SIGNING_PUBKEY_PATH` for
       the public-key PEM.
-    - *Inline config* — `RTCM_SIGNING_PRIVATE_KEY` carries the key material
+    - *Inline config* - `RTCM_SIGNING_PRIVATE_KEY` carries the key material
       directly (PEM or base64 seed), optionally with `RTCM_SIGNING_PUBLIC_KEY`.
 
   Inline values take precedence over file paths. The **public key is derivable
@@ -254,7 +254,7 @@ sequenceDiagram
 ### Public-key endpoint (JWKS)
 
 The caster publishes its signing public key as a standard **JWKS** so any party
-can verify a `CorrectionFrame` independently — no shared secret, nothing to
+can verify a `CorrectionFrame` independently - no shared secret, nothing to
 provision, and using a format every ecosystem already has tooling for.
 
 `GET /api/v1/rtcm/jwks.json`
@@ -276,7 +276,7 @@ provision, and using a format every ecosystem already has tooling for.
 ```
 
 The daemon fetches the set, selects the key whose `kid` matches the `signing_kid`
-advertised in `HelloAck`, and verifies with it — exactly the lookup-by-`kid`
+advertised in `HelloAck`, and verifies with it - exactly the lookup-by-`kid`
 pattern `jwt.py`'s `JWKSManager` already uses for external issuers. The route is
 registered only when the feature is enabled and returns `404` when signing is
 disabled (no key to publish).
@@ -290,7 +290,7 @@ Reuse notes:
 
 > **This is not an identity surface.** CORSHub remains an OIDC *consumer*, not a
 > *provider*: `jwt.py` fetches issuers' JWKS to verify their tokens. This endpoint
-> serves a single signing key in JWKS form purely for tooling compatibility — it is
+> serves a single signing key in JWKS form purely for tooling compatibility - it is
 > deliberately *not* paired with an OIDC discovery document
 > (`.well-known/openid-configuration`), which would be overkill for one key.
 
@@ -298,7 +298,7 @@ Reuse notes:
 
 - **Lifecycle:** bind the UDP socket and start the server in a
   `before_server_start` listener; close it and drain sessions in
-  `after_server_stop` — mirroring the reaper and quality-worker lifecycle on
+  `after_server_stop` - mirroring the reaper and quality-worker lifecycle on
   `NTRIPCaster`.
 - **Egress task per session:** `subscribe(mountpoint)` → loop `frame = await sub.get()`
   → `sendto(datagram, session.last_addr)`. Reuses `QueueTransportSubscriber`
@@ -319,14 +319,14 @@ All via `env.extract` (`src/corshub/env.py`), with dev-safe defaults.
 | `RTCM_UDP_ENDPOINT` | `host:port` | Public endpoint advertised to rovers in the bootstrap response |
 | `RTCM_UDP_SIGNING_ENABLED` | `false` | Sign outgoing frames (off only in dev) |
 | `RTCM_SIGNING_ALLOW_EPHEMERAL` | `false` | Allow a non-persistent ephemeral key when none is supplied (dev only) |
-| `RTCM_SIGNING_KEY_PATH` | — | Path to Ed25519 private key (PEM); e.g. a mounted secret |
-| `RTCM_SIGNING_PUBKEY_PATH` | — | Optional path to public key (PEM); derived from private if unset |
-| `RTCM_SIGNING_PRIVATE_KEY` | — | Inline private key (PEM/base64); takes precedence over the path |
-| `RTCM_SIGNING_PUBLIC_KEY` | — | Optional inline public key; verified against the private key |
+| `RTCM_SIGNING_KEY_PATH` | - | Path to Ed25519 private key (PEM); e.g. a mounted secret |
+| `RTCM_SIGNING_PUBKEY_PATH` | - | Optional path to public key (PEM); derived from private if unset |
+| `RTCM_SIGNING_PRIVATE_KEY` | - | Inline private key (PEM/base64); takes precedence over the path |
+| `RTCM_SIGNING_PUBLIC_KEY` | - | Optional inline public key; verified against the private key |
 | `RTCM_UDP_SESSION_TTL` | `30` | Idle seconds before a session is reaped |
 | `RTCM_UDP_KEEPALIVE_INTERVAL` | `10` | Advertised keepalive interval (s) |
 | `RTCM_UDP_MAX_DATAGRAM` | `1200` | Max datagram bytes (under IPv6 min MTU) |
-| `RTCM_SESSION_TOKEN_SECRET` | — | HS256 secret for the bootstrap JWT (>= 32 bytes; required when enabled) |
+| `RTCM_SESSION_TOKEN_SECRET` | - | HS256 secret for the bootstrap JWT (>= 32 bytes; required when enabled) |
 | `RTCM_SESSION_TOKEN_TTL` | `60` | Bootstrap token lifetime (s) |
 
 Notes: the public key is always derived from the private key, so
@@ -337,7 +337,7 @@ fragmentation on a lossy link.
 
 ### Helm
 
-The whole feature is driven by the Helm chart under the `rtcmUdp` key — enable
+The whole feature is driven by the Helm chart under the `rtcmUdp` key - enable
 with `rtcmUdp.enabled=true`. The chart renders the env above onto the Deployment,
 opens the container UDP port, creates a dedicated UDP `Service`
 (`rtcmUdp.service`), and manages the token secret + signing key as a `Secret`
@@ -381,17 +381,17 @@ New metrics (Prometheus), following the existing `ntrip_*` conventions:
 
 ## Open questions
 
-- Token: HS256 with a server secret (proposed, simplest — caster both issues and
+- Token: HS256 with a server secret (proposed, simplest - caster both issues and
   verifies) vs. reusing an asymmetric key.
 - `session_id` width: 64-bit random (proposed). Sufficient against guessing given
   the token gate and short session lifetimes.
-- Acceptance window (±5 s), keepalive (10 s), TTL (30 s) — confirm against real
+- Acceptance window (±5 s), keepalive (10 s), TTL (30 s) - confirm against real
   cellular RTT and NAT timeout behaviour.
 
 ## Future work
 
 - **QUIC migration.** QUIC gives connection IDs (NAT survival), TLS auth, and RFC
-  9221 unreliable datagrams natively — superseding the hand-rolled session/NAT
+  9221 unreliable datagrams natively - superseding the hand-rolled session/NAT
   layer here while keeping the Ed25519 frame signature for end-to-end provenance.
 - **Continuous mask enforcement** (disconnect a rover that roams out of a
   mountpoint's configured range). NEAREST handoff on the `KeepAlive` position
