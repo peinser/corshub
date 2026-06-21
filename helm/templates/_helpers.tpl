@@ -89,3 +89,25 @@ Name of the ConfigMap that holds the OPA registry data (base stations and rovers
 {{- define "corshub.opa.dataConfigMapName" -}}
 {{- printf "%s-opa-data" (include "corshub.fullname" .) }}
 {{- end }}
+
+{{/*
+Name of the Secret holding RTCM UDP session token + signing key material.
+Resolves to an operator-supplied existing Secret when set.
+*/}}
+{{- define "corshub.rtcmUdp.secretName" -}}
+{{- if .Values.rtcmUdp.secret.existingSecret -}}
+{{- .Values.rtcmUdp.secret.existingSecret -}}
+{{- else -}}
+{{- printf "%s-rtcm" (include "corshub.fullname" .) -}}
+{{- end -}}
+{{- end }}
+
+{{/*
+Whether a signing key file is available to mount (either inline PEM or an
+existing Secret is expected to carry signing-key.pem).
+*/}}
+{{- define "corshub.rtcmUdp.hasKeyFile" -}}
+{{- if and .Values.rtcmUdp.signing.enabled (or .Values.rtcmUdp.secret.signingKeyPem .Values.rtcmUdp.secret.existingSecret) -}}
+true
+{{- end -}}
+{{- end }}

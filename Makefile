@@ -88,6 +88,12 @@ test: ## Run tests with coverage
 dev: ## Run the application in development mode (if applicable)
 	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload --workers=1
 
+.PHONY: proto
+proto: ## Regenerate protobuf stubs from proto/ (uses a transient protoc binary)
+	@echo -e "$(INFO_COLOR)Generating protobuf stubs...$(NO_COLOR)"
+	uvx --from protoc-wheel-0 protoc -I proto --python_out=src --pyi_out=src proto/corshub/rtcm/v1/rtcm_udp.proto
+	@echo -e "$(OK_COLOR)Protobuf stubs generated$(NO_COLOR)"
+
 .PHONY: helm-sync-policies
 helm-sync-policies: ## Replace dev-time symlinks in helm/files/opa/policies/ with real copies for self-contained chart packaging (run automatically by CI before helm package)
 	@echo -e "$(INFO_COLOR)Syncing OPA policies into Helm chart files...$(NO_COLOR)"

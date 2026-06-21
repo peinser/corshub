@@ -1,0 +1,30 @@
+{{- if .Values.rtcmUdp.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "corshub.fullname" . }}-rtcm-udp
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "corshub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rtcm-udp
+  {{- with .Values.rtcmUdp.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.rtcmUdp.service.type }}
+  {{- if .Values.rtcmUdp.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.rtcmUdp.service.loadBalancerIP }}
+  {{- end }}
+  ports:
+    - port: {{ .Values.rtcmUdp.service.port }}
+      targetPort: rtcm-udp
+      protocol: UDP
+      name: rtcm-udp
+      {{- if and (eq .Values.rtcmUdp.service.type "NodePort") .Values.rtcmUdp.service.nodePort }}
+      nodePort: {{ .Values.rtcmUdp.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "corshub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: server
+{{- end }}

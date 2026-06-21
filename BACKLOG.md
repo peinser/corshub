@@ -24,6 +24,17 @@ Tracked bugs, quality issues, and planned features. Grouped by effort.
 
 ---
 
+## RTCM UDP egress (follow-ups)
+
+The caster side shipped (see `docs/architecture/rtcm-udp.md`). Remaining:
+
+- [ ] Rover-side daemon (separate repo): UDP client that runs the handshake, verifies the Ed25519 signature against the published JWKS, and emits `GPS_RTCM_DATA` to mavlink-router over loopback. The shared contract is `proto/corshub/rtcm/v1/rtcm_udp.proto`.
+- [ ] Continuous mask enforcement: disconnect a dynamic session whose `KeepAlive` position roams beyond its mountpoint's configured mask (NEAREST handoff already follows the rover; this is the eviction half).
+- [ ] Multi-replica: UDP sessions are per-replica like the QueueTransport. A shared transport/session backend is needed before scaling the UDP egress beyond one replica.
+- [ ] Token-bucket rate limiter now also covers `POST /api/v1/rtcm/session` (a second bcrypt-running auth endpoint); see the auth rate-limiter item above.
+- [ ] `JWKSManager` is RS256-only; add `EdDSA`/`OKP` support if the caster ever needs to verify its own JWKS in-process.
+- [ ] CI: wire `buf lint` / breaking-change checks for `proto/`, and a `make proto` drift check (generated stubs vs `.proto`).
+
 ## OpenAPI specification
 
 - [ ] Write a complete, versioned OpenAPI 3.1 spec (`openapi.yaml` at repo root or `docs/openapi.yaml`) covering all routes: source table, read, put, nearest, quality. Include request/response schemas, error shapes, security schemes (Basic auth), and example values.

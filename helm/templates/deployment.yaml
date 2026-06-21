@@ -45,6 +45,11 @@ spec:
             - name: http
               containerPort: {{ .Values.app.port }}
               protocol: TCP
+            {{- if .Values.rtcmUdp.enabled }}
+            - name: rtcm-udp
+              containerPort: {{ .Values.rtcmUdp.port }}
+              protocol: UDP
+            {{- end }}
           env:
             {{- if .Values.opa.enabled }}
             - name: OPA_URL
@@ -57,6 +62,37 @@ spec:
             {{- if .Values.metrics.enabled }}
             - name: PROMETHEUS_DISABLE_CREATED_SERIES
               value: "True"
+            {{- end }}
+            {{- if .Values.rtcmUdp.enabled }}
+            - name: RTCM_UDP_ENABLED
+              value: "true"
+            - name: RTCM_UDP_HOST
+              value: "0.0.0.0"
+            - name: RTCM_UDP_PORT
+              value: {{ .Values.rtcmUdp.port | quote }}
+            - name: RTCM_UDP_ENDPOINT
+              value: {{ required "rtcmUdp.advertisedEndpoint is required when rtcmUdp.enabled" .Values.rtcmUdp.advertisedEndpoint | quote }}
+            - name: RTCM_SESSION_TOKEN_TTL
+              value: {{ .Values.rtcmUdp.sessionTokenTtl | quote }}
+            - name: RTCM_UDP_SESSION_TTL
+              value: {{ .Values.rtcmUdp.sessionTtl | quote }}
+            - name: RTCM_UDP_KEEPALIVE_INTERVAL
+              value: {{ .Values.rtcmUdp.keepaliveInterval | quote }}
+            - name: RTCM_UDP_MAX_DATAGRAM
+              value: {{ .Values.rtcmUdp.maxDatagram | quote }}
+            - name: RTCM_UDP_SIGNING_ENABLED
+              value: {{ .Values.rtcmUdp.signing.enabled | quote }}
+            - name: RTCM_SIGNING_ALLOW_EPHEMERAL
+              value: {{ .Values.rtcmUdp.signing.allowEphemeral | quote }}
+            - name: RTCM_SESSION_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "corshub.rtcmUdp.secretName" . }}
+                  key: token-secret
+            {{- if eq (include "corshub.rtcmUdp.hasKeyFile" .) "true" }}
+            - name: RTCM_SIGNING_KEY_PATH
+              value: /etc/corshub/rtcm/signing-key.pem
+            {{- end }}
             {{- end }}
             {{- with .Values.extraEnv }}
             {{- toYaml . | nindent 12 }}
@@ -87,11 +123,24 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            {{- if eq (include "corshub.rtcmUdp.hasKeyFile" .) "true" }}
+            - name: rtcm-signing-key
+              mountPath: /etc/corshub/rtcm
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             medium: {{ .Values.tmpDir.medium | quote }}
             sizeLimit: {{ .Values.tmpDir.sizeLimit }}
+        {{- if eq (include "corshub.rtcmUdp.hasKeyFile" .) "true" }}
+        - name: rtcm-signing-key
+          secret:
+            secretName: {{ include "corshub.rtcmUdp.secretName" . }}
+            items:
+              - key: signing-key.pem
+                path: signing-key.pem
+        {{- end }}
       {{- with .Values.topologySpreadConstraints }}
       topologySpreadConstraints:
         {{- range . }}

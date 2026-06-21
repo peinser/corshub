@@ -21,6 +21,8 @@ dependencies = [
     "rich>=15.0.0",
     "prometheus-client>=0.21.0",
     "sanic>=25.12.1",
+    "cryptography>=49.0.0",
+    "protobuf>=7.35.1",
 ]
 
 [dependency-groups]
@@ -59,7 +61,7 @@ packages = ["src/corshub"]
 fix = false
 target-version = "py314"
 line-length = 120
-extend-exclude = ["docs/*", "tests/fixtures/exceptions/*"]
+extend-exclude = ["docs/*", "tests/fixtures/exceptions/*", "**/*_pb2.py", "**/*_pb2.pyi"]
 
 [tool.ruff.lint]
 unfixable = [
@@ -107,6 +109,8 @@ required-imports = ["from __future__ import annotations"]
 [tool.mypy]
 strict = true
 files = ["src/corshub", "tests"]
+# Generated protobuf modules (.py and .pyi) are not type-checked.
+exclude = ['_pb2\.pyi?$']
 pretty = true
 disallow_untyped_defs = true
 disallow_any_unimported = true
