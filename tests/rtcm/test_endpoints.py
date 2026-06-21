@@ -35,6 +35,7 @@ def _config(*, enabled: bool = True, signing: bool = True) -> RTCMConfig:
         token_ttl=60,
         session_ttl=30.0,
         keepalive_interval=10,
+        max_datagram=1200,
         allow_ephemeral_key=True,
     )
 

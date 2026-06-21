@@ -78,6 +78,8 @@ spec:
               value: {{ .Values.rtcmUdp.sessionTtl | quote }}
             - name: RTCM_UDP_KEEPALIVE_INTERVAL
               value: {{ .Values.rtcmUdp.keepaliveInterval | quote }}
+            - name: RTCM_UDP_MAX_DATAGRAM
+              value: {{ .Values.rtcmUdp.maxDatagram | quote }}
             - name: RTCM_UDP_SIGNING_ENABLED
               value: {{ .Values.rtcmUdp.signing.enabled | quote }}
             - name: RTCM_SIGNING_ALLOW_EPHEMERAL

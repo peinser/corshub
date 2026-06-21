@@ -232,6 +232,59 @@ class TestSessionManagement:
         assert _transport(server).sent == []
 
 
+class TestHandoff:
+    def _open_session_id(self, server: RTCMDatagramServer) -> int:
+        return next(m for m in _sent_messages(server) if m.WhichOneof("body") == "hello_ack").hello_ack.session_id
+
+    def _keepalive(self, session_id: int, lat: float, lon: float) -> bytes:
+        ka = pb.KeepAlive(position=pb.GgaPosition(latitude=lat, longitude=lon))
+        return pb.Datagram(version=1, session_id=session_id, keepalive=ka).SerializeToString()
+
+    async def test_nearest_session_follows_rover(self, server: RTCMDatagramServer) -> None:
+        # Open a NEAREST session near BASE1.
+        await server._on_hello(_hello("NEAREST", token_mountpoint="*", position=(50.84, 4.36)), _ADDR)
+        await asyncio.sleep(0)
+        sid = self._open_session_id(server)
+        assert server._sessions[sid].mountpoint == "BASE1"
+
+        # A keepalive from near BASE2 re-points the session.
+        server.handle_datagram(self._keepalive(sid, 52.37, 4.90), _ADDR)
+        assert server._sessions[sid].mountpoint == "BASE2"
+        await asyncio.sleep(0)
+
+    async def test_concrete_session_does_not_handoff(self, server: RTCMDatagramServer) -> None:
+        # Pinned to BASE1 (not dynamic).
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        await asyncio.sleep(0)
+        sid = self._open_session_id(server)
+
+        server.handle_datagram(self._keepalive(sid, 52.37, 4.90), _ADDR)
+        assert server._sessions[sid].mountpoint == "BASE1"
+
+
+class TestMaxDatagram:
+    async def test_oversize_datagram_dropped_and_counted(self, caster: NTRIPCaster) -> None:
+        import corshub.metrics as m
+
+        srv = RTCMDatagramServer(caster, token_secret=_SECRET, signing_enabled=False, max_datagram=10)
+        srv._transport = FakeTransport()  # type: ignore[assignment]
+        try:
+            await srv._on_hello(_hello("BASE1"), _ADDR)
+            await asyncio.sleep(0)
+            _transport(srv).sent.clear()
+
+            before = m.rtcm_udp_oversize_dropped_total.labels(mountpoint="BASE1")._value.get()
+            await caster.publish("BASE1", _FRAME)  # far larger than 10 bytes
+            await asyncio.sleep(0)
+
+            corrections = [msg for msg in _sent_messages(srv) if msg.WhichOneof("body") == "correction"]
+            assert corrections == []
+            after = m.rtcm_udp_oversize_dropped_total.labels(mountpoint="BASE1")._value.get()
+            assert after - before == 1
+        finally:
+            await srv.stop()
+
+
 class _ClientProtocol(asyncio.DatagramProtocol):
     def __init__(self, queue: asyncio.Queue[bytes]) -> None:
         self._queue = queue

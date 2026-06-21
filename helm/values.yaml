@@ -79,6 +79,10 @@ rtcmUdp:
   sessionTtl: 30
   keepaliveInterval: 10
 
+  # Max outgoing datagram size (bytes). Frames that would exceed this are dropped
+  # rather than risk IP fragmentation on lossy links. Keep under the path MTU.
+  maxDatagram: 1200
+
   # Ed25519 per-frame signing. Strongly recommended in production so rovers can
   # verify provenance against the published key (GET /api/v1/rtcm/jwks.json).
   signing:

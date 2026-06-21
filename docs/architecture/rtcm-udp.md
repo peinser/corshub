@@ -331,8 +331,9 @@ All via `env.extract` (`src/corshub/env.py`), with dev-safe defaults.
 
 Notes: the public key is always derived from the private key, so
 `RTCM_SIGNING_PUBKEY_PATH` / `RTCM_SIGNING_PUBLIC_KEY` are reserved and not
-required. `RTCM_UDP_MAX_DATAGRAM` is advisory today (standard RTCM frames stay
-well under one MTU); explicit oversize-drop enforcement is a follow-up.
+required. `RTCM_UDP_MAX_DATAGRAM` is enforced: datagrams larger than the cap are
+dropped (counted by `rtcm_udp_oversize_dropped_total`) rather than risk IP
+fragmentation on a lossy link.
 
 ### Helm
 
@@ -392,8 +393,9 @@ New metrics (Prometheus), following the existing `ntrip_*` conventions:
 - **QUIC migration.** QUIC gives connection IDs (NAT survival), TLS auth, and RFC
   9221 unreliable datagrams natively — superseding the hand-rolled session/NAT
   layer here while keeping the Ed25519 frame signature for end-to-end provenance.
-- **Continuous mask enforcement / NEAREST handoff** built on the `KeepAlive`
-  position feed.
+- **Continuous mask enforcement** (disconnect a rover that roams out of a
+  mountpoint's configured range). NEAREST handoff on the `KeepAlive` position
+  feed is implemented; mask enforcement is the remaining half.
 - **Attestation tie-in.** The signed `CorrectionFrame` stream is the same
   provenance primitive as the attestation feature in `BACKLOG.md`; a hash chain
   over `CorrectionFrame`s would yield a verifiable record for surveyors.
