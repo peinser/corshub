@@ -50,6 +50,7 @@ class RTCMConfig:
     token_ttl: int
     session_ttl: float
     keepalive_interval: int
+    max_datagram: int
     allow_ephemeral_key: bool
 
 
@@ -72,6 +73,7 @@ def load_config() -> RTCMConfig:
         token_ttl=env.extract("RTCM_SESSION_TOKEN_TTL", default="60", dtype=int),
         session_ttl=env.extract("RTCM_UDP_SESSION_TTL", default="30", dtype=float),
         keepalive_interval=env.extract("RTCM_UDP_KEEPALIVE_INTERVAL", default="10", dtype=int),
+        max_datagram=env.extract("RTCM_UDP_MAX_DATAGRAM", default="1200", dtype=int),
         allow_ephemeral_key=_flag("RTCM_SIGNING_ALLOW_EPHEMERAL"),
     )
 
@@ -120,6 +122,7 @@ async def setup(app: Sanic) -> None:
         signing_enabled=config.signing_enabled,
         session_ttl=config.session_ttl,
         keepalive_interval=config.keepalive_interval,
+        max_datagram=config.max_datagram,
     )
     await server.start()
     app.ctx.rtcm_server = server

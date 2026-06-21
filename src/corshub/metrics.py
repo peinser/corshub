@@ -159,6 +159,13 @@ rtcm_udp_sessions: Gauge = Gauge(
     "Currently active RTCM UDP correction sessions.",
 )
 
+rtcm_udp_oversize_dropped_total: Counter = Counter(
+    "rtcm_udp_oversize_dropped_total",
+    "Correction datagrams dropped because they exceeded RTCM_UDP_MAX_DATAGRAM "
+    "(would risk IP fragmentation on lossy links).",
+    ["mountpoint"],
+)
+
 rtcm_signal_cnr_dbhz: Histogram = Histogram(
     "ntrip_rtcm_signal_cnr_dbhz",
     "GNSS signal carrier-to-noise density (CNR) per satellite-signal cell from MSM4-7 messages, in dBHz. "

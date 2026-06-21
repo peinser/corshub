@@ -68,6 +68,8 @@ class Session:
     mountpoint: str
     addr: tuple[str, int]
     expiry: float  # monotonic deadline
+    scope: str = "*"  # mountpoint scope authorized by the token
+    dynamic: bool = False  # opened/switched as NEAREST → eligible for handoff
     seq: int = 0
     task: asyncio.Task[None] | None = field(default=None, compare=False)
 
@@ -111,6 +113,7 @@ class RTCMDatagramServer:
         session_ttl: float = 30.0,
         keepalive_interval: int = 10,
         reap_interval: float = 5.0,
+        max_datagram: int = 1200,
     ) -> None:
         self._caster = caster
         self._host = host
@@ -121,6 +124,7 @@ class RTCMDatagramServer:
         self._session_ttl = session_ttl
         self._keepalive_interval = keepalive_interval
         self._reap_interval = reap_interval
+        self._max_datagram = max_datagram
 
         self._transport: asyncio.DatagramTransport | None = None
         self._sessions: dict[int, Session] = {}
@@ -235,6 +239,8 @@ class RTCMDatagramServer:
             mountpoint=mountpoint,
             addr=addr,
             expiry=self._deadline(),
+            scope=token_mp,
+            dynamic=hello.mountpoint == "NEAREST",
         )
         self._sessions[session.session_id] = session
         metrics.rtcm_udp_hello_total.labels(result="accepted").inc()
@@ -258,36 +264,43 @@ class RTCMDatagramServer:
         session.task = asyncio.create_task(self._egress_loop(session))
 
     def _on_keepalive(self, session: Session, keepalive: pb.KeepAlive) -> None:
-        # Position updates feed mountpoint handoff for NEAREST sessions (the
-        # re-subscription itself is future work); for now record it on the caster.
-        if keepalive.HasField("position"):
-            self._caster.set_rover_position(
-                session.mountpoint,
-                str(session.session_id),
-                keepalive.position.latitude,
-                keepalive.position.longitude,
-            )
+        if not keepalive.HasField("position"):
+            return
+
+        lat, lon = keepalive.position.latitude, keepalive.position.longitude
+        self._caster.set_rover_position(session.mountpoint, str(session.session_id), lat, lon)
+
+        # Dynamic (NEAREST) sessions follow the rover: re-point to a nearer base
+        # as it moves, staying within the token's authorized scope.
+        if session.dynamic:
+            nearest = self._nearest((lat, lon))
+            if nearest is not None and self._scope_allows(session.scope, nearest):
+                self._repoint(session, nearest)
 
     async def _on_switch(self, session: Session, switch: pb.SwitchMountpoint) -> None:
         position = (switch.position.latitude, switch.position.longitude) if switch.HasField("position") else None
         try:
-            # A switch is re-authorized against the same token scope as the session's
-            # current mountpoint (sessions opened under a wildcard scope may roam).
-            scope = session.mountpoint if session.mountpoint not in self._caster.mountpoints else "*"
-            mountpoint = self._resolve_mountpoint(scope, switch.mountpoint, position)
+            mountpoint = self._resolve_mountpoint(session.scope, switch.mountpoint, position)
         except _AuthorizationError as exc:
             self._send_error(session.addr, exc.code, exc.message)
             return
 
+        session.dynamic = switch.mountpoint == "NEAREST"
+        self._repoint(session, mountpoint)
+
+    def _repoint(self, session: Session, mountpoint: str) -> None:
+        """Restart a session's egress loop against a different mountpoint."""
         if mountpoint == session.mountpoint:
             return
-
-        # Restart the egress loop against the new mountpoint.
         old_task = session.task
         session.mountpoint = mountpoint
         session.task = asyncio.create_task(self._egress_loop(session))
         if old_task is not None:
             old_task.cancel()
+
+    @staticmethod
+    def _scope_allows(scope: str, mountpoint: str) -> bool:
+        return scope in _WILDCARD_SCOPES or scope == mountpoint
 
     # -- egress ------------------------------------------------------------
 
@@ -312,6 +325,13 @@ class RTCMDatagramServer:
             datagram = pb.Datagram(version=PROTOCOL_VERSION, session_id=session.session_id, seq=session.next_seq())
             datagram.correction.CopyFrom(signed)
             payload = datagram.SerializeToString()
+
+            if len(payload) > self._max_datagram:
+                # Avoid IP fragmentation on lossy links: drop oversize datagrams
+                # rather than emit a frame that may never fully arrive.
+                metrics.rtcm_udp_oversize_dropped_total.labels(mountpoint=session.mountpoint).inc()
+                continue
+
             self._raw_send(session.addr, payload)
             metrics.rtcm_udp_datagrams_sent_total.labels(mountpoint=session.mountpoint).inc()
             metrics.rtcm_udp_bytes_sent_total.labels(mountpoint=session.mountpoint).inc(len(payload))
