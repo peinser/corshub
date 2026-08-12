@@ -18,8 +18,8 @@ NTRIP v2 requires the header:
 The caster must reject connections that omit it with 400 Bad Request.
 
 Streaming responses (PUT / GET /<mountpoint>) keep the TCP connection open
-indefinitely.  The tests verify the initial handshake only — status code,
-response headers — without waiting for the stream to end.
+indefinitely.  The tests verify the initial handshake only: status code,
+response headers, without waiting for the stream to end.
 """
 
 from __future__ import annotations

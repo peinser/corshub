@@ -94,7 +94,7 @@ class TestSigningKey:
             format=serialization.PrivateFormat.PKCS8,
             encryption_algorithm=serialization.NoEncryption(),
         )
-        with pytest.raises(ValueError, match="Ed25519"):
+        with pytest.raises(TypeError, match="Ed25519"):
             SigningKey.from_private_pem(rsa_pem)
 
 

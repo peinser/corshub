@@ -34,7 +34,7 @@ from corshub.ntrip.v2.caster import _split_rtcm_frames
 def _make_frame(payload_length: int, *, preamble: int = 0xD3) -> bytes:
     """Build a minimal syntactically-valid RTCM3 frame of *payload_length* bytes.
 
-    The payload is filled with 0x00.  The CRC field is also 0x00 × 3 — we only
+    The payload is filled with 0x00.  The CRC field is also 0x00 × 3; we only
     test framing logic here, not CRC validation.
     """
     header = bytes(
@@ -149,7 +149,7 @@ class TestSplitGarbage:
     def test_spurious_preamble_in_payload_does_not_confuse_parser(self) -> None:
         """A 0xD3 byte inside another frame's payload must not be treated as a new frame."""
         # Craft a frame whose payload contains a 0xD3 byte at offset 0.
-        # payload = [0xD3, 0x00, 0x05, ...] — looks like a nested preamble.
+        # payload = [0xD3, 0x00, 0x05, ...]; looks like a nested preamble.
         payload = bytes([_RTCM3_PREAMBLE, 0x00, 0x05]) + b"\x00" * 7  # 10-byte payload
         frame = bytes([_RTCM3_PREAMBLE, 0x00, len(payload)]) + payload + b"\x00\x00\x00"
         frames, remainder = _split_rtcm_frames(frame)
@@ -199,7 +199,7 @@ class TestObserveBuffering:
         frame = _make_frame(50)
         partial = frame[:-1]
         buf: dict[str, bytes] = {}
-        # Pass only partial data — no complete frames, remainder stored
+        # Pass only partial data: no complete frames, remainder stored
         with pytest.MonkeyPatch().context() as mp:
 
             def fake_split(data: bytes):
@@ -215,7 +215,7 @@ class TestObserveBuffering:
         frame = _make_frame(10)
         buf: dict[str, bytes] = {}
         _observe_rtcm_quality(_MP, frame, {}, buf)
-        # No remainder — buffer entry should not exist
+        # No remainder: buffer entry should not exist
         assert _MP not in buf
 
     def test_buffer_prepended_to_next_chunk(self) -> None:
@@ -242,7 +242,7 @@ class TestObserveBuffering:
     def test_large_remainder_just_below_limit_is_stored(self) -> None:
         """Remainders strictly smaller than _RTCM3_MAX_FRAME are retained."""
         # Build a frame header that claims a large payload, but only provide half
-        # the bytes — this is a genuine incomplete frame the parser should buffer.
+        # the bytes; this is a genuine incomplete frame the parser should buffer.
         payload_length = 200
         partial = bytes(
             [

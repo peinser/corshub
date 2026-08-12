@@ -30,8 +30,7 @@ from typing import TYPE_CHECKING
 
 import jwt
 
-import corshub.metrics as metrics
-
+from corshub import metrics
 from corshub.logging import logger
 from corshub.ntrip.v2.headers import haversine
 from corshub.rtcm.tokens import verify_session_token
@@ -185,7 +184,7 @@ class RTCMDatagramServer:
         """Parse and dispatch a single inbound datagram (called by the loop)."""
         try:
             datagram = pb.Datagram.FromString(data)
-        except Exception:
+        except Exception:  # noqa: BLE001 - untrusted datagram; a malformed packet must not kill the listener
             logger.debug("RTCM UDP: undecodable datagram from %s (%d bytes)", addr, len(data))
             return
 

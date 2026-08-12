@@ -1,4 +1,4 @@
-"""Pre-flight signal quality endpoint — GET /api/v1/ntrip/quality/<mountpoint>
+"""Pre-flight signal quality endpoint: GET /api/v1/ntrip/quality/<mountpoint>
 
 Returns a JSON summary of the current signal quality for a mountpoint, drawn
 from the rolling window maintained by the caster's RTCM parser.  Intended for
@@ -36,7 +36,7 @@ from typing import TYPE_CHECKING
 from sanic.exceptions import NotFound
 from sanic.response import json as json_response
 
-import corshub.metrics as metrics
+from corshub import metrics
 
 from .base import bp
 

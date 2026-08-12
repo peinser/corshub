@@ -1,5 +1,5 @@
 """
-NTRIP v2 source table endpoint — GET /
+NTRIP v2 source table endpoint: GET /
 
 Rovers and NTRIP clients fetch this to discover available mountpoints before
 opening a correction stream.

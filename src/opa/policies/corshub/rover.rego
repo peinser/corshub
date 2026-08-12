@@ -9,8 +9,8 @@
 #   3. The current time falls within the rover's validity window.
 #
 # Validity window fields (both optional, ISO 8601 date "YYYY-MM-DD"):
-#   valid_from  — deny connections before this date (absent = no lower bound)
-#   valid_until — deny connections on or after this date (absent = no upper bound)
+#   valid_from  - deny connections before this date (absent = no lower bound)
+#   valid_until - deny connections on or after this date (absent = no upper bound)
 #
 # As with base stations, password verification is delegated to the application
 # layer (bcrypt.checkpw).  OPA exposes `password_hash` for that purpose.

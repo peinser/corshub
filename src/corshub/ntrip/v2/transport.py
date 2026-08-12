@@ -3,7 +3,7 @@ Abstract transport layer for NTRIP v2 RTCM frame delivery.
 
 A Transport is responsible solely for routing raw RTCM bytes between a base
 station (publisher) and one or more rovers (subscribers).  It has no knowledge
-of mountpoint credentials, source-table metadata, or HTTP concerns — those
+of mountpoint credentials, source-table metadata, or HTTP concerns; those
 belong to NTRIPCaster and the route handlers respectively.
 
 Implementations
@@ -42,7 +42,7 @@ class Transport(ABC):
         """Return an async context manager that yields a TransportSubscriber.
 
         Cleanup is guaranteed in the __aexit__ path regardless of how the
-        caller exits — normal return, exception, or transport close.
+        caller exits: normal return, exception, or transport close.
         Raises KeyError if *mountpoint* is not known to this transport.
 
         Usage::

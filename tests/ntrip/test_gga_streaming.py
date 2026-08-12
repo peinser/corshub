@@ -286,7 +286,7 @@ class TestReadRouteGgaBody:
 
     This exercises the full route wiring (``stream=True`` + the background
     ``_read_rover_gga`` task), which the ``_read_rover_gga`` unit tests above do
-    not cover — they call the reader directly with a fake stream.
+    not cover; they call the reader directly with a fake stream.
     """
 
     async def _connect_with_body(
@@ -305,7 +305,7 @@ class TestReadRouteGgaBody:
                 await transport.shutdown()
 
         asyncio.create_task(_shutdown())
-        # .request() (not .get()) so we can attach a body — NTRIP v2 rovers stream
+        # .request() (not .get()) so we can attach a body; NTRIP v2 rovers stream
         # GGA as the body of the GET while corrections flow back on the response.
         await app.asgi_client.request(
             "GET",

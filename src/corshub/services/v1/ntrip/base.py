@@ -42,8 +42,8 @@ async def ntrip_error(_: Request, exc: SanicException) -> HTTPResponse:
     """Return plain-text error responses as required by RTCM 10410.1.
 
     Overrides the app-wide FALLBACK_ERROR_FORMAT (JSON) for all routes on
-    this blueprint so that NTRIP clients — which are often embedded firmware
-    that cannot parse JSON — receive a human-readable message instead.
+    this blueprint so that NTRIP clients, which are often embedded firmware
+    that cannot parse JSON, receive a human-readable message instead.
     """
     return response.text(str(exc.message or exc), status=exc.status_code)
 

@@ -71,7 +71,7 @@ class TestParseNtripGga:
         assert parse_ntrip_gga("not a sentence") is None
 
     def test_known_valid_gga_parses_correctly(self) -> None:
-        # $GPGGA,123519,4807.038,N,01131.000,E — lat=48.1173°, lon=11.5167°
+        # $GPGGA,123519,4807.038,N,01131.000,E: lat=48.1173°, lon=11.5167°
         result = parse_ntrip_gga("$GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47")
         assert result is not None
         lat, lon = result

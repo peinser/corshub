@@ -1,5 +1,5 @@
 """
-NTRIP v2 rover endpoint — GET /<mountpoint>
+NTRIP v2 rover endpoint: GET /<mountpoint>
 
 A rover opens a long-lived GET request to receive a continuous stream of RTCM
 correction frames.  The connection stays open until the rover disconnects or
@@ -7,8 +7,8 @@ the caster closes the mountpoint.
 
 Request requirements (RTCM 10410.1 §4.3):
     Ntrip-Version: Ntrip/2.0          mandatory
-    Authorization: Basic <b64>         mandatory — username:password
-    Ntrip-GGA: $GPGGA,...              optional  — rover approximate position
+    Authorization: Basic <b64>         mandatory - username:password
+    Ntrip-GGA: $GPGGA,...              optional  - rover approximate position
 
 Response:
     HTTP/1.1 200 OK
@@ -20,7 +20,7 @@ Response:
 Position updates
 ----------------
 After the response starts, the rover may send NMEA GGA sentences in the
-HTTP request body (NTRIP v2 spec §4.3.3 — sent as HTTP chunked data).  A
+HTTP request body (NTRIP v2 spec §4.3.3, sent as HTTP chunked data).  A
 background task reads these and updates the rover's position in the caster
 so the quality endpoint can expose last-known rover coordinates.
 """
@@ -35,10 +35,10 @@ from sanic.exceptions import NotFound
 from sanic.exceptions import Unauthorized
 from sanic.response import ResponseStream
 
-import corshub.metrics as metrics
-
+from corshub import metrics
 from corshub.exceptions.http import BadRequestError
 from corshub.http.ratelimit import enforce_auth_rate_limit
+from corshub.logging import logger
 from corshub.ntrip.v2.headers import CONTENT_TYPE_GNSS
 from corshub.ntrip.v2.headers import NTRIP_GGA
 from corshub.ntrip.v2.headers import NTRIP_VERSION
@@ -98,8 +98,8 @@ async def _read_rover_gga(
             if len(buf) > _MAX_GGA_BUFFER:
                 buf = b""  # No newline within a sane bound; drop the garbage.
 
-    except Exception:
-        pass  # Rover sent no body, stream ended, or Sanic doesn't expose GET body.
+    except Exception:  # noqa: BLE001 - no body, stream ended, or Sanic doesn't expose GET body
+        logger.debug("GGA reader for mountpoint %r ended", mountpoint, exc_info=True)
 
 
 async def stream_mountpoint(request: Request, mountpoint: str) -> HTTPResponse:
@@ -177,8 +177,10 @@ async def stream_mountpoint(request: Request, mountpoint: str) -> HTTPResponse:
             gga_task.cancel()
             try:
                 await gga_task
-            except asyncio.CancelledError, Exception:
-                pass
+            except asyncio.CancelledError:
+                pass  # Expected: we just cancelled it.
+            except Exception:  # noqa: BLE001 - teardown must not mask the streaming outcome
+                logger.debug("GGA reader task for %r failed during teardown", mountpoint, exc_info=True)
             caster.clear_rover_position(mountpoint, rover_username)
 
     return ResponseStream(

@@ -1,5 +1,5 @@
 """
-NTRIP v2 caster — mountpoint registry, credentials, and lifecycle management.
+NTRIP v2 caster: mountpoint registry, credentials, and lifecycle management.
 
 NTRIPCaster is the central authority for:
   - Registering and unregistering mountpoints
@@ -32,9 +32,8 @@ from typing import TYPE_CHECKING
 
 from pyrtcm import RTCMReader
 
-import corshub.metrics as metrics
-
 from corshub import env
+from corshub import metrics
 from corshub.crypto import secrets
 from corshub.logging import logger
 from corshub.ntrip.v2.quality import MountpointQuality
@@ -129,7 +128,7 @@ def _observe_rtcm_quality(
     data = frame_buffer.pop(mountpoint, b"") + chunk
     complete_frames, remainder = _split_rtcm_frames(data)
 
-    # Discard buffers that are growing without yielding complete frames —
+    # Discard buffers that are growing without yielding complete frames;
     # this guards against a base station that sends non-RTCM data indefinitely.
     if remainder and len(remainder) < _RTCM3_MAX_FRAME:
         frame_buffer[mountpoint] = remainder
@@ -138,13 +137,13 @@ def _observe_rtcm_quality(
         reader = RTCMReader(BytesIO(frame), quitonerror=2, parsed=True)
         try:
             _, msg = reader.read()
-        except Exception as ex:
+        except Exception as ex:  # noqa: BLE001 - untrusted input; any parse failure is just a bad frame
             logger.exception(ex)
             metrics.rtcm_parse_errors_total.labels(mountpoint=mountpoint).inc()
             continue
 
         if msg is None:
-            continue  # Unknown message type — pyrtcm returns (raw, None) for unrecognised IDs.
+            continue  # Unknown message type; pyrtcm returns (raw, None) for unrecognised IDs.
 
         msg_type = int(msg.identity)
 
@@ -323,7 +322,7 @@ class Caster(ABC):
 
         The username maps directly to a mountpoint by convention, so no
         separate mountpoint argument is required.
-        Raises no exception — returns False on any auth failure or error.
+        Raises no exception; returns False on any auth failure or error.
         """
 
     @abstractmethod
@@ -331,7 +330,7 @@ class Caster(ABC):
         """Return True if *username*/*password* may subscribe to *mountpoint* and returns
         an additional max session duration that needs to be imposed by the routes.
 
-        Raises no exception — returns False on any auth failure or error.
+        Raises no exception; returns False on any auth failure or error.
         """
 
     @abstractmethod
@@ -360,7 +359,7 @@ class Caster(ABC):
     async def start(self) -> None:
         """Start any background tasks (e.g. stale-mountpoint reaper).
 
-        Call once after the event loop is running — typically in a Sanic
+        Call once after the event loop is running, typically in a Sanic
         before_server_start listener.
         """
 
@@ -587,7 +586,7 @@ class NTRIPCaster(Caster):
 
         After start(), the frame is queued and parsed by the background worker so
         that pyrtcm decode cost never adds latency or jitter to rover delivery.
-        The queue is bounded and sheds the *newest* sample on overload — quality
+        The queue is bounded and sheds the *newest* sample on overload; quality
         metrics are best-effort, so dropping a sample is strictly preferable to
         stalling the event loop.  Frame delivery is never affected.
 
@@ -622,8 +621,8 @@ class NTRIPCaster(Caster):
             mountpoint, frame = await queue.get()
             try:
                 self._process_quality(mountpoint, frame)
-            except Exception as ex:
-                logger.exception(ex)  # a single bad frame must not kill the worker
+            except Exception as ex:  # noqa: BLE001 - a single bad frame must not kill the worker
+                logger.exception(ex)
             finally:
                 queue.task_done()
 

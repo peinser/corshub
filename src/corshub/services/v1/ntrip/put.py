@@ -11,9 +11,9 @@ to push to an unknown mountpoint returns 404.
 
 Request requirements (RTCM 10410.1 §4.2):
     Ntrip-Version: Ntrip/2.0          mandatory
-    Authorization: Basic <b64>         mandatory — username:password
+    Authorization: Basic <b64>         mandatory - username:password
     Content-Type: gnss/data            mandatory
-    Ntrip-STR: <str-fields>            optional  — self-description
+    Ntrip-STR: <str-fields>            optional  - self-description
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
     ):
         raise Unauthorized("Invalid mountpoint credentials.", scheme="Basic")
 
-    # Parse optional self-description header; ignore errors — it is advisory only.
+    # Parse optional self-description header; ignore errors: it is advisory only.
     meta = {}
     ntrip_str_header = request.headers.get(NTRIP_STR)
     if ntrip_str_header:
@@ -78,8 +78,8 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
             meta = parse_ntrip_str(ntrip_str_header, mountpoint)
         except ValueError as ex:
             raise BadRequestError(f"Invalid Ntrip-STR: {ex}") from ex
-        except Exception:
-            pass  # Malformed Ntrip-STR is not fatal; we already have a registered mountpoint.
+        except Exception:  # noqa: BLE001 - advisory header only; we already have a registered mountpoint
+            logger.debug("Ignoring malformed Ntrip-STR for %r", mountpoint, exc_info=True)
 
     # Register the mountpoint with the available metadata.
     try:

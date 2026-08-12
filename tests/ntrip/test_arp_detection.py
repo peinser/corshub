@@ -18,8 +18,7 @@ from unittest.mock import patch
 
 import pytest
 
-import corshub.metrics as metrics
-
+from corshub import metrics
 from corshub.ntrip.v2.caster import _ARP_CHANGE_THRESHOLD
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.ntrip.v2.caster import _observe_rtcm_quality

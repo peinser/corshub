@@ -120,5 +120,5 @@ async def verify(provided: str, stored_hash: str | bytes) -> bool:
     try:
         return await loop.run_in_executor(None, bcrypt.checkpw, provided.encode(), hash_bytes)
 
-    except Exception:
+    except Exception:  # noqa: BLE001 - fail closed: any bcrypt error must deny, never 500
         return False

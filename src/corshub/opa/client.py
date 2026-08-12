@@ -71,6 +71,6 @@ class OPAClient:
                 body: dict[str, Any] = await resp.json(content_type=None)
                 return body.get("result") or {}
 
-        except Exception:
+        except Exception:  # noqa: BLE001 - OPA is best-effort; any failure degrades to "no result"
             logger.exception("OPA query failed (package=%r, url=%s)", package, url)
             return {}

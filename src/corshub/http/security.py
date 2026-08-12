@@ -78,7 +78,7 @@ class JWKSManager:
                 while True:
                     try:
                         await app.ctx.jwks_manager.refresh()
-                    except Exception as ex:
+                    except Exception as ex:  # noqa: BLE001 - a failed refresh must not kill the loop
                         logger.exception(ex)
                     await asyncio.sleep(delay=refresh_interval)
 

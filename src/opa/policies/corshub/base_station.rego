@@ -10,8 +10,8 @@
 # crypto.secrets.verify before trusting the `allow` decision.
 #
 # Validity window fields (both optional, ISO 8601 date "YYYY-MM-DD"):
-#   valid_from  — deny connections before this date (absent = no lower bound)
-#   valid_until — deny connections on or after this date (absent = no upper bound)
+#   valid_from  - deny connections before this date (absent = no lower bound)
+#   valid_until - deny connections on or after this date (absent = no upper bound)
 #
 # Input document expected by callers
 # -----------------------------------

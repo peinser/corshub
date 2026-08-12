@@ -82,7 +82,7 @@ async def _end_stream(caster: NTRIPCaster) -> None:
 NTRIP_H = {"Ntrip-Version": "Ntrip/2.0"}
 AUTH = _basic_auth("BASE1", "s3cr3t")
 
-# Brussels — used as the reference mountpoint position throughout.
+# Brussels, used as the reference mountpoint position throughout.
 MP_LAT, MP_LON = 50.8503, 4.3517
 
 # A point ~10 km north-east of Brussels, well within any 50 km mask.

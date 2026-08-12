@@ -50,7 +50,7 @@ class MountpointQuality:
     ``WINDOW`` controls how many per-signal CNR values are retained per
     constellation.  At a typical 1 Hz base-station rate with ~8 tracked
     satellites per MSM message, 200 entries covers roughly 25 seconds of
-    individual CNR readings — enough to reflect current sky conditions
+    individual CNR readings, enough to reflect current sky conditions
     without consuming significant memory.
     """
 

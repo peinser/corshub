@@ -91,7 +91,7 @@ class SigningKey:
     def from_private_pem(cls, pem: bytes) -> SigningKey:
         key = serialization.load_pem_private_key(pem, password=None)
         if not isinstance(key, Ed25519PrivateKey):
-            raise ValueError(f"Expected an Ed25519 private key, got {type(key).__name__}.")
+            raise TypeError(f"Expected an Ed25519 private key, got {type(key).__name__}.")
         return cls(key)
 
     @classmethod

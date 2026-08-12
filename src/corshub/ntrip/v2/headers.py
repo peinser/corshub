@@ -3,9 +3,9 @@ NTRIP v2 HTTP header constants and parsers.
 
 NTRIP v2 defines several custom HTTP headers (RTCM 10410.1 §4):
     Ntrip-Version    Required on all requests.
-    Ntrip-STR        Optional — base station self-description (same fields as
+    Ntrip-STR        Optional - base station self-description (same fields as
                      a source table STR line, without the leading "STR;" token).
-    Ntrip-GGA        Optional — rover approximate position as a NMEA GGA sentence.
+    Ntrip-GGA        Optional - rover approximate position as a NMEA GGA sentence.
 
 This module owns the field indices, defaults, and parsing logic for these headers
 so that route handlers stay focused on HTTP flow control.
@@ -210,7 +210,7 @@ def parse_ntrip_gga(header: str | None) -> tuple[float, float] | None:
 
         return (float(lat), float(lon))
 
-    except Exception:
+    except Exception:  # noqa: BLE001 - untrusted rover input; any parse failure means "no fix"
         return None
 
 

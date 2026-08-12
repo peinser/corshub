@@ -3,13 +3,13 @@ End-to-end integration tests using GNSSNTRIPClient (pygnssutils).
 
 Unlike the other route tests that exercise Sanic via its ASGI test client,
 these tests spin up a real TCP server so that GNSSNTRIPClient can connect
-over an actual socket — the same path used in production.
+over an actual socket, the same path used in production.
 
 Three test classes:
 
-  TestSourceTable      — client fetches the NTRIP source table (mountpoint='')
-  TestRoverConnection  — client connects to GET /<mountpoint> and negotiates 200
-  TestRtcmDelivery     — full end-to-end: base station pushes RTCM,
+  TestSourceTable      - client fetches the NTRIP source table (mountpoint='')
+  TestRoverConnection  - client connects to GET /<mountpoint> and negotiates 200
+  TestRtcmDelivery     - full end-to-end: base station pushes RTCM,
                          GNSSNTRIPClient receives and parses it
 
 Server lifecycle: one Sanic instance is started per module in a background
