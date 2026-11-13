@@ -18,6 +18,8 @@ Request requirements (RTCM 10410.1 §4.2):
 
 from __future__ import annotations
 
+import time
+
 from typing import TYPE_CHECKING
 
 from sanic import response
@@ -76,28 +78,33 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
         try:
             meta = parse_ntrip_str(ntrip_str_header, mountpoint)
         except ValueError as ex:
+            logger.warning("Base station rejected: mountpoint=%s reason=invalid Ntrip-STR (%s)", mountpoint, ex)
             raise BadRequestError(f"Invalid Ntrip-STR: {ex}") from ex
         except Exception:  # noqa: BLE001 - advisory header only; we already have a registered mountpoint
-            logger.debug("Ignoring malformed Ntrip-STR for %r", mountpoint, exc_info=True)
+            logger.debug("Ignoring malformed Ntrip-STR: mountpoint=%s", mountpoint, exc_info=True)
 
     # OPA only denies a live mountpoint at query time; a second publisher may have
     # connected while this request awaited OPA and bcrypt.  Nothing suspends between
     # this check and register(), so it is atomic on the event loop.
     if await caster.available(mountpoint):
+        logger.warning("Base station rejected: mountpoint=%s reason=already live", mountpoint)
         raise ConflictError(f"Mountpoint {mountpoint!r} already has an active base station.")
 
     # Register the mountpoint with the available metadata.
     try:
         await caster.register(mountpoint=mountpoint, **meta)
-        logger.info("Registered mountpoint %r with metadata: %s", mountpoint, meta)
     except ValueError as ex:
-        logger.exception(ex)
+        logger.warning("Base station rejected: mountpoint=%s reason=%s", mountpoint, ex)
         raise BadRequestError(f"Invalid mountpoint name: {ex}") from ex
+
+    client_ip = request.remote_addr or request.ip
+    logger.info(
+        "Base station connected: mountpoint=%s user=%s ip=%s", mountpoint, request.credentials.username, client_ip
+    )
+    logger.debug("Base station metadata: mountpoint=%s meta=%s", mountpoint, meta)
 
     # Stream RTCM frames from the request body and publish to subscribers.
     if request.stream:
-        logger.info("Starting RTCM stream for mountpoint %r", mountpoint)
-
         # Send 200 immediately so the client knows we're ready to receive (inform proxy).
         resp = await request.respond(
             status=200,
@@ -107,33 +114,40 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
             },
         )
 
+        started = time.monotonic()
+        chunks = 0
+        received = 0
+        reason = "end of stream"
         try:
             # Read the received chunks in the stream.
             async for chunk in request.stream:
                 if chunk:
-                    logger.debug(
-                        "Received chunk of %d bytes for mountpoint %r from IP %s",
-                        len(chunk),
-                        mountpoint,
-                        request.remote_addr or request.ip,
-                    )
-
+                    chunks += 1
+                    received += len(chunk)
                     acks = await caster.publish(mountpoint, chunk)
-                    logger.debug("Dispatched to %d rovers for mountpoint %r.", acks, mountpoint)
+                    logger.debug("Chunk: mountpoint=%s bytes=%d rovers=%d", mountpoint, len(chunk), acks)
                     await resp.send(data=str(acks))  # Send back the number of ACKs from the rovers for now.
 
+        except BaseException as ex:
+            reason = type(ex).__name__  # e.g. CancelledError when the connection drops
+            raise
+
         finally:
+            logger.info(
+                "Base station disconnected: mountpoint=%s ip=%s duration=%.1fs chunks=%d bytes=%d reason=%s",
+                mountpoint,
+                client_ip,
+                time.monotonic() - started,
+                chunks,
+                received,
+                reason,
+            )
             await caster.close(mountpoint)
 
         return await resp.eof()
 
     # Read the request body to completion, even if the client doesn't stream, to avoid leaving a hanging request.
-    logger.info(
-        "Received non-streaming request with body of %d bytes for mountpoint %r from IP %s",
-        len(request.body),
-        mountpoint,
-        request.remote_addr or request.ip,
-    )
+    logger.info("Base station sent a non-streaming body: mountpoint=%s bytes=%d", mountpoint, len(request.body))
 
     acks = await caster.publish(mountpoint, request.body) if request.body else 0
     await caster.close(mountpoint)

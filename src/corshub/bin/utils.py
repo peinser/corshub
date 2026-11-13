@@ -10,6 +10,7 @@ from sanic import Sanic
 
 from corshub import http
 from corshub import json
+from corshub.logging import log_config
 from corshub.logging import logger
 
 
@@ -25,12 +26,17 @@ def create_app(name: str, arguments: Namespace | None = None) -> Sanic:
         name,
         dumps=json.dumps,
         loads=json.loads,
+        log_config=log_config(),
     )
 
     app.config.FALLBACK_ERROR_FORMAT = "json"
     # Check if special arguments have been specified.
     if arguments and arguments.reverse_proxy_count > 0:
-        logger.info(f"Setting reverse proxy count = {arguments.reverse_proxy_count}.")
+        logger.info(
+            "Reverse proxy: proxies_count=%d real_ip_header=%s",
+            arguments.reverse_proxy_count,
+            arguments.header_real_ip,
+        )
         app.config.PROXIES_COUNT = arguments.reverse_proxy_count
         app.config.REAL_IP_HEADER = arguments.header_real_ip
 

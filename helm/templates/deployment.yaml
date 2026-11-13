@@ -56,6 +56,8 @@ spec:
             - name: OPA_URL
               value: {{ printf "http://%s-opa:%d" (include "corshub.fullname" .) (int .Values.opa.port) | quote }}
             {{- end }}
+            - name: LOG_LEVEL
+              value: {{ .Values.app.logLevel | quote }}
             - name: GNSS_ARP_CHANGE_THRESHOLD
               value: {{ .Values.gnss.arpChangeThresholdMeters | quote }}
             - name: GNSS_CNR_DBHZ_HIGH_THRESHOLD

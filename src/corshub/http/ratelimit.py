@@ -23,6 +23,7 @@ from cachetools import TTLCache
 
 from corshub import env
 from corshub.exceptions.http import RateLimitedError
+from corshub.logging import logger
 
 
 if TYPE_CHECKING:
@@ -90,7 +91,9 @@ def enforce_auth_rate_limit(request: Request) -> None:
     limiter = getattr(request.app.ctx, "auth_rate_limiter", None)
     if limiter is None:
         return
-    if not limiter.allow(client_fingerprint(request)):
+    fingerprint = client_fingerprint(request)
+    if not limiter.allow(fingerprint):
+        logger.warning("Auth rate limit hit: client=%s", fingerprint)
         raise RateLimitedError("Too many authentication attempts. Slow down.")
 
 

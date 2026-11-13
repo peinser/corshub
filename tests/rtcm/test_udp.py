@@ -7,6 +7,7 @@ real NTRIPCaster, so no sockets are involved.
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 
 import pytest
@@ -226,7 +227,7 @@ class TestSessionManagement:
         now = _t.monotonic()
         stale = [s for s in server._sessions.values() if s.expiry < now]
         for s in stale:
-            await server._teardown(s)
+            await server._teardown(s, "test")
         assert server.session_count == 0
 
     async def test_unknown_session_datagram_ignored(self, server: RTCMDatagramServer) -> None:
@@ -493,3 +494,33 @@ class TestPolicySessionLimit:
         await server._on_hello(_hello("BASE1"), _ADDR)
         (session,) = server._sessions.values()
         assert session.hard_expiry == float("inf")
+
+
+class TestSessionLogging:
+    async def test_unconfirmed_session_expiry_is_explained(
+        self, server: RTCMDatagramServer, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        (session,) = server._sessions.values()
+        session.expiry = 0.0  # Already past its deadline.
+        server._reap_interval = 0.0
+        reaper = asyncio.create_task(server._reap_loop())
+        with caplog.at_level(logging.INFO, logger="corshub"):
+            await asyncio.sleep(0.01)
+        reaper.cancel()
+        messages = [r.getMessage() for r in caplog.records]
+        assert any(m.startswith("RTCM UDP session ended") and m.endswith("reason=never confirmed") for m in messages)
+
+    async def test_logs_never_contain_the_session_id(
+        self, server: RTCMDatagramServer, caster: NTRIPCaster, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        with caplog.at_level(logging.DEBUG, logger="corshub"):
+            sid = await _establish(server)
+            server.handle_datagram(_keepalive(sid), ("198.51.100.7", 1234))  # NAT rebinding
+            await caster.close("BASE1")
+            await asyncio.sleep(0.01)
+        text = "\n".join(r.getMessage() for r in caplog.records)
+        assert "RTCM UDP session started" in text and "reason=mountpoint offline" in text
+        assert str(sid) not in text
+        assert f"{sid:x}" not in text
+        assert f"ref={sid >> 48:04x}" in text

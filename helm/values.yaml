@@ -44,6 +44,9 @@ containerSecurityContext:
 app:
   # HTTP port the Sanic server listens on inside the container.
   port: 8000
+  # Level of the application (caster/NTRIP/UDP) logger: DEBUG, INFO, WARNING, ERROR.
+  # DEBUG adds per-chunk, OPA latency and NEAREST position lines; keep INFO in production.
+  logLevel: INFO
 
 # Token-bucket rate limiting on authentication endpoints (NTRIP base/rover auth
 # and the RTCM session bootstrap). Protects the CPU-heavy bcrypt path from

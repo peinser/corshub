@@ -15,6 +15,8 @@ default for a security-critical sidecar.
 
 from __future__ import annotations
 
+import time
+
 from typing import TYPE_CHECKING
 
 import aiohttp
@@ -57,6 +59,7 @@ class OPAClient:
         """
         url = f"{self._base_url}/v1/data/{package}"
         timeout = aiohttp.ClientTimeout(total=_TIMEOUT_SECONDS)
+        started = time.monotonic()
 
         try:
             async with self._session.post(
@@ -69,7 +72,14 @@ class OPAClient:
                     return {}
 
                 body: dict[str, Any] = await resp.json(content_type=None)
-                return body.get("result") or {}
+                result: dict[str, Any] = body.get("result") or {}
+                logger.debug(
+                    "OPA query: package=%s allow=%s duration=%.1fms",
+                    package,
+                    result.get("allow"),
+                    (time.monotonic() - started) * 1000,
+                )
+                return result
 
         except Exception:  # noqa: BLE001 - OPA is best-effort; any failure degrades to "no result"
             logger.exception("OPA query failed (package=%r, url=%s)", package, url)

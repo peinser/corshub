@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from sanic.exceptions import NotFound
 
 from corshub.exceptions.http import BadRequestError
+from corshub.logging import logger
 from corshub.ntrip.v2.headers import NTRIP_GGA
 from corshub.ntrip.v2.headers import parse_ntrip_gga
 
@@ -36,10 +37,14 @@ async def find_and_read(request: Request) -> HTTPResponse:
     """
     position = parse_ntrip_gga(request.headers.get(NTRIP_GGA))
     if position is None:
+        logger.info("NEAREST rejected: reason=missing GGA")
         raise BadRequestError("Ntrip-GGA header is absent or not a valid GGA sentence.")
 
     best_id = request.app.ctx.ntrip_caster.nearest(*position)
+    # Positions are personal data: only at DEBUG.
+    logger.debug("NEAREST: lat=%.4f lon=%.4f -> mountpoint=%s", position[0], position[1], best_id)
     if best_id is None:
+        logger.info("NEAREST rejected: reason=no online mountpoint in range")
         raise NotFound("No mountpoint found within range of the rover's reported position.")
 
     return await stream_mountpoint(request, best_id)

@@ -28,6 +28,7 @@ so the internal metrics endpoint can expose last-known rover coordinates.
 from __future__ import annotations
 
 import asyncio
+import time
 
 from typing import TYPE_CHECKING
 
@@ -99,7 +100,7 @@ async def _read_rover_gga(
                 buf = b""  # No newline within a sane bound; drop the garbage.
 
     except Exception:  # noqa: BLE001 - no body, stream ended, or Sanic doesn't expose GET body
-        logger.debug("GGA reader for mountpoint %r ended", mountpoint, exc_info=True)
+        logger.debug("GGA reader ended: mountpoint=%s user=%s", mountpoint, rover_username, exc_info=True)
 
 
 async def stream_mountpoint(request: Request, mountpoint: str) -> HTTPResponse:
@@ -131,22 +132,32 @@ async def stream_mountpoint(request: Request, mountpoint: str) -> HTTPResponse:
     if not allowed:
         raise Unauthorized("Invalid credentials.", scheme="Basic")
 
+    rover_username = request.credentials.username
+    client_ip = request.remote_addr or request.ip
+
     mp = caster.mountpoints.get(mountpoint)
     if not mp or not await caster.available(mountpoint):
+        logger.info("Rover rejected: mountpoint=%s user=%s reason=mountpoint offline", mountpoint, rover_username)
         raise NotFound(f"Mountpoint {mountpoint!r} does not exist or is not available.")
 
     # When the mountpoint requires NMEA, validate the rover's Ntrip-GGA header.
     if mp.nmea:
         position = parse_ntrip_gga(request.headers.get(NTRIP_GGA))
         if position is None:
+            logger.info("Rover rejected: mountpoint=%s user=%s reason=missing GGA", mountpoint, rover_username)
             raise BadRequestError("Ntrip-GGA header is absent or not a valid GGA sentence.")
         if mp.mask > 0.0:
             rover_lat, rover_lon = position
             dist = haversine(mp.latitude, mp.longitude, rover_lat, rover_lon)
             if dist > mp.mask:
+                logger.info(
+                    "Rover rejected: mountpoint=%s user=%s reason=out of range (%.1f km > %.1f km)",
+                    mountpoint,
+                    rover_username,
+                    dist,
+                    mp.mask,
+                )
                 raise BadRequestError(f"Rover is {dist:.1f} km from {mountpoint!r}, exceeds mask of {mp.mask:.1f} km.")
-
-    rover_username = request.credentials.username
 
     async def stream_frames(stream: HTTPResponse) -> None:
         # The transport may disappear between the availability check above and this
@@ -165,22 +176,50 @@ async def stream_mountpoint(request: Request, mountpoint: str) -> HTTPResponse:
 
         gga_task = asyncio.create_task(_read_rover_gga(request, mountpoint, rover_username, caster))
 
+        logger.info(
+            "Rover connected: mountpoint=%s user=%s ip=%s session_limit=%s",
+            mountpoint,
+            rover_username,
+            client_ip,
+            f"{max_session_seconds}s" if max_session_seconds is not None else "none",
+        )
+        started = time.monotonic()
+        frames = 0
+        sent = 0
+        reason = "base station left"
         try:
             async with asyncio.timeout(max_session_seconds):
                 async with caster.subscribe(mountpoint) as sub:
                     while (frame := await sub.get()) is not None:
                         await stream.write(frame)
+                        frames += 1
+                        sent += len(frame)
 
-        except KeyError, TimeoutError:
-            pass  # Mountpoint closed, or session limit reached.
+        except KeyError:
+            reason = "mountpoint closed"
+        except TimeoutError:
+            reason = "session limit"
+        except BaseException as ex:
+            reason = type(ex).__name__  # e.g. CancelledError when the rover disconnects
+            raise
         finally:
+            logger.info(
+                "Rover disconnected: mountpoint=%s user=%s ip=%s duration=%.1fs frames=%d bytes=%d reason=%s",
+                mountpoint,
+                rover_username,
+                client_ip,
+                time.monotonic() - started,
+                frames,
+                sent,
+                reason,
+            )
             gga_task.cancel()
             try:
                 await gga_task
             except asyncio.CancelledError:
                 pass  # Expected: we just cancelled it.
             except Exception:  # noqa: BLE001 - teardown must not mask the streaming outcome
-                logger.debug("GGA reader task for %r failed during teardown", mountpoint, exc_info=True)
+                logger.debug("GGA reader failed during teardown: mountpoint=%s", mountpoint, exc_info=True)
             caster.clear_rover_position(mountpoint, rover_username)
 
     return ResponseStream(

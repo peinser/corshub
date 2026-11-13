@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import logging
 import time
 
 from unittest.mock import AsyncMock
@@ -103,3 +104,28 @@ class TestSessionTimeout:
         assert response.status_code == 200
         # Closed by the transport shutdown, not by a session timeout.
         assert elapsed >= _TEST_TIMEOUT_S
+
+
+class TestDisconnectReasonLogged:
+    async def test_session_limit(self, caster: NTRIPCaster, caplog: pytest.LogCaptureFixture) -> None:
+        app = _make_app(caster, _TEST_TIMEOUT_S)
+        with caplog.at_level(logging.INFO, logger="corshub"):
+            await app.asgi_client.get("/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH})
+        (line,) = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Rover disconnected")]
+        assert "mountpoint=BASE1" in line
+        assert line.endswith("reason=session limit")
+
+    async def test_base_station_left(self, caster: NTRIPCaster, caplog: pytest.LogCaptureFixture) -> None:
+        app = _make_app(caster, None)
+
+        async def _close_after_delay() -> None:
+            await asyncio.sleep(_TEST_TIMEOUT_S)
+            await caster.close("BASE1")
+
+        task = asyncio.create_task(_close_after_delay())
+        with caplog.at_level(logging.INFO, logger="corshub"):
+            await app.asgi_client.get("/BASE1", headers={**NTRIP_HEADERS, "Authorization": AUTH})
+        await task
+        messages = [r.getMessage() for r in caplog.records]
+        assert any(m.startswith("Rover disconnected") and m.endswith("reason=base station left") for m in messages)
+        assert "Mountpoint offline: mountpoint=BASE1" in messages

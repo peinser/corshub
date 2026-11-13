@@ -18,6 +18,7 @@ contract is covered in test_transport.py.  The tests here verify:
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import pytest
 
@@ -471,3 +472,15 @@ class TestNearest:
     async def test_none_when_everything_offline(self, caster: NTRIPCaster) -> None:
         await caster.close("BASE1")
         assert caster.nearest(50.85, 4.35) is None
+
+
+class TestExpiryLogging:
+    async def test_silent_but_connected_station_is_flagged(
+        self, caster: NTRIPCaster, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        caster.mountpoints["BASE1"].last_seen -= 7200  # Silent for two hours, transport still open.
+        with caplog.at_level(logging.INFO, logger="corshub"):
+            await caster._reap()
+        (line,) = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Mountpoint expired")]
+        assert "mountpoint=BASE1" in line
+        assert line.endswith("online=True")

@@ -138,8 +138,10 @@ def _observe_rtcm_quality(
         reader = RTCMReader(BytesIO(frame), quitonerror=2, parsed=True)
         try:
             _, msg = reader.read()
-        except Exception as ex:  # noqa: BLE001 - untrusted input; any parse failure is just a bad frame
-            logger.exception(ex)
+        except Exception:  # noqa: BLE001 - untrusted input; any parse failure is just a bad frame
+            # Counted in ntrip_rtcm_parse_errors_total and the quality endpoint; a
+            # corrupt stream would flood the log above DEBUG.
+            logger.debug("RTCM parse error: mountpoint=%s bytes=%d", mountpoint, len(frame), exc_info=True)
             metrics.rtcm_parse_errors_total.labels(mountpoint=mountpoint).inc()
             continue
 
@@ -488,6 +490,7 @@ class NTRIPCaster(Caster):
         self._frame_buffer.pop(mountpoint, None)
         self._quality.pop(mountpoint, None)
         self._rover_positions.pop(mountpoint, None)
+        logger.info("Mountpoint offline: mountpoint=%s", mountpoint)
         await transport.shutdown()  # Signal the subscribers the base-station is leaving.
 
     async def unregister(self, mountpoint: str) -> None:
@@ -542,22 +545,31 @@ class NTRIPCaster(Caster):
         if self._opa is None:
             return False
 
+        already_live = await self.available(mountpoint)
         input = {
             "username": username,
             "mountpoint": mountpoint,
             "transport": {
-                "available": await self.available(mountpoint),
+                "available": already_live,
             },
         }
 
         result = await self._opa.query("corshub/base_station", input)
         if not result.get("allow"):
             metrics.auth_requests_total.labels(role="base_station", result="failure").inc()
+            logger.info(
+                "Base station auth denied: user=%s mountpoint=%s reason=policy already_live=%s",
+                username,
+                mountpoint,
+                already_live,
+            )
             return False
 
         stored_hash: str = result.get("password_hash", "")
         allowed = bool(stored_hash) and await secrets.verify(password, stored_hash)
         metrics.auth_requests_total.labels(role="base_station", result="success" if allowed else "failure").inc()
+        if not allowed:
+            logger.info("Base station auth denied: user=%s mountpoint=%s reason=password", username, mountpoint)
         return allowed
 
     async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> tuple[bool, int | None]:
@@ -572,11 +584,14 @@ class NTRIPCaster(Caster):
         result = await self._opa.query("corshub/rover", {"username": username, "mountpoint": mountpoint})
         if not result.get("allow"):
             metrics.auth_requests_total.labels(role="rover", result="failure").inc()
+            logger.info("Rover auth denied: user=%s mountpoint=%s reason=policy", username, mountpoint)
             return False, None
 
         stored_hash: str = result.get("password_hash", "")
         allowed = bool(stored_hash) and await secrets.verify(password, stored_hash)
         metrics.auth_requests_total.labels(role="rover", result="success" if allowed else "failure").inc()
+        if not allowed:
+            logger.info("Rover auth denied: user=%s mountpoint=%s reason=password", username, mountpoint)
         # Policy decides whether this should be returned.
         max_session_seconds: int | None = result.get("max_session_seconds")
 
@@ -645,8 +660,8 @@ class NTRIPCaster(Caster):
             mountpoint, frame = await queue.get()
             try:
                 self._process_quality(mountpoint, frame)
-            except Exception as ex:  # noqa: BLE001 - a single bad frame must not kill the worker
-                logger.exception(ex)
+            except Exception:  # noqa: BLE001 - a single bad frame must not kill the worker
+                logger.exception("Quality worker failed on a frame: mountpoint=%s", mountpoint)
             finally:
                 queue.task_done()
 
@@ -669,6 +684,8 @@ class NTRIPCaster(Caster):
 
         if self._expiry is not None:
             self._reaper_task = asyncio.create_task(self._reap_loop())
+
+        logger.info("NTRIP caster started: expiry=%ss reap_interval=%ss", self._expiry, self._reap_interval)
 
     async def stop(self) -> None:
         for task in (self._reaper_task, self._quality_task):
@@ -694,11 +711,20 @@ class NTRIPCaster(Caster):
         if self._expiry is None:
             return
 
-        cutoff = time.monotonic() - self._expiry
+        now = time.monotonic()
+        cutoff = now - self._expiry
 
-        stale = [name for name, mp in self._mountpoints.items() if mp.last_seen < cutoff or mp.last_seen is None]
+        stale = [name for name, mp in self._mountpoints.items() if mp.last_seen < cutoff]
 
         for name in stale:
+            # online=True means a base station is still connected but has sent
+            # nothing for the whole expiry window: a stalled or wedged source.
+            logger.info(
+                "Mountpoint expired: mountpoint=%s idle=%.0fs online=%s",
+                name,
+                now - self._mountpoints[name].last_seen,
+                name in self._transports,
+            )
             await self.unregister(name)
 
         if stale:

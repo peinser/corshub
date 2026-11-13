@@ -75,6 +75,16 @@ class Session:
     dynamic: bool = False  # opened/switched as NEAREST → eligible for handoff
     seq: int = 0
     task: asyncio.Task[None] | None = field(default=None, compare=False)
+    started: float = field(default_factory=time.monotonic, compare=False)
+
+    @property
+    def ref(self) -> str:
+        """Log-safe session reference: the top 16 bits of session_id.
+
+        The full session_id authenticates every datagram, so it must never be
+        logged; 16 bits are enough to correlate log lines without weakening it.
+        """
+        return f"{self.session_id >> 48:04x}"
 
     def next_seq(self) -> int:
         seq = self.seq
@@ -160,7 +170,7 @@ class RTCMDatagramServer:
             self._reaper_task = None
 
         for session in list(self._sessions.values()):
-            await self._teardown(session)
+            await self._teardown(session, "shutdown")
 
         for task in list(self._bg_tasks):
             task.cancel()
@@ -203,11 +213,13 @@ class RTCMDatagramServer:
 
         # Any authenticated datagram refreshes liveness and the return address
         # (the latter survives CGNAT port rebinding).
+        if addr != session.addr:
+            logger.debug("RTCM UDP address changed: ref=%s old=%s new=%s", session.ref, session.addr, addr)
         session.addr = addr
         session.expiry = min(self._deadline(), session.hard_expiry)
 
         if body == "bye":
-            self._spawn(self._teardown(session))
+            self._spawn(self._teardown(session, "bye"))
             return
 
         if session.task is None:
@@ -215,6 +227,14 @@ class RTCMDatagramServer:
             # address, so echoing it proves the rover receives there.  Streaming before
             # this would let a spoofed Hello reflect corrections at a victim.
             session.task = asyncio.create_task(self._egress_loop(session))
+            logger.info(
+                "RTCM UDP session started: ref=%s user=%s mountpoint=%s addr=%s session_limit=%s",
+                session.ref,
+                session.username,
+                session.mountpoint,
+                addr,
+                "none" if session.hard_expiry == float("inf") else f"{session.hard_expiry - time.monotonic():.0f}s",
+            )
 
         if body == "keepalive":
             self._on_keepalive(session, datagram.keepalive)
@@ -230,8 +250,10 @@ class RTCMDatagramServer:
         hello = datagram.hello
         try:
             claims = verify_session_token(hello.token, self._token_secret)
-        except jwt.InvalidTokenError:
+        except jwt.InvalidTokenError as ex:
             metrics.rtcm_udp_token_rejected_total.inc()
+            # Unauthenticated input; DEBUG only so a Hello flood cannot flood the log.
+            logger.debug("RTCM UDP hello rejected: addr=%s reason=invalid token (%s)", addr, ex)
             self._send_error(addr, ErrorCode.INVALID_TOKEN, "Invalid or expired token.")
             return
 
@@ -242,6 +264,13 @@ class RTCMDatagramServer:
             mountpoint = self._resolve_mountpoint(token_mp, hello.mountpoint, position)
         except _AuthorizationError as exc:
             metrics.rtcm_udp_hello_total.labels(result="rejected").inc()
+            logger.info(
+                "RTCM UDP hello rejected: user=%s requested=%s addr=%s reason=%s",
+                claims["sub"],
+                hello.mountpoint,
+                addr,
+                exc.message,
+            )
             self._send_error(addr, exc.code, exc.message)
             return
 
@@ -276,6 +305,13 @@ class RTCMDatagramServer:
             ),
         )
         # No egress yet: it starts on the rover's first datagram echoing session_id.
+        logger.debug(
+            "RTCM UDP hello accepted: ref=%s user=%s mountpoint=%s addr=%s (awaiting confirmation)",
+            session.ref,
+            session.username,
+            mountpoint,
+            addr,
+        )
 
     def _on_keepalive(self, session: Session, keepalive: pb.KeepAlive) -> None:
         if not keepalive.HasField("position"):
@@ -302,6 +338,9 @@ class RTCMDatagramServer:
         try:
             mountpoint = self._resolve_mountpoint(session.scope, switch.mountpoint, position)
         except _AuthorizationError as exc:
+            logger.info(
+                "RTCM UDP switch rejected: ref=%s user=%s reason=%s", session.ref, session.username, exc.message
+            )
             self._send_error(session.addr, exc.code, exc.message)
             return
 
@@ -312,6 +351,13 @@ class RTCMDatagramServer:
         """Restart a session's egress loop against a different mountpoint."""
         if mountpoint == session.mountpoint:
             return
+        logger.info(
+            "RTCM UDP session moved: ref=%s user=%s from=%s to=%s",
+            session.ref,
+            session.username,
+            session.mountpoint,
+            mountpoint,
+        )
         old_task = session.task
         self._caster.clear_rover_position(session.mountpoint, session.username)
         session.mountpoint = mountpoint
@@ -346,7 +392,7 @@ class RTCMDatagramServer:
         # explicitly so the rover re-handshakes instead of idling on a dead stream.
         if session.task is asyncio.current_task():
             self._send_error(session.addr, ErrorCode.MOUNTPOINT_UNAVAILABLE, f"Mountpoint {mountpoint!r} unavailable.")
-            await self._teardown(session)
+            await self._teardown(session, "mountpoint offline")
 
     async def _pump(self, session: Session, sub: TransportSubscriber) -> None:
         while (frame := await sub.get()) is not None:
@@ -445,12 +491,21 @@ class RTCMDatagramServer:
     async def _evict(self, session: Session, code: int, message: str) -> None:
         """Notify the rover with an Error and tear the session down."""
         self._send_error(session.addr, code, message)
-        await self._teardown(session)
+        await self._teardown(session, message)
 
-    async def _teardown(self, session: Session) -> None:
+    async def _teardown(self, session: Session, reason: str) -> None:
         if self._sessions.pop(session.session_id, None) is None:
             return  # already torn down; keep the sessions gauge from drifting
         metrics.rtcm_udp_sessions.dec()
+        logger.info(
+            "RTCM UDP session ended: ref=%s user=%s mountpoint=%s duration=%.1fs datagrams=%d reason=%s",
+            session.ref,
+            session.username,
+            session.mountpoint,
+            time.monotonic() - session.started,
+            session.seq,
+            reason,
+        )
         self._caster.clear_rover_position(session.mountpoint, session.username)
         task = session.task
         session.task = None
@@ -467,7 +522,15 @@ class RTCMDatagramServer:
             now = time.monotonic()
             stale = [s for s in self._sessions.values() if s.expiry < now]
             for session in stale:
-                await self._teardown(session)
+                if session.task is None:
+                    # The rover never echoed its session_id: a daemon that does not
+                    # answer HelloAck with a KeepAlive, a blocked return path, or a spoofed Hello.
+                    reason = "never confirmed"
+                elif session.hard_expiry <= now:
+                    reason = "session limit"
+                else:
+                    reason = "expired"
+                await self._teardown(session, reason)
             if stale:
                 metrics.rtcm_udp_sessions_reaped_total.inc(len(stale))
 
