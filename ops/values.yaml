@@ -43,7 +43,7 @@ opa:
     enabled: true
     image:
         repository: harbor.peinser.com/dockerhub/openpolicyagent/opa
-        tag: 1.15.2-static
+        tag: 1.22.4-static
     registry:
         # Map of base stations keyed by username / mountpoint.
         # valid_from / valid_until: optional ISO 8601 dates (YYYY-MM-DD).
