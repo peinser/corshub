@@ -63,6 +63,12 @@ opa:
                 mountpoints:
                     - '*'
                 password_hash: ENC[AES256_GCM,data:cJSGlg6b/9k97I42mf8wXE/qU+pZ2gsEuDcLfZXPmIMKRExANtpLAwi5crKwsv/4athpWep6d4Birdi6,iv:+EEZLdweOgpDXUqYFQGW5qC15mnISnDbOhGdojbRdXQ=,tag:IGqpAt0UcHaDq7ZXhvLHJg==,type:str]
+            flightdeck-dev:
+                valid_from: "2026-11-12"
+                valid_until: "2027-12-31"
+                mountpoints:
+                    - '*'
+                password_hash: ENC[AES256_GCM,data:LC3S+fBMbyGxV5S9C+7aKF9mmLZM3twCV1Y7PyTi4+Yj+m2QBjXO993RNC0pNIRarlBOrA7XeRp7KK9G,iv:3EG2tBOnqtV+Kgeq1wDR0ewBlh9Evm5aecwDV39ZUbk=,tag:k6yYQOxxw4rxHS5mGnBlFQ==,type:str]
 sops:
     age:
         - recipient: age1flqkknxg4spnajklh2qlxrclf2dcfrvwlmcczljszwh2xj99eyfqdkc9u7
@@ -74,8 +80,8 @@ sops:
             dXZXMDlYaWRXRnRPZkk1c1NoQjY2amsKgRGpBNMvHS4TJIcls4zKnSwoZrs0PH7z
             ntyW3QJ4mtJDArT17opKyyl7kUNx4HYgO72/AdDd/8pbbM7pp9utbA==
             -----END AGE ENCRYPTED FILE-----
-    lastmodified: "2026-04-20T09:32:30Z"
-    mac: ENC[AES256_GCM,data:anflEiLm4u/PzhWfC3tEE0CEJostRgZHM/KR2tsQOdkhZ77Gyc/Fk7c4u5ry61N0RTdM7GNy3O0j1hIJKx9xF14pMu9H9h5MaLsH1RCJTrz1NdSSJjr/VV0aKKW8k+S6JKxbl09Nh3KNQZc+uttVqrHblG1m3mZJt7vVAThnDz4=,iv:RrYKOu26SB2Jxa9DXkUxZwXNSu3tWfwgJw+6yVQrZNI=,tag:11IkfIrnUMYwJNYg+MZbVg==,type:str]
+    lastmodified: "2026-11-13T12:38:20Z"
+    mac: ENC[AES256_GCM,data:ktq+2TaEs/g+UgQDSaobcYFEsZtWpqhJZ5Sqg8hf23wHYrYqEuijqILlq8Rhx/VUif7JI8WiFUgij4U3ktoKyspdLB7n5VZ8ytVGP1skNIHni3noz73cbV+to5hJIWPNxXyQEEYkxy9zMkFf6iLzOFY8PmTvSmqFKbor0lr/qjo=,iv:4UyXDopuwKh2oH/cOi6ZQycHD2LBiea+D8ub+F3DyqE=,tag:DdPLeCtqneeXVxNh/TDZHQ==,type:str]
     encrypted_regex: ^password_hash$
     mac_only_encrypted: true
     version: 3.12.2
