@@ -5,7 +5,11 @@
 # Pin to an explicit image tag in production; never use "latest".
 image:
     repository: harbor.peinser.com/uas/corshub
-    tag: 0.0.1.dev0-b6f9ac8
+    tag: 0.0.1.dev0-7adc7b5
+app:
+    # Debug aid: SYNTHETIC mountpoint streaming RTCM 1005 only (no observations, so
+    # no RTK fix is possible; never chosen by NEAREST). Disable once done debugging.
+    syntheticMountpoint: true
 # README before scaling beyond 1 (in-process QueueTransport is per-pod).
 replicaCount: 1
 resources:
