@@ -17,8 +17,7 @@ on:
 jobs:
 
   publish:
-    runs-on:
-      group: on-prem
+    runs-on: ubuntu-latest
 
     steps:
     - name: Git Checkout
@@ -29,10 +28,23 @@ jobs:
       with:
         version: "3.17.3"
 
-    - name: Authenticate with the remote Container Registry
+    - name: Install crane
+      env:
+        CRANE_VERSION: 0.21.5
+        CRANE_SHA256: 9f823ae5ee25803161110f957b5fd4538f714d40cdf25dacb4914fefafd246bf
       run: |
-        echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
-        echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | crane auth login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
+        curl -fsSL -o "$RUNNER_TEMP/crane.tar.gz" \
+          "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_x86_64.tar.gz"
+        echo "$CRANE_SHA256  $RUNNER_TEMP/crane.tar.gz" | sha256sum -c -
+        sudo tar -xzf "$RUNNER_TEMP/crane.tar.gz" -C /usr/local/bin crane
+
+    - name: Authenticate with the remote Container Registry
+      env:
+        REGISTRY_LOGIN: ${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}
+        REGISTRY_SECRET: ${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}
+      run: |
+        printf '%s' "$REGISTRY_SECRET" | helm registry login -u "$REGISTRY_LOGIN" --password-stdin ${{ vars.OCI_REGISTRY }}
+        printf '%s' "$REGISTRY_SECRET" | crane auth login -u "$REGISTRY_LOGIN" --password-stdin ${{ vars.OCI_REGISTRY }}
 
     - name: Determine chart version
       id: version
