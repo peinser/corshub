@@ -15,6 +15,7 @@ PROJECT_ENV     := /usr/local/
 .DEFAULT_GOAL   := help
 MAKEFLAGS       += --no-print-directory
 SHELL           := bash
+.SHELLFLAGS     := -eu -o pipefail -c
 .ONESHELL:      # all commands in a target run in a single shell
 
 # Colors for output
@@ -67,10 +68,16 @@ clean: ## Remove Python cache files, __pycache__, etc.
 	@echo -e "$(OK_COLOR)Clean complete$(NO_COLOR)"
 
 .PHONY: lint
-lint: ## Run linters (ruff + mypy)
+lint: ## Run the same lint checks as the CI validate stage (ruff format, ruff, bandit)
 	@echo -e "$(INFO_COLOR)Running linters...$(NO_COLOR)"
-	$(UV) run ruff check src/corshub
+	$(UV) run ruff format --check src/corshub tests
+	$(UV) run ruff check src/corshub tests
+	$(UV) run bandit -q -r src --severity-level medium
 	@echo -e "$(OK_COLOR)Linting passed$(NO_COLOR)"
+
+.PHONY: typecheck
+typecheck: ## Run mypy --strict (not yet a CI gate, see BACKLOG.md)
+	$(UV) run mypy
 
 .PHONY: format
 format: ## Auto-format code with ruff
@@ -86,7 +93,7 @@ test: ## Run tests with coverage
 
 .PHONY: dev
 dev: ## Run the application in development mode (if applicable)
-	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-log --debug --reload --workers=1
+	uv run python -m corshub.bin.standalone --host=0.0.0.0 --access-logs --debug --reload
 
 .PHONY: proto
 proto: ## Regenerate protobuf stubs from proto/ (uses a transient protoc binary)

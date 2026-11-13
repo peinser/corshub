@@ -14,8 +14,6 @@ from aiohttp import ClientSession
 
 
 if TYPE_CHECKING:
-    from asyncio import AbstractEventLoop
-
     from sanic import Sanic
 
 
@@ -31,12 +29,14 @@ class HTTPRequestManager:
     __lock__: asyncio.Lock = asyncio.Lock()
 
     @classmethod
-    async def open(cls, loop: AbstractEventLoop, **kwargs) -> aiohttp.ClientSession:
-        connector = aiohttp.TCPConnector(limit=512, force_close=True)
-        return aiohttp.ClientSession(loop=loop, connector=connector, **kwargs)
+    async def open(cls, **kwargs) -> aiohttp.ClientSession:
+        # Keep-alive (no force_close): every rover/base-station auth queries OPA, so
+        # reusing pooled connections avoids a TCP handshake on the auth path.
+        connector = aiohttp.TCPConnector(limit=512)
+        return aiohttp.ClientSession(connector=connector, **kwargs)
 
     @classmethod
-    async def _cleanup(cls, app: Sanic, _: AbstractEventLoop) -> None:
+    async def _cleanup(cls, app: Sanic) -> None:
         async with cls.__lock__:
             if hasattr(app.ctx, "http_client_session"):
                 del app.ctx.http_client_session
@@ -53,7 +53,7 @@ class HTTPRequestManager:
                 app.ctx.http_client_session = None
 
             if not app.ctx.http_client_session:
-                session = await cls.open(loop=app.loop, **kwargs)
+                session = await cls.open(**kwargs)
                 app.ctx.http_client_session = cls.__session__ = session
 
         app.register_listener(cls._cleanup, "after_server_stop")

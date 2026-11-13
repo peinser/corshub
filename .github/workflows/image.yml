@@ -11,10 +11,21 @@ on:
     - main
     - development
     paths:
+    - .dockerignore
     - docker/**
     - src/**
     - tests/**
     - pyproject.toml
+    - uv.lock
+  # Lint, tests and bandit (the validate stage) gate merges; nothing is pushed for PRs.
+  pull_request:
+    paths:
+    - .dockerignore
+    - docker/**
+    - src/**
+    - tests/**
+    - pyproject.toml
+    - uv.lock
 
 jobs:
 
@@ -54,6 +65,7 @@ jobs:
         push: false
 
     - name: Authenticate with the remote Container Registry
+      if: github.event_name != 'pull_request'
       uses: docker/login-action@v4.7.0
       with:
         registry: ${{ vars.OCI_REGISTRY }}
@@ -61,6 +73,7 @@ jobs:
         password: ${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}
 
     - name: Build and push production image
+      if: github.event_name != 'pull_request'
       uses: docker/build-push-action@v7
       with:
         context: .

@@ -40,7 +40,7 @@ parser.add_argument(
     help="Defines the header in which the true IP of the client is defined. Only has effect whenever `--reverse-proxy` is defined, i.e., > 0 (default: x-real-ip).",
 )
 
-arguments, _ = parser.parse_known_args()
+arguments = parser.parse_args()
 
 
 if not len(arguments.run):

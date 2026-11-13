@@ -48,7 +48,7 @@ async def create_session(request: Request) -> HTTPResponse:
     enforce_auth_rate_limit(request)
 
     caster = request.app.ctx.ntrip_caster
-    allowed, _ = await caster.authenticate_rover(
+    allowed, max_session_seconds = await caster.authenticate_rover(
         request.credentials.username,
         request.credentials.password,
         mountpoint,
@@ -61,6 +61,7 @@ async def create_session(request: Request) -> HTTPResponse:
         username=request.credentials.username,
         mountpoint=mountpoint,
         ttl_seconds=config.token_ttl,
+        max_session_seconds=max_session_seconds,
     )
 
     signing_key = getattr(request.app.ctx, "rtcm_signing_key", None)

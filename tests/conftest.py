@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from unittest.mock import AsyncMock
 
 import pytest
@@ -12,6 +14,9 @@ from corshub.services.v1.ntrip import service as ntrip_service
 
 
 ntrip_blueprint = ntrip_service.blueprint()
+
+# The NTRIP blueprint requires OPA_URL at server start; OPA itself is mocked in tests.
+os.environ.setdefault("OPA_URL", "http://opa:8181")
 
 
 @pytest.fixture(autouse=True, scope="session")
@@ -59,7 +64,7 @@ def app(caster: NTRIPCaster) -> Sanic:
     caster.authenticate_rover = AsyncMock(return_value=(True, None))
 
     @_app.before_server_start
-    async def setup_caster(app: Sanic, _: object) -> None:
+    async def setup_caster(app: Sanic) -> None:
         app.ctx.ntrip_caster = caster
 
     return _app

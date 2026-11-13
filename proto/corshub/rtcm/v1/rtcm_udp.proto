@@ -77,6 +77,11 @@ message Hello {
 }
 
 // Caster -> rover. Confirms a session and returns its parameters.
+//
+// The caster does not stream corrections yet: the rover MUST answer immediately
+// with a `KeepAlive` echoing `session_id`. Only the Hello's real source address
+// receives the `session_id`, so that echo proves return routability and stops a
+// spoofed Hello from reflecting the correction stream at a third party.
 message HelloAck {
   // Assigned session identifier. Echoed by the rover on every subsequent datagram.
   fixed64 session_id = 1;

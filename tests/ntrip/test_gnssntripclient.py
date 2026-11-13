@@ -157,6 +157,8 @@ def server_port() -> int:  # type: ignore[return]
                 latitude=50.8503,
                 longitude=4.3517,
             )
+            # Provisioned but offline, as in production: the base station opens the transport.
+            await caster.close(MOUNTPOINT)
 
             app = Sanic(f"live_{port}")
             app.blueprint(blueprint)
@@ -185,6 +187,47 @@ def server_port() -> int:  # type: ignore[return]
     thread.join(timeout=5)
 
 
+async def _run_base_station(
+    server_port: int,
+    frame: bytes,
+    stop: asyncio.Event,
+    interval: float = 0.05,
+) -> None:
+    """Continuously push *frame* via HTTP PUT until *stop* is set."""
+    auth = base64.b64encode(f"{USER}:{PASSWORD}".encode()).decode()
+    put_headers = (
+        f"PUT /{MOUNTPOINT} HTTP/1.1\r\n"
+        f"Host: {HOST}:{server_port}\r\n"
+        "Ntrip-Version: Ntrip/2.0\r\n"
+        f"Authorization: Basic {auth}\r\n"
+        "Content-Type: gnss/data\r\n"
+        "Transfer-Encoding: chunked\r\n"
+        "\r\n"
+    ).encode()
+    chunk = f"{len(frame):x}\r\n".encode() + frame + b"\r\n"
+
+    print("Opening connection")
+    _, writer = await asyncio.open_connection(HOST, server_port)
+
+    print("Writing")
+
+    writer.write(put_headers)
+    await writer.drain()
+
+    print("Drained")
+
+    while not stop.is_set():
+        writer.write(chunk)
+        await writer.drain()
+        await asyncio.sleep(interval)
+
+    writer.write(b"0\r\n\r\n")
+    await writer.drain()
+
+    writer.close()
+    await writer.wait_closed()
+
+
 class TestSourceTable:
     """GNSSNTRIPClient fetches the NTRIP source table (empty mountpoint)."""
 
@@ -199,8 +242,16 @@ class TestSourceTable:
         assert client.is_sourcetable
 
     async def test_registered_mountpoint_present(self, server_port: int) -> None:
-        client = _start_client(server_port, mountpoint="")
-        await _await_done(client)
+        # Only online mountpoints are listed, so a base station must be streaming.
+        stop = asyncio.Event()
+        bs_task = asyncio.create_task(_run_base_station(server_port, _rtcm1005(), stop))
+        await asyncio.sleep(0.3)
+        try:
+            client = _start_client(server_port, mountpoint="")
+            await _await_done(client)
+        finally:
+            stop.set()
+            await bs_task
         names = [row[0] for row in client.settings.get("sourcetable", []) if row]
         assert MOUNTPOINT in names
 
@@ -229,54 +280,13 @@ class TestRtcmDelivery:
     correctly by UBXReader.
     """
 
-    async def _run_base_station(
-        self,
-        server_port: int,
-        frame: bytes,
-        stop: asyncio.Event,
-        interval: float = 0.05,
-    ) -> None:
-        """Continuously push *frame* via HTTP PUT until *stop* is set."""
-        auth = base64.b64encode(f"{USER}:{PASSWORD}".encode()).decode()
-        put_headers = (
-            f"PUT /{MOUNTPOINT} HTTP/1.1\r\n"
-            f"Host: {HOST}:{server_port}\r\n"
-            "Ntrip-Version: Ntrip/2.0\r\n"
-            f"Authorization: Basic {auth}\r\n"
-            "Content-Type: gnss/data\r\n"
-            "Transfer-Encoding: chunked\r\n"
-            "\r\n"
-        ).encode()
-        chunk = f"{len(frame):x}\r\n".encode() + frame + b"\r\n"
-
-        print("Opening connection")
-        _, writer = await asyncio.open_connection(HOST, server_port)
-
-        print("Writing")
-
-        writer.write(put_headers)
-        await writer.drain()
-
-        print("Drained")
-
-        while not stop.is_set():
-            writer.write(chunk)
-            await writer.drain()
-            await asyncio.sleep(interval)
-
-        writer.write(b"0\r\n\r\n")
-        await writer.drain()
-
-        writer.close()
-        await writer.wait_closed()
-
     async def test_frame_received_by_rover(self, server_port: int) -> None:
         output: Queue = Queue()
         frame = _rtcm1005()
         stop = asyncio.Event()
 
         # Start the base station so frames are already flowing when the rover connects.
-        bs_task = asyncio.create_task(self._run_base_station(server_port, frame, stop))
+        bs_task = asyncio.create_task(_run_base_station(server_port, frame, stop))
 
         await asyncio.sleep(0.3)  # Give the base station time to register and start sending.
 
@@ -306,7 +316,7 @@ class TestRtcmDelivery:
         frame = _rtcm1005()
         stop = asyncio.Event()
 
-        bs_task = asyncio.create_task(self._run_base_station(server_port, frame, stop))
+        bs_task = asyncio.create_task(_run_base_station(server_port, frame, stop))
         await asyncio.sleep(0.3)
 
         client = _start_client(server_port, mountpoint=MOUNTPOINT, output=output)

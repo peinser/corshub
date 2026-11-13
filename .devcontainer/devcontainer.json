@@ -41,7 +41,7 @@
 			],
 			"settings": {
 				// Your existing Python setting
-				"python.defaultInterpreterPath": "/opt/pysetup/.venv/bin/python"  // updated key (preferred over pythonPath)
+				"python.defaultInterpreterPath": "/usr/local/bin/python"  // uv installs into /usr/local (UV_PROJECT_ENVIRONMENT)
 
 				// Optional C/C++ tweaks – adjust based on your container's compilers
 				// "C_Cpp.default.compilerPath": "/usr/bin/g++", // or /usr/bin/clang++ if using clang

@@ -1,0 +1,12 @@
+# Allowlist: only what the image build needs. Keeps secrets (.secrets, ops/),
+# local virtualenvs and VCS metadata out of the build context.
+*
+!pyproject.toml
+!uv.lock
+!README.md
+!LICENSE
+!src/
+!tests/
+!docker/entrypoint.sh
+!.github/scripts/onboard.py
+**/__pycache__

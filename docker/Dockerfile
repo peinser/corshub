@@ -1,6 +1,6 @@
 # builder-base ################################################################
 
-FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim AS builder-base
+FROM ghcr.io/astral-sh/uv:python3.14-trixie-slim AS builder-base
 
 LABEL artifact=false
 
@@ -24,10 +24,6 @@ FROM builder-base AS validate
 
 LABEL artifact=false
 
-# The following is necessary for running the unit tests
-# For now, OPA responses are mocked in the unit tests.
-ENV OPA_URL=http://opa:8181
-
 RUN uv sync --frozen && \
     uv run ruff format --check src/corshub tests && \
     uv run ruff check src/corshub tests && \
@@ -39,7 +35,7 @@ RUN uv sync --frozen && \
 
 # production ##################################################################
 
-FROM docker.io/python:3.14-slim AS production
+FROM docker.io/python:3.14-slim-trixie AS production
 
 LABEL artifact=true
 

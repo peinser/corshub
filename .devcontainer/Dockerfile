@@ -99,8 +99,8 @@ RUN set -eux; \
         *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
     esac; \
     \
-    ACT_VERSION=0.2.74; \
-    curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_Linux_${ARCH_AMD64}.tar.gz" \
+    ACT_VERSION=0.2.97; \
+    curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_Linux_${CRANE_ARCH}.tar.gz" \
         | tar xz -C /usr/local/bin act; \
     \
     HELM_VERSION=3.17.3; \

@@ -23,6 +23,7 @@ import pytest
 
 from corshub.ntrip.v2.caster import Mountpoint
 from corshub.ntrip.v2.caster import NTRIPCaster
+from corshub.ntrip.v2.headers import parse_ntrip_str
 
 
 @pytest.fixture
@@ -427,3 +428,46 @@ class TestQualityWorker:
         await c.stop()
         assert c._quality_task is None
         assert c._quality_queue is None
+
+
+class TestReRegistration:
+    async def test_ntrip_str_cannot_rename_mountpoint(self, caster: NTRIPCaster) -> None:
+        # A reconnecting base station re-registers with its Ntrip-STR metadata.
+        await caster.close("BASE1")
+        await caster.register(mountpoint="BASE1", **parse_ntrip_str("OTHER;New label;RTCM 3.3", "BASE1"))
+        mp = caster.mountpoints["BASE1"]
+        assert mp.name == "BASE1"
+        assert mp.identifier == "New label"
+
+    async def test_close_is_idempotent(self, caster: NTRIPCaster) -> None:
+        await caster.close("BASE1")
+        await caster.close("BASE1")  # Must not raise KeyError.
+        assert await caster.available("BASE1") is False
+        assert "BASE1" in caster.mountpoints
+
+    async def test_close_unknown_mountpoint_is_noop(self, caster: NTRIPCaster) -> None:
+        await caster.close("UNKNOWN")
+
+
+class TestNearest:
+    # BASE1 is Brussels (50.85, 4.35); BASE2 is Amsterdam (52.37, 4.90).
+
+    async def test_returns_closest_online_mountpoint(self, caster: NTRIPCaster, extra_mountpoint: dict) -> None:
+        await caster.register(**extra_mountpoint)
+        assert caster.nearest(52.0, 4.8) == "BASE2"
+        assert caster.nearest(50.9, 4.4) == "BASE1"
+
+    async def test_skips_offline_mountpoints(self, caster: NTRIPCaster, extra_mountpoint: dict) -> None:
+        await caster.register(**extra_mountpoint)
+        await caster.close("BASE2")
+        # BASE2 is closer, but its base station is gone.
+        assert caster.nearest(52.37, 4.90) == "BASE1"
+
+    async def test_respects_mask(self, caster: NTRIPCaster) -> None:
+        caster.mountpoints["BASE1"].mask = 10.0
+        assert caster.nearest(50.85, 4.35) == "BASE1"
+        assert caster.nearest(52.37, 4.90) is None
+
+    async def test_none_when_everything_offline(self, caster: NTRIPCaster) -> None:
+        await caster.close("BASE1")
+        assert caster.nearest(50.85, 4.35) is None

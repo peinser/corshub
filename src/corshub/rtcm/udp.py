@@ -3,8 +3,9 @@ UDP egress for direct-to-rover RTCM corrections.
 
 A second correction egress alongside the NTRIP/HTTP path. Rovers authenticate
 once over HTTPS (see the bootstrap endpoint), receive a short-lived session token,
-and open a UDP session with a ``Hello``. The server then streams signed
-``CorrectionFrame``s pulled from the caster's per-mountpoint transport.
+and open a UDP session with a ``Hello``. Once the rover echoes the assigned
+session_id (return routability), the server streams signed ``CorrectionFrame``s
+pulled from the caster's per-mountpoint transport.
 
 Key properties (see docs/architecture/rtcm-udp.md):
   * One listener for all mountpoints; the mountpoint is chosen per session.
@@ -65,9 +66,11 @@ class Session:
     """A live UDP correction session."""
 
     session_id: int
+    username: str  # token subject; keys the rover position (never the secret session_id)
     mountpoint: str
     addr: tuple[str, int]
-    expiry: float  # monotonic deadline
+    expiry: float  # monotonic deadline, refreshed by every datagram
+    hard_expiry: float = float("inf")  # policy session limit (e.g. anonymous); never refreshed
     scope: str = "*"  # mountpoint scope authorized by the token
     dynamic: bool = False  # opened/switched as NEAREST → eligible for handoff
     seq: int = 0
@@ -201,14 +204,22 @@ class RTCMDatagramServer:
         # Any authenticated datagram refreshes liveness and the return address
         # (the latter survives CGNAT port rebinding).
         session.addr = addr
-        session.expiry = self._deadline()
+        session.expiry = min(self._deadline(), session.hard_expiry)
+
+        if body == "bye":
+            self._spawn(self._teardown(session))
+            return
+
+        if session.task is None:
+            # Return routability: the session_id only ever went to the Hello's source
+            # address, so echoing it proves the rover receives there.  Streaming before
+            # this would let a spoofed Hello reflect corrections at a victim.
+            session.task = asyncio.create_task(self._egress_loop(session))
 
         if body == "keepalive":
             self._on_keepalive(session, datagram.keepalive)
         elif body == "switch_mountpoint":
             self._spawn(self._on_switch(session, datagram.switch_mountpoint))
-        elif body == "bye":
-            self._spawn(self._teardown(session))
 
     def _spawn(self, coro: Coroutine[object, object, None]) -> None:
         task = asyncio.create_task(coro)
@@ -234,11 +245,15 @@ class RTCMDatagramServer:
             self._send_error(addr, exc.code, exc.message)
             return
 
+        max_session_seconds = claims.get("max_session_seconds")
+        hard_expiry = time.monotonic() + max_session_seconds if max_session_seconds is not None else float("inf")
         session = Session(
             session_id=secrets.randbits(64),
+            username=claims["sub"],
             mountpoint=mountpoint,
             addr=addr,
-            expiry=self._deadline(),
+            expiry=min(self._deadline(), hard_expiry),
+            hard_expiry=hard_expiry,
             scope=token_mp,
             dynamic=hello.mountpoint == "NEAREST",
         )
@@ -260,8 +275,7 @@ class RTCMDatagramServer:
                 ),
             ),
         )
-
-        session.task = asyncio.create_task(self._egress_loop(session))
+        # No egress yet: it starts on the rover's first datagram echoing session_id.
 
     def _on_keepalive(self, session: Session, keepalive: pb.KeepAlive) -> None:
         if not keepalive.HasField("position"):
@@ -269,12 +283,12 @@ class RTCMDatagramServer:
 
         lat, lon = keepalive.position.latitude, keepalive.position.longitude
         position = (lat, lon)
-        self._caster.set_rover_position(session.mountpoint, str(session.session_id), lat, lon)
+        self._caster.set_rover_position(session.mountpoint, session.username, lat, lon)
 
         if session.dynamic:
             # Follow the rover to the nearest in-range base; evict it if it has
             # roamed beyond every mountpoint's mask (no base left in range).
-            nearest = self._nearest(position)
+            nearest = self._caster.nearest(*position)
             if nearest is None:
                 self._spawn(self._evict(session, ErrorCode.OUT_OF_RANGE, "No mountpoint in range."))
             elif self._scope_allows(session.scope, nearest):
@@ -299,6 +313,7 @@ class RTCMDatagramServer:
         if mountpoint == session.mountpoint:
             return
         old_task = session.task
+        self._caster.clear_rover_position(session.mountpoint, session.username)
         session.mountpoint = mountpoint
         session.task = asyncio.create_task(self._egress_loop(session))
         if old_task is not None:
@@ -324,10 +339,14 @@ class RTCMDatagramServer:
             async with self._caster.subscribe(mountpoint) as sub:
                 await self._pump(session, sub)
         except KeyError:
+            pass  # Mountpoint not open; handled below like a close.
+
+        # _pump also returns when a switch re-pointed the session; only a session
+        # still bound to this task lost its mountpoint (base station gone). End it
+        # explicitly so the rover re-handshakes instead of idling on a dead stream.
+        if session.task is asyncio.current_task():
             self._send_error(session.addr, ErrorCode.MOUNTPOINT_UNAVAILABLE, f"Mountpoint {mountpoint!r} unavailable.")
             await self._teardown(session)
-        except asyncio.CancelledError:
-            raise
 
     async def _pump(self, session: Session, sub: TransportSubscriber) -> None:
         while (frame := await sub.get()) is not None:
@@ -391,7 +410,7 @@ class RTCMDatagramServer:
         if requested == "NEAREST":
             if position is None:
                 raise _AuthorizationError(ErrorCode.MISSING_POSITION, "NEAREST requires a position.")
-            resolved = self._nearest(position)
+            resolved = self._caster.nearest(*position)
             if resolved is None:
                 raise _AuthorizationError(ErrorCode.MOUNTPOINT_UNAVAILABLE, "No mountpoint in range.")
             if not wildcard and resolved != token_scope:
@@ -407,20 +426,6 @@ class RTCMDatagramServer:
             raise _AuthorizationError(ErrorCode.MOUNTPOINT_UNAVAILABLE, f"Mountpoint {requested!r} unavailable.")
 
         return requested
-
-    def _nearest(self, position: tuple[float, float]) -> str | None:
-        rover_lat, rover_lon = position
-        best_id: str | None = None
-        best_dist = float("inf")
-        for mp_id, mp in self._caster.mountpoints.items():
-            if mp.latitude is None or mp.longitude is None:
-                continue
-            dist = haversine(mp.latitude, mp.longitude, rover_lat, rover_lon)
-            if mp.mask > 0.0 and dist > mp.mask:
-                continue
-            if dist < best_dist:
-                best_dist, best_id = dist, mp_id
-        return best_id
 
     # -- helpers -----------------------------------------------------------
 
@@ -446,7 +451,7 @@ class RTCMDatagramServer:
         if self._sessions.pop(session.session_id, None) is None:
             return  # already torn down; keep the sessions gauge from drifting
         metrics.rtcm_udp_sessions.dec()
-        self._caster.clear_rover_position(session.mountpoint, str(session.session_id))
+        self._caster.clear_rover_position(session.mountpoint, session.username)
         task = session.task
         session.task = None
         if task is not None and task is not asyncio.current_task():

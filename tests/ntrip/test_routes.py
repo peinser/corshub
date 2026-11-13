@@ -26,7 +26,13 @@ from __future__ import annotations
 
 import base64
 
+from typing import TYPE_CHECKING
+
 from sanic import Sanic
+
+
+if TYPE_CHECKING:
+    from corshub.ntrip.v2.caster import NTRIPCaster
 
 
 def _basic_auth(username: str, password: str) -> str:
@@ -69,7 +75,7 @@ class TestSourceRoute:
         _, response = await app.asgi_client.put(
             "/BASE1",
             headers={"Authorization": VALID_AUTH, "Content-Type": "gnss/data"},
-            data=b"",
+            content=b"",
         )
         assert response.status_code == 400
 
@@ -77,7 +83,7 @@ class TestSourceRoute:
         _, response = await app.asgi_client.put(
             "/BASE1",
             headers={**NTRIP_HEADERS, "Authorization": VALID_AUTH, "Content-Type": "application/json"},
-            data=b"",
+            content=b"",
         )
         assert response.status_code == 400
 
@@ -90,11 +96,12 @@ class TestSourceRoute:
                 "Content-Type": "gnss/data",
                 "Ntrip-STR": INVALID_NTRIP_STR,
             },
-            data=b"",
+            content=b"",
         )
         assert response.status_code == 400
 
-    async def test_correct_gga(self, app: Sanic) -> None:
+    async def test_correct_gga(self, app: Sanic, caster: NTRIPCaster) -> None:
+        await caster.close("BASE1")  # A base station can only publish to an offline mountpoint.
         _, response = await app.asgi_client.put(
             "/BASE1",
             headers={
@@ -103,7 +110,31 @@ class TestSourceRoute:
                 "Content-Type": "gnss/data",
                 "Ntrip-STR": VALID_NTRIP_STR,
             },
-            data=b"",
+            content=b"",
         )
 
         assert response.status_code == 200
+
+    async def test_second_publisher_on_live_mountpoint_returns_409(self, app: Sanic, caster: NTRIPCaster) -> None:
+        # BASE1 already has a live transport: another base station is publishing.
+        _, response = await app.asgi_client.put(
+            "/BASE1",
+            headers={**NTRIP_HEADERS, "Authorization": VALID_AUTH, "Content-Type": "gnss/data"},
+            content=b"",
+        )
+        assert response.status_code == 409
+        assert await caster.available("BASE1") is True  # The live publisher is untouched.
+
+
+class TestQualityRoute:
+    async def test_does_not_expose_rover_identities_or_positions(self, app: Sanic, caster: NTRIPCaster) -> None:
+        caster.set_rover_position("BASE1", "rover-secret-name", 51.0543, 3.7174)
+        _, response = await app.asgi_client.get("/quality/BASE1")
+        assert response.status_code == 200
+        assert "rover_positions" not in response.json
+        assert "rover-secret-name" not in response.text
+        assert "51.0543" not in response.text
+
+    async def test_unknown_mountpoint_returns_404(self, app: Sanic) -> None:
+        _, response = await app.asgi_client.get("/quality/UNKNOWN")
+        assert response.status_code == 404

@@ -18,14 +18,13 @@ Request requirements (RTCM 10410.1 §4.2):
 
 from __future__ import annotations
 
-import socket
-
 from typing import TYPE_CHECKING
 
 from sanic import response
 from sanic.exceptions import Unauthorized
 
 from corshub.exceptions.http import BadRequestError
+from corshub.exceptions.http import ConflictError
 from corshub.http.ratelimit import enforce_auth_rate_limit
 from corshub.logging import logger
 from corshub.ntrip.v2.headers import CONTENT_TYPE_GNSS
@@ -81,6 +80,12 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
         except Exception:  # noqa: BLE001 - advisory header only; we already have a registered mountpoint
             logger.debug("Ignoring malformed Ntrip-STR for %r", mountpoint, exc_info=True)
 
+    # OPA only denies a live mountpoint at query time; a second publisher may have
+    # connected while this request awaited OPA and bcrypt.  Nothing suspends between
+    # this check and register(), so it is atomic on the event loop.
+    if await caster.available(mountpoint):
+        raise ConflictError(f"Mountpoint {mountpoint!r} already has an active base station.")
+
     # Register the mountpoint with the available metadata.
     try:
         await caster.register(mountpoint=mountpoint, **meta)
@@ -92,11 +97,6 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
     # Stream RTCM frames from the request body and publish to subscribers.
     if request.stream:
         logger.info("Starting RTCM stream for mountpoint %r", mountpoint)
-
-        # Disable Nagle's algorithm during a stream, disable buffering.
-        sock = request.transport.get_extra_info("socket")
-        if sock is not None:
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
         # Send 200 immediately so the client knows we're ready to receive (inform proxy).
         resp = await request.respond(

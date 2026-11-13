@@ -7,6 +7,7 @@ real NTRIPCaster, so no sockets are involved.
 from __future__ import annotations
 
 import asyncio
+import time
 
 import pytest
 
@@ -80,6 +81,21 @@ def _sent_messages(server: RTCMDatagramServer) -> list[pb.Datagram]:
     return [pb.Datagram.FromString(data) for data, _ in _transport(server).sent]
 
 
+async def _establish(
+    server: RTCMDatagramServer,
+    mountpoint: str = "BASE1",
+    addr: tuple[str, int] = _ADDR,
+    token_mountpoint: str | None = None,
+) -> int:
+    """Hello, then echo the session_id back (return routability) so egress starts."""
+    await server._on_hello(_hello(mountpoint, token_mountpoint=token_mountpoint), addr)
+    acks = [m for m in _sent_messages(server) if m.WhichOneof("body") == "hello_ack"]
+    sid = acks[-1].hello_ack.session_id
+    server.handle_datagram(pb.Datagram(version=1, session_id=sid, keepalive=pb.KeepAlive()).SerializeToString(), addr)
+    await asyncio.sleep(0)  # let the egress task enter the subscription
+    return sid
+
+
 class TestHello:
     async def test_valid_hello_acks_with_session_and_kid(
         self, server: RTCMDatagramServer, signing_key: SigningKey
@@ -125,16 +141,10 @@ class TestNearest:
 
 
 class TestCorrectionStream:
-    async def _open(self, server: RTCMDatagramServer, mountpoint: str = "BASE1", addr=_ADDR) -> int:
-        await server._on_hello(_hello(mountpoint), addr)
-        await asyncio.sleep(0)  # let the egress task enter the subscription
-        ack = next(m for m in _sent_messages(server) if m.WhichOneof("body") == "hello_ack").hello_ack
-        return ack.session_id
-
     async def test_published_frame_is_signed_and_delivered(
         self, server: RTCMDatagramServer, caster: NTRIPCaster, signing_key: SigningKey
     ) -> None:
-        await self._open(server)
+        await _establish(server)
         _transport(server).sent.clear()
 
         await caster.publish("BASE1", _FRAME)
@@ -150,8 +160,8 @@ class TestCorrectionStream:
         assert frame.mountpoint == "BASE1"
 
     async def test_sign_once_fanout_identical_payload(self, server: RTCMDatagramServer, caster: NTRIPCaster) -> None:
-        await self._open(server, addr=("203.0.113.5", 40000))
-        await self._open(server, addr=("203.0.113.6", 40001))
+        await _establish(server, addr=("203.0.113.5", 40000))
+        await _establish(server, addr=("203.0.113.6", 40001))
         _transport(server).sent.clear()
 
         await caster.publish("BASE1", _FRAME)
@@ -168,8 +178,7 @@ class TestCorrectionStream:
         srv = RTCMDatagramServer(caster, token_secret=_SECRET, signing_enabled=False)
         srv._transport = FakeTransport()  # type: ignore[assignment]
         try:
-            await srv._on_hello(_hello("BASE1"), _ADDR)
-            await asyncio.sleep(0)
+            await _establish(srv)
             _transport(srv).sent.clear()
             await caster.publish("BASE1", _FRAME)
             await asyncio.sleep(0)
@@ -326,8 +335,7 @@ class TestMaxDatagram:
         srv = RTCMDatagramServer(caster, token_secret=_SECRET, signing_enabled=False, max_datagram=10)
         srv._transport = FakeTransport()  # type: ignore[assignment]
         try:
-            await srv._on_hello(_hello("BASE1"), _ADDR)
-            await asyncio.sleep(0)
+            await _establish(srv)
             _transport(srv).sent.clear()
 
             before = m.rtcm_udp_oversize_dropped_total.labels(mountpoint="BASE1")._value.get()
@@ -380,3 +388,108 @@ class TestRealSocket:
         finally:
             await srv.stop()
         assert srv.bound_address is None  # closed
+
+
+def _keepalive(sid: int, position: tuple[float, float] | None = None) -> bytes:
+    keepalive = pb.KeepAlive()
+    if position is not None:
+        keepalive.position.latitude, keepalive.position.longitude = position
+    return pb.Datagram(version=1, session_id=sid, keepalive=keepalive).SerializeToString()
+
+
+def _corrections(server: RTCMDatagramServer) -> list[pb.Datagram]:
+    return [m for m in _sent_messages(server) if m.WhichOneof("body") == "correction"]
+
+
+class TestReturnRoutability:
+    async def test_no_corrections_before_rover_echoes_session_id(
+        self, server: RTCMDatagramServer, caster: NTRIPCaster
+    ) -> None:
+        # A Hello whose source address was spoofed: the victim never answers.
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        await asyncio.sleep(0)
+        await caster.publish("BASE1", _FRAME)
+        await asyncio.sleep(0)
+        assert _corrections(server) == []
+
+    async def test_corrections_start_after_echo(self, server: RTCMDatagramServer, caster: NTRIPCaster) -> None:
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        sid = next(m for m in _sent_messages(server) if m.WhichOneof("body") == "hello_ack").hello_ack.session_id
+        server.handle_datagram(_keepalive(sid), _ADDR)
+        await asyncio.sleep(0)
+        await caster.publish("BASE1", _FRAME)
+        await asyncio.sleep(0)
+        assert len(_corrections(server)) == 1
+
+    async def test_unknown_session_id_starts_nothing(self, server: RTCMDatagramServer, caster: NTRIPCaster) -> None:
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        server.handle_datagram(_keepalive(12345), ("198.51.100.1", 1))  # Guessed id from elsewhere.
+        await caster.publish("BASE1", _FRAME)
+        await asyncio.sleep(0)
+        assert _corrections(server) == []
+
+
+class TestMountpointClosed:
+    async def test_session_ends_with_error_when_base_station_leaves(
+        self, server: RTCMDatagramServer, caster: NTRIPCaster
+    ) -> None:
+        await _establish(server)
+        _transport(server).sent.clear()
+
+        await caster.close("BASE1")
+        await asyncio.sleep(0.01)
+
+        assert server.session_count == 0
+        errors = [m for m in _sent_messages(server) if m.WhichOneof("body") == "error"]
+        assert [e.error.code for e in errors] == [ErrorCode.MOUNTPOINT_UNAVAILABLE]
+
+
+class TestRoverPositions:
+    async def test_position_keyed_by_username_not_session_id(
+        self, server: RTCMDatagramServer, caster: NTRIPCaster
+    ) -> None:
+        sid = await _establish(server)
+        server.handle_datagram(_keepalive(sid, (50.85, 4.35)), _ADDR)
+        positions = caster.get_rover_positions("BASE1")
+        assert set(positions) == {"rover1"}
+        assert str(sid) not in positions
+
+    async def test_switch_clears_position_on_old_mountpoint(
+        self, server: RTCMDatagramServer, caster: NTRIPCaster
+    ) -> None:
+        sid = await _establish(server, token_mountpoint="*")
+        server.handle_datagram(_keepalive(sid, (50.85, 4.35)), _ADDR)
+        assert "rover1" in caster.get_rover_positions("BASE1")
+
+        switch = pb.Datagram(version=1, session_id=sid, switch_mountpoint=pb.SwitchMountpoint(mountpoint="BASE2"))
+        server.handle_datagram(switch.SerializeToString(), _ADDR)
+        await asyncio.sleep(0.01)
+
+        assert server._sessions[sid].mountpoint == "BASE2"
+        assert caster.get_rover_positions("BASE1") == {}
+
+
+class TestPolicySessionLimit:
+    def _limited_hello(self, max_session_seconds: int) -> pb.Datagram:
+        token = issue_session_token(
+            secret=_SECRET,
+            username="anonymous",
+            mountpoint="*",
+            ttl_seconds=60,
+            max_session_seconds=max_session_seconds,
+        )
+        return pb.Datagram(version=1, hello=pb.Hello(token=token, mountpoint="BASE1"))
+
+    async def test_keepalives_cannot_extend_past_policy_limit(self, server: RTCMDatagramServer) -> None:
+        await server._on_hello(self._limited_hello(5), _ADDR)
+        (session,) = server._sessions.values()
+        assert session.hard_expiry <= time.monotonic() + 5
+
+        # session_ttl (30 s) is longer than the policy limit (5 s).
+        server.handle_datagram(_keepalive(session.session_id), _ADDR)
+        assert session.expiry == session.hard_expiry
+
+    async def test_unlimited_without_claim(self, server: RTCMDatagramServer) -> None:
+        await server._on_hello(_hello("BASE1"), _ADDR)
+        (session,) = server._sessions.values()
+        assert session.hard_expiry == float("inf")

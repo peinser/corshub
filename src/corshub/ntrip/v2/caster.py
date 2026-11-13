@@ -36,6 +36,7 @@ from corshub import env
 from corshub import metrics
 from corshub.crypto import secrets
 from corshub.logging import logger
+from corshub.ntrip.v2.headers import haversine
 from corshub.ntrip.v2.quality import MountpointQuality
 from corshub.ntrip.v2.transport import QueueTransport
 
@@ -385,8 +386,10 @@ class NTRIPCaster(Caster):
             stale mountpoints.
     """
 
+    # Fields a re-registering base station may update.  ``name`` is deliberately
+    # absent: it is the registry key and must never be overwritten from Ntrip-STR.
     _METADATA_FIELDS: Final[set[str]] = {
-        "name",
+        "identifier",
         "format",
         "format_detail",
         "carrier",
@@ -478,11 +481,10 @@ class NTRIPCaster(Caster):
         return dict(self._rover_positions.get(mountpoint, {}))
 
     async def close(self, mountpoint: str) -> None:
-        if mountpoint not in self._mountpoints:
-            return
+        transport = self._transports.pop(mountpoint, None)
+        if transport is None:
+            return  # Idempotent: unknown or already closed.
 
-        transport = self._transports[mountpoint]
-        del self._transports[mountpoint]
         self._frame_buffer.pop(mountpoint, None)
         self._quality.pop(mountpoint, None)
         self._rover_positions.pop(mountpoint, None)
@@ -504,6 +506,28 @@ class NTRIPCaster(Caster):
     @property
     def mountpoints(self) -> dict[str, Mountpoint]:
         return self._mountpoints
+
+    def nearest(self, latitude: float, longitude: float) -> str | None:
+        """Return the closest online mountpoint whose mask covers the position, or None.
+
+        Closed mountpoints stay registered until the reaper expires them, so they
+        are skipped here: a rover must never be routed to a base station that is gone.
+
+        ponytail: linear scan over all mountpoints; fine for hundreds of stations,
+        swap for a spatial index if the network grows far beyond that.
+        """
+        best_id: str | None = None
+        best_dist = float("inf")
+        for mp_id in self._transports:
+            mp = self._mountpoints[mp_id]
+            if mp.latitude is None or mp.longitude is None:
+                continue
+            dist = haversine(mp.latitude, mp.longitude, latitude, longitude)
+            if mp.mask > 0.0 and dist > mp.mask:
+                continue
+            if dist < best_dist:
+                best_dist, best_id = dist, mp_id
+        return best_id
 
     @property
     def transports(self) -> dict[str, Transport]:

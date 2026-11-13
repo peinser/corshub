@@ -22,7 +22,7 @@ Position updates
 After the response starts, the rover may send NMEA GGA sentences in the
 HTTP request body (NTRIP v2 spec §4.3.3, sent as HTTP chunked data).  A
 background task reads these and updates the rover's position in the caster
-so the quality endpoint can expose last-known rover coordinates.
+so the internal metrics endpoint can expose last-known rover coordinates.
 """
 
 from __future__ import annotations

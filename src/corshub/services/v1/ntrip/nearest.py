@@ -12,7 +12,6 @@ from sanic.exceptions import NotFound
 
 from corshub.exceptions.http import BadRequestError
 from corshub.ntrip.v2.headers import NTRIP_GGA
-from corshub.ntrip.v2.headers import haversine
 from corshub.ntrip.v2.headers import parse_ntrip_gga
 
 from .base import bp
@@ -34,34 +33,12 @@ async def find_and_read(request: Request) -> HTTPResponse:
     Raises ``BadRequestError`` (400) if the ``Ntrip-GGA`` header is absent or
     invalid.  Raises ``NotFound`` (404) if no mountpoint lies within range of
     the rover's reported position.
-
-    For now, this implementation simply iterates through all mountpoints and
-    finds the closest one. Sufficiently efficient for small number of mountpoints,
-    but may need a spatial index / datastructure if the number of mountpoints grows large.
     """
     position = parse_ntrip_gga(request.headers.get(NTRIP_GGA))
     if position is None:
         raise BadRequestError("Ntrip-GGA header is absent or not a valid GGA sentence.")
 
-    rover_lat, rover_lon = position
-    caster = request.app.ctx.ntrip_caster
-
-    best_id: str | None = None
-    best_dist = float("inf")
-
-    for mp_id, mp in caster.mountpoints.items():
-        if mp.latitude is None or mp.longitude is None:
-            continue
-
-        dist = haversine(mp.latitude, mp.longitude, rover_lat, rover_lon)
-
-        if mp.mask > 0.0 and dist > mp.mask:
-            continue
-
-        if dist < best_dist:
-            best_dist = dist
-            best_id = mp_id
-
+    best_id = request.app.ctx.ntrip_caster.nearest(*position)
     if best_id is None:
         raise NotFound("No mountpoint found within range of the rover's reported position.")
 

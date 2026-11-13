@@ -6,9 +6,10 @@ metadata:
   labels:
     {{- include "corshub.labels" . | nindent 4 }}
 spec:
-  {{- if not .Values.autoscaling.enabled }}
-  replicas: {{ .Values.replicaCount }}
+  {{- if ne (int .Values.replicaCount) 1 }}
+  {{- fail "replicaCount must be 1: the in-process caster cannot route between replicas" }}
   {{- end }}
+  replicas: 1
   selector:
     matchLabels:
       {{- include "corshub.selectorLabels" . | nindent 6 }}

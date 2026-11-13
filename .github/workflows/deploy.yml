@@ -39,27 +39,36 @@ jobs:
           version: "3.17.3"
 
       - name: Authenticate with the remote Container Registry
+        env:
+          REGISTRY_LOGIN: ${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}
+          REGISTRY_SECRET: ${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}
         run: |
-          echo '${{ secrets.OCI_REGISTRY_HARBOR_SECRET }}' | helm registry login -u '${{ secrets.OCI_REGISTRY_HARBOR_LOGIN }}' --password-stdin ${{ vars.OCI_REGISTRY }}
+          printf '%s' "$REGISTRY_SECRET" | helm registry login -u "$REGISTRY_LOGIN" --password-stdin ${{ vars.OCI_REGISTRY }}
 
+      # Decrypted values and the kubeconfig live in RUNNER_TEMP, which the runner
+      # empties after every job; this is an on-prem runner that persists between jobs.
       - name: Decrypt values.yaml
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
         run: |
-          SOPS_AGE_KEY="${{ secrets.SOPS_AGE_KEY }}" sops -d ops/values.yaml > /tmp/values-plain.yaml
+          sops -d ops/values.yaml > "$RUNNER_TEMP/values-plain.yaml"
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v5
 
       - name: Deploy to Kubernetes using Helm
         working-directory: ./ops
+        env:
+          KUBECONFIG_CONTENT: ${{ secrets.KUBECONFIG }}
         run: |
-          echo "${{ secrets.KUBECONFIG }}" > kubeconfig
-          export KUBECONFIG=$(pwd)/kubeconfig
+          export KUBECONFIG="$RUNNER_TEMP/kubeconfig"
+          printf '%s\n' "$KUBECONFIG_CONTENT" > "$KUBECONFIG"
 
           echo "🛳️ Deploying to Kubernetes (chart: $CHART_VERSION)..."
           helm upgrade --install production \
             oci://${{ vars.OCI_REGISTRY }}/uas/charts/corshub \
-            --version $CHART_VERSION \
-            --values /tmp/values-plain.yaml \
+            --version "$CHART_VERSION" \
+            --values "$RUNNER_TEMP/values-plain.yaml" \
             --namespace corshub \
             --atomic \
             --timeout 120s

@@ -30,16 +30,23 @@ def issue_session_token(
     username: str,
     mountpoint: str,
     ttl_seconds: int,
+    max_session_seconds: int | None = None,
 ) -> str:
-    """Mint a signed session token authorizing *username* on *mountpoint*."""
+    """Mint a signed session token authorizing *username* on *mountpoint*.
+
+    *max_session_seconds* carries the policy's session limit (e.g. anonymous
+    access) to the UDP server, which enforces it as a hard session deadline.
+    """
     now = int(time.time())
-    claims = {
+    claims: dict[str, Any] = {
         "sub": username,
         "mountpoint": mountpoint,
         "aud": _AUDIENCE,
         "iat": now,
         "exp": now + ttl_seconds,
     }
+    if max_session_seconds is not None:
+        claims["max_session_seconds"] = max_session_seconds
     return jwt.encode(claims, secret, algorithm=_ALGORITHM)
 
 

@@ -105,7 +105,7 @@ def app(caster: NTRIPCaster) -> Sanic:
     caster.authenticate_rover = AsyncMock(return_value=(True, None))
 
     @_app.before_server_start
-    async def _set_caster(app: Sanic, _: object) -> None:
+    async def _set_caster(app: Sanic) -> None:
         app.ctx.ntrip_caster = caster
 
     return _app

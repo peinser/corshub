@@ -141,11 +141,19 @@ expiry; the UDP server verifies it with an HMAC secret (no bcrypt, no DB).
 rover  ──Datagram{ session_id=0, body=Hello{ token, mountpoint|"NEAREST", position? } }──▶  caster
 rover  ◀──Datagram{ session_id=S, body=HelloAck{ session_id=S, mountpoint, signing_kid,
                                                  keepalive_interval_s, session_ttl_s } }──  caster
+rover  ──Datagram{ session_id=S, body=KeepAlive{ position? } }──▶  caster   (sent immediately)
 ```
 
+The caster only starts streaming once a datagram echoing `S` arrives. `S` is
+sent only to the Hello's source address, so the echo proves return routability:
+without it, anyone holding a valid token (including the public anonymous one)
+could spoof Hellos from a victim's address and reflect the correction stream at
+it. The cost is one extra round trip before the first correction.
+
 The caster verifies the token, resolves the mountpoint (`NEAREST` → concrete via
-the same haversine/mask logic as the `/NEAREST` route), subscribes, assigns a
-random 64-bit `session_id`, and records `session_id → {subscriber, last_addr, expiry}`.
+the same haversine/mask logic as the `/NEAREST` route), assigns a random
+64-bit `session_id`, and records `session_id → {last_addr, expiry}`; it subscribes
+to the mountpoint when the rover's confirming `KeepAlive` arrives.
 
 ### 3. Correction stream (sign once, fan out)
 
@@ -169,6 +177,10 @@ drop if `seq` is older than the newest seen → emit `GPS_RTCM_DATA`.
 - `SwitchMountpoint` re-points the session's subscription in place.
 - `Bye` (either direction) tears down. The caster also expires a session after
   `session_ttl_s` of silence, unsubscribing and clearing any tracked position.
+- A policy session limit (e.g. anonymous access) travels in the token as
+  `max_session_seconds` and is a hard deadline that keepalives cannot extend.
+- If the base station of the session's mountpoint disconnects, the caster sends
+  `Error{MOUNTPOINT_UNAVAILABLE}` and tears the session down; the rover re-handshakes.
 
 ### NAT / CGNAT handling
 
@@ -395,9 +407,6 @@ New metrics (Prometheus), following the existing `ntrip_*` conventions:
 - **QUIC migration.** QUIC gives connection IDs (NAT survival), TLS auth, and RFC
   9221 unreliable datagrams natively - superseding the hand-rolled session/NAT
   layer here while keeping the Ed25519 frame signature for end-to-end provenance.
-- **Continuous mask enforcement** (disconnect a rover that roams out of a
-  mountpoint's configured range). NEAREST handoff on the `KeepAlive` position
-  feed is implemented; mask enforcement is the remaining half.
 - **Attestation tie-in.** The signed `CorrectionFrame` stream is the same
   provenance primitive as the attestation feature in `BACKLOG.md`; a hash chain
   over `CorrectionFrame`s would yield a verifiable record for surveyors.

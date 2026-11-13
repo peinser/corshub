@@ -38,6 +38,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -338,6 +339,23 @@ def main() -> None:
             f"removed but @{GITHUB_ACTOR} is not their registered owner: "
             f"{', '.join(all_tampered)}.\n\n"
             "Credential rotation must be initiated by the original owner."
+        )
+        sys.exit(1)
+
+    # A new base station must not claim a mountpoint another station publishes to:
+    # its credentials would let it push forged corrections to that mountpoint's rovers.
+    pr_stations = _entries(pr_values, "base_stations")
+    claims = Counter(str(entry.get("mountpoint")) for entry in pr_stations.values())
+    hijacks = [
+        f"`{username}` (mountpoint `{pr_stations[username].get('mountpoint')}`)"
+        for username in stations.new
+        if claims[str(pr_stations[username].get("mountpoint"))] > 1
+    ]
+    if hijacks:
+        post_comment(
+            "Registration rejected. The following base stations claim a mountpoint "
+            f"that is already registered to another station: {', '.join(hijacks)}.\n\n"
+            "Choose a mountpoint name that is not in use."
         )
         sys.exit(1)
 

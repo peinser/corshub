@@ -105,7 +105,7 @@ def _make_app(caster: NTRIPCaster) -> Sanic:
     caster.authenticate_rover = AsyncMock(return_value=(True, None))
 
     @app.before_server_start
-    async def _set_caster(app: Sanic, _: object) -> None:
+    async def _set_caster(app: Sanic) -> None:
         # Runs after the blueprint's own before_server_start, overriding the
         # default NTRIPCaster that base.py creates with the test-controlled one.
         app.ctx.ntrip_caster = caster

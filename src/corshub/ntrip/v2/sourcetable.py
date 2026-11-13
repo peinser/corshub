@@ -19,8 +19,8 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from corshub.ntrip.v2.caster import Caster
     from corshub.ntrip.v2.caster import Mountpoint
+    from corshub.ntrip.v2.caster import NTRIPCaster
 
 
 def _str_record(mp: Mountpoint) -> str:
@@ -54,12 +54,15 @@ def _str_record(mp: Mountpoint) -> str:
     )
 
 
-def format_sourcetable(caster: Caster) -> str:
-    """Render the full NTRIP source table for all registered mountpoints.
+def format_sourcetable(caster: NTRIPCaster) -> str:
+    """Render the NTRIP source table for all online mountpoints.
+
+    Mountpoints whose base station disconnected stay registered until the reaper
+    expires them, but are not listed: a rover connecting to one would get a 404.
 
     Returns a string with CRLF line endings, terminated by
     ``ENDSOURCETABLE\\r\\n``, as required by RTCM 10410.1 §4.1.
     """
-    lines = [_str_record(mp) for mp in caster.mountpoints.values()]
+    lines = [_str_record(caster.mountpoints[name]) for name in caster.transports]
     lines.append("ENDSOURCETABLE")
     return "\r\n".join(lines) + "\r\n"

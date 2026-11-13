@@ -172,3 +172,14 @@ class TestSourceTableContent:
 
         # The caster should have been removed from the mountpoints.
         assert "ALPHA" not in c.mountpoints
+
+
+class TestOnlineOnly:
+    async def test_offline_mountpoint_is_not_listed(self, caster: NTRIPCaster) -> None:
+        await caster.close("BASE1")
+        assert _str_lines(format_sourcetable(caster)) == []
+
+    async def test_reconnected_mountpoint_is_listed_again(self, caster: NTRIPCaster) -> None:
+        await caster.close("BASE1")
+        await caster.register(mountpoint="BASE1")
+        assert [line.split(";")[1] for line in _str_lines(format_sourcetable(caster))] == ["BASE1"]

@@ -74,6 +74,21 @@ class TestSessionEndpoint:
         assert body["udp_endpoint"] == "caster.example:5009"
         assert body["signing_kid"] == key.kid
 
+    async def test_policy_session_limit_is_carried_in_token(self) -> None:
+        req = _request(
+            config=_config(),
+            credentials=_creds("anonymous"),
+            json_body={"mountpoint": "*"},
+            authenticate=(True, 60),
+        )
+        claims = verify_session_token(json.loads((await create_session(req)).body)["token"], _SECRET)
+        assert claims["max_session_seconds"] == 60
+
+    async def test_unlimited_session_has_no_limit_claim(self) -> None:
+        req = _request(config=_config(), credentials=_creds(), json_body={"mountpoint": "BASE1"})
+        claims = verify_session_token(json.loads((await create_session(req)).body)["token"], _SECRET)
+        assert "max_session_seconds" not in claims
+
     async def test_signing_disabled_kid_is_null(self) -> None:
         req = _request(config=_config(signing=False), credentials=_creds(), json_body={"mountpoint": "BASE1"})
         body = json.loads((await create_session(req)).body)

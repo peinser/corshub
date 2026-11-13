@@ -1,10 +1,8 @@
 # Default values for corshub.
 
-# Number of replicas.
-# NOTE: The default in-process QueueTransport is per-replica. For multi-replica
-# deployments, base stations and rovers must connect to the same replica, or you
-# must configure a shared transport backend (e.g. Redis). Use replicaCount: 1
-# with autoscaling disabled until a shared transport is deployed.
+# Number of replicas. Must be 1: the caster keeps mountpoints and rover queues
+# in process memory, so a rover on one pod never sees a base station on another.
+# Rendering fails for any other value until a shared transport exists.
 replicaCount: 1
 
 image:
@@ -180,14 +178,6 @@ startupProbe:
 
 # Graceful shutdown: allow in-flight NTRIP streams to drain before the pod is killed.
 terminationGracePeriodSeconds: 30
-
-# Horizontal Pod Autoscaler.
-autoscaling:
-  enabled: false
-  minReplicas: 1
-  maxReplicas: 5
-  targetCPUUtilizationPercentage: 70
-  # targetMemoryUtilizationPercentage: 80
 
 # Classic Kubernetes Ingress (networking.k8s.io/v1).
 # Suitable for clusters running nginx-ingress, traefik, or similar controllers.

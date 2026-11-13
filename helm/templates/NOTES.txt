@@ -53,10 +53,3 @@ Health check:
 Source table (NTRIP v2):
   curl -H "Ntrip-Version: Ntrip/2.0" http://<host>/
 
-{{- if gt (.Values.replicaCount | int) 1 }}
-
-⚠  MULTI-REPLICA WARNING
-   The default QueueTransport is in-process. With {{ .Values.replicaCount }} replicas,
-   base stations and rovers that connect to different pods will not exchange
-   corrections. Pin sessions to a single pod or configure a shared transport.
-{{- end }}

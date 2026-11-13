@@ -13,15 +13,21 @@ import statistics
 from collections import deque
 from dataclasses import dataclass
 from dataclasses import field
-from typing import ClassVar
+
+
+# Per-signal CNR values (and satellite counts) retained per constellation.  At a
+# typical 1 Hz base-station rate with ~8 tracked satellites per MSM message, 200
+# entries cover roughly 25 seconds of readings: enough to reflect current sky
+# conditions without consuming significant memory.
+WINDOW = 200
 
 
 @dataclass
 class ConstellationQuality:
     """Rolling CNR and satellite-count observations for one GNSS constellation."""
 
-    cnr: deque[float] = field(default_factory=deque)
-    sat_counts: deque[int] = field(default_factory=deque)
+    cnr: deque[float] = field(default_factory=lambda: deque(maxlen=WINDOW))
+    sat_counts: deque[int] = field(default_factory=lambda: deque(maxlen=WINDOW))
 
     def cnr_p50(self) -> float | None:
         data = list(self.cnr)
@@ -45,28 +51,15 @@ class ConstellationQuality:
 
 @dataclass
 class MountpointQuality:
-    """Rolling quality snapshot for a single mountpoint.
-
-    ``WINDOW`` controls how many per-signal CNR values are retained per
-    constellation.  At a typical 1 Hz base-station rate with ~8 tracked
-    satellites per MSM message, 200 entries covers roughly 25 seconds of
-    individual CNR readings, enough to reflect current sky conditions
-    without consuming significant memory.
-    """
-
-    WINDOW: ClassVar[int] = 200
+    """Rolling quality snapshot for a single mountpoint."""
 
     constellations: dict[str, ConstellationQuality] = field(default_factory=dict)
 
     def record_cnr(self, constellation: str, values: list[float]) -> None:
-        cq = self._get_or_create(constellation)
-        cq.cnr.extend(values)
-        self._trim(cq.cnr)
+        self._get_or_create(constellation).cnr.extend(values)
 
     def record_sat_count(self, constellation: str, count: int) -> None:
-        cq = self._get_or_create(constellation)
-        cq.sat_counts.append(count)
-        self._trim(cq.sat_counts)
+        self._get_or_create(constellation).sat_counts.append(count)
 
     def to_dict(self) -> dict:
         result: dict[str, dict] = {}
@@ -85,7 +78,3 @@ class MountpointQuality:
         if constellation not in self.constellations:
             self.constellations[constellation] = ConstellationQuality()
         return self.constellations[constellation]
-
-    def _trim(self, dq: deque) -> None:
-        while len(dq) > self.WINDOW:
-            dq.popleft()

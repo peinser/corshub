@@ -18,11 +18,10 @@ https://corshub.peinser.com
 
 You can connect a rover without registering using the credentials `anonymous` / `anonymous`. Anonymous access is limited:
 
-- one concurrent connection
-- all base-stations (mountpoint `*`), no pinning to a specific station
-- sessions are time-limited (1 minute)
+- sessions are time-limited (1 minute), over both NTRIP and RTCM UDP
+- the credentials are public and shared by everyone, and authentication attempts are rate-limited per client IP
 
-This is intended for evaluating the network. For production use, register a rover to get a persistent identity, unlimited sessions, and the ability to pin to a specific mountpoint.
+Anonymous rovers can use every base station: connect to `NEAREST` (with an `Ntrip-GGA` header) or to a specific mountpoint name. This is intended for evaluating the network. For production use, register a rover to get a persistent identity and sessions without a time limit.
 
 ---
 
@@ -40,7 +39,7 @@ The PR is closed automatically by the bot after credentials are issued. Your ent
 
 ### Joining as a rover
 
-A rover receives RTK corrections from any registered base station. Use the mountpoint `*` to accept corrections from the nearest available base station, or specify a mountpoint name to pin to a specific one.
+A rover receives RTK corrections from the base stations its registry entry allows. `mountpoints: ["*"]` allows every base station; listing mountpoint names restricts the rover to those. To receive corrections, connect to `NEAREST` (with an `Ntrip-GGA` header) for the closest online base station in range, or to a mountpoint name to pin to that station.
 
 #### 1. Fork this repository and open `ops/values.yaml`
 
