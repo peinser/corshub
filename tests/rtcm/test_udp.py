@@ -40,8 +40,8 @@ class FakeTransport:
 @pytest.fixture
 async def caster() -> NTRIPCaster:
     c = NTRIPCaster(expiry=None)
-    await c.register(name="BASE1", mountpoint="BASE1", latitude=50.85, longitude=4.35)
-    await c.register(name="BASE2", mountpoint="BASE2", latitude=52.37, longitude=4.90)
+    await c.register(name="BASE1", mountpoint="BASE1", latitude=50.85, longitude=4.35, verified=True)
+    await c.register(name="BASE2", mountpoint="BASE2", latitude=52.37, longitude=4.90, verified=True)
     return c
 
 

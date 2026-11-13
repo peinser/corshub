@@ -101,7 +101,7 @@ def app(caster: NTRIPCaster) -> Sanic:
     _app = Sanic(f"test_gga_{id(caster)}")
     http.initialize_http_sessions(_app)
     _app.blueprint(ntrip_service.blueprint())
-    caster.authenticate_base_station = AsyncMock(return_value=True)
+    caster.authenticate_base_station = AsyncMock(return_value=(True, True))
     caster.authenticate_rover = AsyncMock(return_value=(True, None))
 
     @_app.before_server_start

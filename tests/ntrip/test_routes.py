@@ -27,6 +27,7 @@ from __future__ import annotations
 import base64
 
 from typing import TYPE_CHECKING
+from unittest.mock import AsyncMock
 
 from sanic import Sanic
 
@@ -138,3 +139,20 @@ class TestQualityRoute:
     async def test_unknown_mountpoint_returns_404(self, app: Sanic) -> None:
         _, response = await app.asgi_client.get("/quality/UNKNOWN")
         assert response.status_code == 404
+
+
+class TestVerificationFromAuth:
+    async def test_put_takes_verified_from_auth_not_the_station(self, app: Sanic, caster: NTRIPCaster) -> None:
+        await caster.close("BASE1")
+        caster.authenticate_base_station = AsyncMock(return_value=(True, False))
+        _, response = await app.asgi_client.put(
+            "/BASE1",
+            headers={**NTRIP_HEADERS, "Authorization": VALID_AUTH, "Content-Type": "gnss/data"},
+            content=b"",
+        )
+        assert response.status_code == 200
+        assert caster.mountpoints["BASE1"].verified is False
+
+    async def test_quality_reports_verification(self, app: Sanic) -> None:
+        _, response = await app.asgi_client.get("/quality/BASE1")
+        assert response.json["verified"] is True

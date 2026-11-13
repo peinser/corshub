@@ -37,6 +37,7 @@ def extra_mountpoint() -> dict:
         "country": "NLD",
         "latitude": 52.3676,
         "longitude": 4.9041,
+        "verified": True,
     }
 
 
@@ -484,3 +485,21 @@ class TestExpiryLogging:
         (line,) = [r.getMessage() for r in caplog.records if r.getMessage().startswith("Mountpoint expired")]
         assert "mountpoint=BASE1" in line
         assert line.endswith("online=True")
+
+
+class TestVerification:
+    async def test_nearest_skips_unverified_station_even_when_closer(
+        self, caster: NTRIPCaster, extra_mountpoint: dict
+    ) -> None:
+        await caster.register(**{**extra_mountpoint, "verified": False})
+        # BASE2 (Amsterdam) is closest, but nobody vetted it.
+        assert caster.nearest(52.37, 4.90) == "BASE1"
+
+    async def test_reconnect_refreshes_verification(self, caster: NTRIPCaster) -> None:
+        await caster.close("BASE1")
+        await caster.register(mountpoint="BASE1", verified=False)  # revoked in the registry
+        assert caster.mountpoints["BASE1"].verified is False
+        assert caster.nearest(50.85, 4.35) is None
+
+    def test_unverified_by_default(self) -> None:
+        assert Mountpoint(name="NEW").verified is False

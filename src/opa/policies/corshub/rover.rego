@@ -40,26 +40,18 @@ import data.corshub.utils
 
 default allow := false
 
-_within_window(r) if {
-	from_ns := utils.date_ns(object.get(r, "valid_from", "1970-01-01"))
-	until_ns := utils.date_ns(object.get(r, "valid_until", "9999-12-31"))
-	now := time.now_ns()
-	now >= from_ns
-	now < until_ns
-}
-
 # Explicit mountpoint match.
 allow if {
 	r := data.corshub.rovers[input.username]
 	input.mountpoint in r.mountpoints
-	_within_window(r)
+	utils.within_window(r)
 }
 
 # Wildcard: rover is granted access to every mountpoint.
 allow if {
 	r := data.corshub.rovers[input.username]
 	"*" in r.mountpoints
-	_within_window(r)
+	utils.within_window(r)
 }
 
 # Expose the stored bcrypt hash for application-layer password verification.

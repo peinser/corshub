@@ -101,6 +101,11 @@ proto: ## Regenerate protobuf stubs from proto/ (uses a transient protoc binary)
 	uvx --from protoc-wheel-0 protoc -I proto --python_out=src --pyi_out=src proto/corshub/rtcm/v1/rtcm_udp.proto
 	@echo -e "$(OK_COLOR)Protobuf stubs generated$(NO_COLOR)"
 
+.PHONY: policy-test
+policy-test: ## Check and test the OPA policies (tests live in src/opa/tests, outside the chart)
+	opa check --strict src/opa/policies src/opa/tests
+	opa test src/opa/policies src/opa/tests
+
 .PHONY: helm-sync-policies
 helm-sync-policies: ## Replace dev-time symlinks in helm/files/opa/policies/ with real copies for self-contained chart packaging (run automatically by CI before helm package)
 	@echo -e "$(INFO_COLOR)Syncing OPA policies into Helm chart files...$(NO_COLOR)"

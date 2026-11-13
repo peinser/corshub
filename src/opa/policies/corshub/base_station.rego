@@ -9,6 +9,11 @@
 # bcrypt built-in, so the application layer retrieves `password_hash` and calls
 # crypto.secrets.verify before trusting the `allow` decision.
 #
+# `verified` (optional, default false) is set by a maintainer once a station has
+# been vetted; the onboarding bot can never set it.  Only verified stations are
+# eligible for automatic (NEAREST) routing; unverified ones serve only rovers that
+# ask for them by name.
+#
 # Validity window fields (both optional, ISO 8601 date "YYYY-MM-DD"):
 #   valid_from  - deny connections before this date (absent = no lower bound)
 #   valid_until - deny connections on or after this date (absent = no upper bound)
@@ -29,7 +34,8 @@
 # ---------------------------------------------------------
 # {
 #   "allow":         bool,   // false when undefined (deny-by-default)
-#   "password_hash": string  // absent when username is unknown
+#   "password_hash": string, // absent when username is unknown
+#   "verified":      bool    // absent when username is unknown
 # }
 
 package corshub.base_station
@@ -46,11 +52,12 @@ allow if {
 	s := data.corshub.base_stations[input.username]
 	s.mountpoint == input.mountpoint
 	input.transport.available == false
-	now := time.now_ns()
-	now >= utils.date_ns(object.get(s, "valid_from", "1970-01-01"))
-	now < utils.date_ns(object.get(s, "valid_until", "9999-12-31"))
+	utils.within_window(s)
 }
 
 # Expose the stored bcrypt hash so the caller can verify the supplied password.
 # Undefined (absent) when the username is unknown.
 password_hash := data.corshub.base_stations[input.username].password_hash
+
+# True only for an explicit boolean `verified: true` in the registry entry.
+verified := object.get(data.corshub.base_stations[input.username], "verified", false) == true

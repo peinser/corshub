@@ -116,7 +116,7 @@ A base station streams RTCM corrections from a fixed antenna to the caster. Othe
 
 #### 1. Choose a mountpoint name
 
-The mountpoint identifies your base station on the caster. Pick something descriptive, for example `BRUSSELS-0` or `GHENT-ROOFTOP`. It must be unique across all registered base stations.
+The mountpoint identifies your base station on the caster. Pick something descriptive, for example `BRUSSELS-0` or `GHENT-ROOFTOP`. It must be unique across all registered base stations, use only letters, digits, `_` and `-`, and must not be `NEAR`, `NEAREST` or `NSB`.
 
 #### 2. Fork this repository and open `ops/values.yaml`
 
@@ -152,6 +152,10 @@ The `tools/here4-base-caster.py` script handles this automatically for (Here4) u
 | Password | the decrypted password |
 
 The connection uses HTTP PUT (NTRIP v2). Ensure your client supports NTRIP v2 and is not buffering the stream.
+
+#### 5. Verification
+
+A new base station is listed in the source table and serves rovers that connect to its mountpoint by name straight away. It is only included in `NEAREST` routing once a maintainer has verified it: registration is self-service and a station's position is self-declared, so automatic traffic only goes to vetted stations. Verification is a `verified: true` flag that maintainers set; it cannot be added through a registration PR. Open an issue if you would like your station verified.
 
 ---
 

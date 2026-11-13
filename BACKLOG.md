@@ -16,7 +16,6 @@ Tracked bugs, quality issues, and planned features. Grouped by effort.
 
 ## Medium-high
 
-- [ ] Onboarding bot (`onboard.py`) verifies that only `ops/values.yaml` is touched but does not verify that only the submitter's own entry was modified. A malicious PR could alter another user's `mountpoints`, `valid_until`, or other fields. Fix: parse the before/after YAML and assert that only keys nested under the submitter's username changed.
 - [ ] Graceful shutdown: `NTRIPCaster.stop()` only cancels the reaper task; it does not drain active rover connections or signal base stations. Decide on a drain timeout and propagate shutdown through all active transports.
 
 ## OpenAPI specification

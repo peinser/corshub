@@ -122,6 +122,13 @@ RUN set -eux; \
         "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-${ARCH_AMD64}"; \
     chmod +x /usr/local/bin/cosign; \
     \
+    OPA_VERSION=1.22.4; \
+    curl -fsSL -o "/tmp/opa_linux_${ARCH_AMD64}_static" \
+        "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/opa_linux_${ARCH_AMD64}_static"; \
+    curl -fsSL "https://github.com/open-policy-agent/opa/releases/download/v${OPA_VERSION}/opa_linux_${ARCH_AMD64}_static.sha256" \
+        | (cd /tmp && sha256sum -c -); \
+    install -m 0755 "/tmp/opa_linux_${ARCH_AMD64}_static" /usr/local/bin/opa; \
+    \
     CRANE_VERSION=0.21.5; \
     curl -fsSL \
         "https://github.com/google/go-containerregistry/releases/download/v${CRANE_VERSION}/go-containerregistry_Linux_${CRANE_ARCH}.tar.gz" \

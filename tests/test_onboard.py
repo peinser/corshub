@@ -1,7 +1,7 @@
 """The onboarding bot must only ever add validated registry entries.
 
 Loads the real ``.github/scripts/onboard.py`` with sops, git and the GitHub API
-stubbed out, then drives ``main()`` with decrypted ``ops/values.yaml`` trees:
+stubbed out, then drives ``issue()`` with decrypted ``ops/values.yaml`` trees:
 main's (trusted) and the PR's (untrusted).
 """
 
@@ -50,6 +50,7 @@ def _load(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, author: str) -> _Bot:
         "GH_TOKEN": "t",
         "PR_AUTHOR": author,
         "PR_VALUES_FILE": str(_PR_FILE),
+        "PENDING_COMMENTS_FILE": str(tmp_path / "pending-comments.json"),
     }
     for key, value in env.items():
         monkeypatch.setenv(key, value)
@@ -78,7 +79,7 @@ def _run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, pr: dict[str, Any], au
     trees = {_PR_FILE: pr, bot.module.VALUES_FILE: copy.deepcopy(_MAIN)}
     monkeypatch.setattr(bot.module, "sops_decrypt", lambda path, **_: copy.deepcopy(trees[path]))
     try:
-        bot.module.main()
+        bot.module.issue()
     except SystemExit as exc:
         assert exc.code == 1
     return bot
@@ -136,6 +137,10 @@ class TestRejected:
         bot = _run(monkeypatch, tmp_path, _pr("rovers", "newbie", {"mountpoints": ["*"], "max_session_seconds": 0}))
         _rejected(bot, "only these fields are allowed")
 
+    def test_station_cannot_declare_itself_verified(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        bot = _run(monkeypatch, tmp_path, _pr("base_stations", "newstation", {"mountpoint": "MP2", "verified": True}))
+        _rejected(bot, "only these fields are allowed")
+
     def test_invalid_username_is_not_echoed(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         username = "x [click](https://evil.example) @someone"
         bot = _run(monkeypatch, tmp_path, _pr("rovers", username, {"mountpoints": ["*"]}))
@@ -185,8 +190,22 @@ class TestAccepted:
                 },
             )
         ]
-        assert bot.comments[0].startswith("Credentials issued for `newbie` (rovers)")
         assert "newbie" in bot.module.FINGERPRINTS_FILE.read_text()
+
+    def test_credentials_are_only_posted_by_announce(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        bot = _run(monkeypatch, tmp_path, _pr("rovers", "newbie", {"mountpoints": ["*"]}))
+        # The workflow pushes between these two steps; a failed push never announces.
+        assert bot.comments == []
+        bot.module.announce()
+        assert len(bot.comments) == 1
+        assert bot.comments[0].startswith("Credentials issued for `newbie` (rovers)")
+
+    def test_announce_without_issued_credentials_posts_nothing(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        bot = _load(monkeypatch, tmp_path, "mallory")
+        bot.module.announce()
+        assert bot.comments == []
 
     def test_new_base_station_with_free_mountpoint(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         bot = _run(monkeypatch, tmp_path, _pr("base_stations", "newstation", {"mountpoint": "MP2"}))

@@ -112,22 +112,38 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Run onboarding script
+      # Validates the PR and writes main's files; credential comments are saved,
+      # not posted, until the commit below is on main.
+      - name: Issue credentials
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
           GH_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
           PR_VALUES_FILE: ${{ runner.temp }}/pr-values.yaml
-        run: python3 .github/scripts/onboard.py
+          PENDING_COMMENTS_FILE: ${{ runner.temp }}/onboard-comments.json
+        run: python3 .github/scripts/onboard.py issue
 
       - name: Commit generated credentials
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           git add -f ops/values.yaml ops/key-fingerprints.yaml
           git diff --cached --quiet && exit 0
           git commit -m "chore: issue credentials for new registry entries [skip ci]"
+          # main may have moved since checkout. A conflict fails the job here,
+          # before any credential is announced.
+          git pull --rebase --quiet origin "$BASE_REF"
           git push
+
+      - name: Announce credentials
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          PR_VALUES_FILE: ${{ runner.temp }}/pr-values.yaml
+          PENDING_COMMENTS_FILE: ${{ runner.temp }}/onboard-comments.json
+        run: python3 .github/scripts/onboard.py announce
 
       - name: Close PR
         env:

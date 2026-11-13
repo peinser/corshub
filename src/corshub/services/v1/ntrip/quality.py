@@ -10,6 +10,7 @@ Single-mountpoint response shape::
     {
       "mountpoint": "BASE1",
       "online": true,
+      "verified": true,
       "last_seen_seconds": 1.24,
       "arp": {"x": 3975478.0, "y": 302283.0, "z": 4986670.0, "changes": 0},
       "constellations": {
@@ -23,6 +24,7 @@ Single-mountpoint response shape::
 ``constellations`` is empty when no MSM4-7 message has been received yet.
 ``last_seen_seconds`` reflects time since the last *any* frame, not just MSM.
 ``parse_errors`` and ``arp.changes`` are cumulative since the process started.
+``verified`` is true when a maintainer vetted the station (eligible for NEAREST).
 
 This endpoint is public, so it never exposes rover identities or positions;
 those are available only through the internal metrics endpoint.
@@ -60,6 +62,7 @@ def _mountpoint_quality_dict(request: Request, mountpoint: str) -> dict:
     result: dict = {
         "mountpoint": mountpoint,
         "online": online,
+        "verified": mp.verified,
         "last_seen_seconds": last_seen_seconds,
     }
 

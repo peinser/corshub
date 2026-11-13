@@ -42,6 +42,7 @@ from corshub.ntrip.v2.transport import QueueTransport
 
 
 if TYPE_CHECKING:
+    from typing import Any
     from typing import Final
 
     from corshub.ntrip.v2.transport import Transport
@@ -245,6 +246,9 @@ class Mountpoint:
             ``"N"`` = none, ``"B"`` = Basic, ``"D"`` = Digest.
         fee: ``"N"`` = no fee, ``"Y"`` = fee required.
         bitrate: Approximate stream bit rate in bits/s.  ``0`` if unknown.
+        verified: Whether a maintainer vetted this base station (registry
+            ``verified: true``, delivered by OPA at authentication).  Only
+            verified mountpoints are eligible for NEAREST routing.
         last_seen: Monotonic timestamp of the last frame received.  Updated by
             the caster on every successful ``publish`` call.  Excluded from
             equality comparison.
@@ -268,6 +272,7 @@ class Mountpoint:
     auth: str = "B"
     fee: str = "N"
     bitrate: int = 0
+    verified: bool = False
     last_seen: float = field(default_factory=time.monotonic, compare=False)
 
     def __post_init__(self) -> None:
@@ -320,12 +325,12 @@ class Caster(ABC):
         """Read-only view of currently registered mountpoints."""
 
     @abstractmethod
-    async def authenticate_base_station(self, username: str, password: str) -> bool:
-        """Return True if *username*/*password* identify a valid base station.
+    async def authenticate_base_station(self, username: str, password: str, mountpoint: str) -> tuple[bool, bool]:
+        """Return ``(allowed, verified)`` for a base station publishing to *mountpoint*.
 
-        The username maps directly to a mountpoint by convention, so no
-        separate mountpoint argument is required.
-        Raises no exception; returns False on any auth failure or error.
+        ``verified`` says whether a maintainer vetted the station, which makes it
+        eligible for NEAREST routing.
+        Raises no exception; returns ``(False, False)`` on any auth failure or error.
         """
 
     @abstractmethod
@@ -408,6 +413,7 @@ class NTRIPCaster(Caster):
         "auth",
         "fee",
         "bitrate",
+        "verified",
     }
 
     def __init__(
@@ -438,7 +444,7 @@ class NTRIPCaster(Caster):
         # GGA reader in the rover GET handler; cleared on disconnect/reaper.
         self._rover_positions: dict[str, dict[str, tuple[float, float]]] = {}
 
-    async def register(self, mountpoint: str, **kwargs: dict) -> Mountpoint:
+    async def register(self, mountpoint: str, **kwargs: Any) -> Mountpoint:
         if mountpoint in self._mountpoints:
             instance = self._mountpoints[mountpoint]
             for key, value in kwargs.items():
@@ -511,10 +517,12 @@ class NTRIPCaster(Caster):
         return self._mountpoints
 
     def nearest(self, latitude: float, longitude: float) -> str | None:
-        """Return the closest online mountpoint whose mask covers the position, or None.
+        """Return the closest online, verified mountpoint whose mask covers the position, or None.
 
         Closed mountpoints stay registered until the reaper expires them, so they
         are skipped here: a rover must never be routed to a base station that is gone.
+        Unverified stations are skipped too: anyone can register one, and its
+        position is self-declared, so it must never receive traffic automatically.
 
         ponytail: linear scan over all mountpoints; fine for hundreds of stations,
         swap for a spatial index if the network grows far beyond that.
@@ -523,7 +531,7 @@ class NTRIPCaster(Caster):
         best_dist = float("inf")
         for mp_id in self._transports:
             mp = self._mountpoints[mp_id]
-            if mp.latitude is None or mp.longitude is None:
+            if not mp.verified or mp.latitude is None or mp.longitude is None:
                 continue
             dist = haversine(mp.latitude, mp.longitude, latitude, longitude)
             if mp.mask > 0.0 and dist > mp.mask:
@@ -541,9 +549,13 @@ class NTRIPCaster(Caster):
         """Live view of {mountpoint: {rover_id: (lat, lon)}} for all connected rovers with a known position."""
         return self._rover_positions
 
-    async def authenticate_base_station(self, username: str, password: str, mountpoint: str) -> bool:
+    async def authenticate_base_station(self, username: str, password: str, mountpoint: str) -> tuple[bool, bool]:
+        """Authenticate a base station against the OPA policy.
+
+        Returns ``(allowed, verified)``; ``verified`` is only meaningful when allowed.
+        """
         if self._opa is None:
-            return False
+            return False, False
 
         already_live = await self.available(mountpoint)
         input = {
@@ -563,14 +575,14 @@ class NTRIPCaster(Caster):
                 mountpoint,
                 already_live,
             )
-            return False
+            return False, False
 
         stored_hash: str = result.get("password_hash", "")
         allowed = bool(stored_hash) and await secrets.verify(password, stored_hash)
         metrics.auth_requests_total.labels(role="base_station", result="success" if allowed else "failure").inc()
         if not allowed:
             logger.info("Base station auth denied: user=%s mountpoint=%s reason=password", username, mountpoint)
-        return allowed
+        return allowed, result.get("verified") is True
 
     async def authenticate_rover(self, username: str, password: str, mountpoint: str) -> tuple[bool, int | None]:
         """Authenticate a rover against the OPA policy.

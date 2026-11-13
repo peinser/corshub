@@ -32,6 +32,11 @@ Environment (all set by onboard.yml):
   PR_AUTHOR           GitHub login of the PR author. Not github.actor: that is
                       whoever triggered the run, e.g. a maintainer re-running it.
   PR_VALUES_FILE      Path of the PR's ops/values.yaml, extracted as data.
+  PENDING_COMMENTS_FILE  Where `issue` leaves the credential comments for `announce`.
+
+Usage (two steps, so a credential is only shown once it is stored on main):
+  onboard.py issue      validate, write ops/values.yaml + fingerprints, save comments
+  onboard.py announce   post the saved credential comments (run after git push)
 """
 
 from __future__ import annotations
@@ -86,6 +91,7 @@ _StrictLoader.add_constructor(
 VALUES_FILE       = Path("ops/values.yaml")              # main's file; the only one written
 FINGERPRINTS_FILE = Path("ops/key-fingerprints.yaml")
 PR_VALUES_FILE    = Path(os.environ["PR_VALUES_FILE"])  # untrusted, read-only
+PENDING_COMMENTS_FILE = Path(os.environ["PENDING_COMMENTS_FILE"])
 
 PR_NUMBER = os.environ["PR_NUMBER"]
 REPO      = os.environ["GITHUB_REPOSITORY"]
@@ -255,9 +261,9 @@ def generate_credential(username: str, role: str, errors: list[str]) -> Credenti
     return Credential(pw_hash=pw_hash, encrypted=encrypted, fingerprints=fingerprints)
 
 
-def _post_credential_comment(
+def _credential_comment(
     username: str, role: str, encrypted: str, fingerprints: list[str]
-) -> None:
+) -> str:
     fp_lines = "\n".join(f"- `{fp}`" for fp in fingerprints)
     decrypt_cmd = (
         "age -d -i ~/.ssh/your-private-key <<'EOF'\n"
@@ -274,7 +280,7 @@ def _post_credential_comment(
         "Store this password securely. It will not be shown again.\n"
         "To rotate, open a new PR using the Credential rotation template."
     )
-    post_comment(body)
+    return body
 
 
 def _pinned_owner(fp_data: dict, role: str, username: str) -> str | None:
@@ -450,7 +456,7 @@ def plan_changes(
     return plan, errors
 
 
-def main() -> None:
+def issue() -> None:
     try:
         pr_values = sops_decrypt(PR_VALUES_FILE, strict=True)
     except yaml.YAMLError as exc:
@@ -499,8 +505,8 @@ def main() -> None:
         if not results:
             sys.exit(1)
 
-    # Write hashes before posting comments. If sops fails, no comment is sent
-    # and the workflow fails cleanly without leaving a dangling credential.
+    # Write hashes before anything is announced. If sops fails, the workflow
+    # fails cleanly without leaving a dangling credential.
     for (role, username), cred in results.items():
         if (role, username) in plan.new:
             # The whole entry is rebuilt from validated fields only.
@@ -518,14 +524,28 @@ def main() -> None:
         yaml.dump(fp_data, default_flow_style=False, allow_unicode=True)
     )
 
-    # Post credential comments only after hashes are durably stored.
-    for (role, username), cred in results.items():
-        _post_credential_comment(username, role, cred.encrypted, cred.fingerprints)
+    # Not posted here: `announce` posts them once the commit is on main, so a
+    # failed push never leaves the user holding a password that was not stored.
+    PENDING_COMMENTS_FILE.write_text(json.dumps([
+        _credential_comment(username, role, cred.encrypted, cred.fingerprints)
+        for (role, username), cred in results.items()
+    ]))
 
     n_stations = sum(1 for role, _ in results if role == "base_stations")
     n_rovers   = sum(1 for role, _ in results if role == "rovers")
     print(f"Done. Issued credentials for {n_stations} base station(s) and {n_rovers} rover(s).")
 
 
+def announce() -> None:
+    if not PENDING_COMMENTS_FILE.exists():
+        return  # nothing was issued
+    for body in json.loads(PENDING_COMMENTS_FILE.read_text()):
+        post_comment(body)
+
+
+COMMANDS = {"issue": issue, "announce": announce}
+
 if __name__ == "__main__":
-    main()
+    if len(sys.argv) != 2 or sys.argv[1] not in COMMANDS:
+        sys.exit("usage: onboard.py issue|announce")
+    COMMANDS[sys.argv[1]]()

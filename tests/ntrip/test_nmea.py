@@ -101,7 +101,7 @@ def _make_app(caster: NTRIPCaster) -> Sanic:
 
     app.blueprint(ntrip_blueprint)
 
-    caster.authenticate_base_station = AsyncMock(return_value=True)
+    caster.authenticate_base_station = AsyncMock(return_value=(True, True))
     caster.authenticate_rover = AsyncMock(return_value=(True, None))
 
     @app.before_server_start
@@ -336,6 +336,7 @@ async def two_mountpoint_caster() -> NTRIPCaster:
         country="BEL",
         latitude=50.0,
         longitude=4.0,
+        verified=True,
     )
     await c.register(
         mountpoint="BASE2",
@@ -344,6 +345,7 @@ async def two_mountpoint_caster() -> NTRIPCaster:
         country="NLD",
         latitude=52.0,
         longitude=4.0,
+        verified=True,
     )
     return c
 
@@ -359,6 +361,7 @@ async def masked_two_caster() -> NTRIPCaster:
         country="BEL",
         latitude=50.0,
         longitude=4.0,
+        verified=True,
         mask=30.0,
     )
     await c.register(
@@ -368,6 +371,7 @@ async def masked_two_caster() -> NTRIPCaster:
         country="NLD",
         latitude=52.0,
         longitude=4.0,
+        verified=True,
         mask=30.0,
     )
     return c

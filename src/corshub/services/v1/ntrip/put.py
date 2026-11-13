@@ -64,11 +64,12 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
 
     # Note, this implicitly checks wheter a transport is NOT available.
     caster = request.app.ctx.ntrip_caster
-    if not await caster.authenticate_base_station(
+    allowed, verified = await caster.authenticate_base_station(
         username=request.credentials.username,
         password=request.credentials.password,
         mountpoint=mountpoint,
-    ):
+    )
+    if not allowed:
         raise Unauthorized("Invalid mountpoint credentials.", scheme="Basic")
 
     # Parse optional self-description header; ignore errors: it is advisory only.
@@ -92,14 +93,19 @@ async def put(request: Request, mountpoint: str) -> HTTPResponse:
 
     # Register the mountpoint with the available metadata.
     try:
-        await caster.register(mountpoint=mountpoint, **meta)
+        # verified comes from the registry (via OPA) on every connect, never from the station.
+        await caster.register(mountpoint=mountpoint, **meta, verified=verified)
     except ValueError as ex:
         logger.warning("Base station rejected: mountpoint=%s reason=%s", mountpoint, ex)
         raise BadRequestError(f"Invalid mountpoint name: {ex}") from ex
 
     client_ip = request.remote_addr or request.ip
     logger.info(
-        "Base station connected: mountpoint=%s user=%s ip=%s", mountpoint, request.credentials.username, client_ip
+        "Base station connected: mountpoint=%s user=%s ip=%s verified=%s",
+        mountpoint,
+        request.credentials.username,
+        client_ip,
+        verified,
     )
     logger.debug("Base station metadata: mountpoint=%s meta=%s", mountpoint, meta)
 

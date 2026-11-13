@@ -55,7 +55,7 @@ def _make_app(caster: NTRIPCaster, max_session_seconds: float | None) -> Sanic:
     http.initialize_http_sessions(app)
     app.blueprint(ntrip_service.blueprint())
 
-    caster.authenticate_base_station = AsyncMock(return_value=True)
+    caster.authenticate_base_station = AsyncMock(return_value=(True, True))
     caster.authenticate_rover = AsyncMock(return_value=(True, max_session_seconds))
 
     @app.before_server_start
