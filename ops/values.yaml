@@ -51,6 +51,9 @@ opa:
         base_stations:
             peinser-mobile:
                 mountpoint: MOBILE-PEINSER-0
+                # Set by a maintainer only (never via the onboarding bot): makes
+                # the station eligible for NEAREST routing.
+                verified: true
                 valid_from: "2025-01-01"
                 valid_until: "2027-01-01"
                 password_hash: ENC[AES256_GCM,data:R8i3EQsWhzhlPO2Mh8teKLJLNYh/N1ALZafiJWs97f8mUQlbcJBmN5Y9ojEJzh+p7JhA9uSUA9MGel09,iv:zNZ4wD5XWItedAJzacVV9P6SGpBCA4gZrVZJQ4fR/Ao=,tag:sNmaASOPL5zm/6C/P5cghQ==,type:str]
