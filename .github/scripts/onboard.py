@@ -3,33 +3,43 @@
 Onboarding bot: generates NTRIP credentials for new and rotating entries
 in ops/values.yaml.
 
+The PR's ops/values.yaml is untrusted input and is only ever *read*. It is
+validated against main's file as parsed YAML (never as a text diff):
+  * nothing outside opa.registry.base_stations / opa.registry.rovers may change;
+  * existing entries may not change, except an owner removing its password_hash
+    to rotate;
+  * new entries must match a strict schema (fields, username, mountpoint, dates).
+The bot then writes only the validated fields into main's own ops/values.yaml,
+so nothing else from the PR can reach main or the deployment.
+
 Onboarding: new entry without password_hash:
-  1. Fetches the PR opener's SSH public keys from GitHub.
+  1. Fetches the PR author's SSH public keys from GitHub.
   2. Generates a cryptographically random password and bcrypt-hashes it.
-  3. age-encrypts the plaintext password to the opener's SSH keys.
-  4. Writes the hash into ops/values.yaml via sops --set (encrypted in-place).
+  3. age-encrypts the plaintext password to the author's SSH keys.
+  4. Writes the validated entry plus hash into ops/values.yaml via sops set.
   5. Posts the encrypted credential as a PR comment.
   6. Records the SSH key fingerprints in ops/key-fingerprints.yaml.
 
 Rotation: existing entry with password_hash removed by its original owner.
-  Same as onboarding, but verifies that the PR opener matches the GitHub user
+  Same as onboarding, but verifies that the PR author matches the GitHub user
   pinned in ops/key-fingerprints.yaml for that entry before re-issuing.
-
-Tampering: password_hash removed by someone other than the original owner.
-  Rejected with an explanatory comment.
 
 Environment (all set by onboard.yml):
   SOPS_AGE_KEY        AGE private key, passed through to sops transparently.
   GH_TOKEN            GitHub token with contents:write + pull-requests:write.
   GITHUB_REPOSITORY   owner/repo.
   PR_NUMBER           Pull request number.
-  GITHUB_ACTOR        GitHub username of the PR opener.
+  PR_AUTHOR           GitHub login of the PR author. Not github.actor: that is
+                      whoever triggered the run, e.g. a maintainer re-running it.
+  PR_VALUES_FILE      Path of the PR's ops/values.yaml, extracted as data.
 """
 
 from __future__ import annotations
 
+import copy
 import json
 import os
+import re
 import secrets
 import subprocess
 import sys
@@ -40,6 +50,9 @@ import urllib.request
 
 from collections import Counter
 from dataclasses import dataclass
+from dataclasses import field
+from datetime import date
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -70,15 +83,29 @@ _StrictLoader.add_constructor(
 )
 
 
-VALUES_FILE       = Path("ops/values.yaml")
+VALUES_FILE       = Path("ops/values.yaml")              # main's file; the only one written
 FINGERPRINTS_FILE = Path("ops/key-fingerprints.yaml")
+PR_VALUES_FILE    = Path(os.environ["PR_VALUES_FILE"])  # untrusted, read-only
 
-PR_NUMBER    = os.environ["PR_NUMBER"]
-REPO         = os.environ["GITHUB_REPOSITORY"]
-GH_TOKEN     = os.environ["GH_TOKEN"]
-GITHUB_ACTOR = os.environ["GITHUB_ACTOR"]
+PR_NUMBER = os.environ["PR_NUMBER"]
+REPO      = os.environ["GITHUB_REPOSITORY"]
+GH_TOKEN  = os.environ["GH_TOKEN"]
+PR_AUTHOR = os.environ["PR_AUTHOR"]
 
 SUBPROCESS_TIMEOUT = 30  # seconds
+
+ROLES = ("base_stations", "rovers")
+ALLOWED_FIELDS = {
+    "base_stations": {"mountpoint", "valid_from", "valid_until"},
+    "rovers":        {"mountpoints", "valid_from", "valid_until"},
+}
+# Usernames are echoed into bot comments and used as Basic-auth user ids:
+# no markup, no whitespace, no ':'.
+USERNAME_RE   = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
+# Same rule as the caster's Mountpoint name.
+MOUNTPOINT_RE = re.compile(r"[A-Za-z0-9_-]{1,100}")
+# Caster routes that would shadow a mountpoint of the same name.
+RESERVED_MOUNTPOINTS = {"NEAR", "NEAREST", "NSB"}
 
 
 def sops_decrypt(path: Path, *, strict: bool = False) -> dict[str, Any]:
@@ -91,35 +118,18 @@ def sops_decrypt(path: Path, *, strict: bool = False) -> dict[str, Any]:
     return yaml.load(result.stdout, Loader=loader) or {}
 
 
-def sops_set(path: Path, *keys: str, value: str) -> None:
-    """Write an encrypted scalar into a SOPS-managed YAML file in-place."""
+def sops_set(path: Path, *keys: str, value: Any) -> None:
+    """Write *value* (a scalar or a whole entry) into a SOPS-managed YAML file in-place.
+
+    sops re-encrypts the tree, so a nested password_hash is encrypted by the
+    file's encrypted_regex.
+    """
     # json.dumps escapes any special characters in key names.
     json_path = "".join(f"[{json.dumps(k)}]" for k in keys)
     subprocess.run(
         ["sops", "--set", f"{json_path} {json.dumps(value)}", str(path)],
         check=True, timeout=SUBPROCESS_TIMEOUT,
     )
-
-
-def decrypt_main_values() -> dict[str, Any]:
-    """Return the decrypted ops/values.yaml from the main branch."""
-    try:
-        result = subprocess.run(
-            ["git", "show", "origin/main:ops/values.yaml"],
-            capture_output=True, text=True, check=True,
-            timeout=SUBPROCESS_TIMEOUT,
-        )
-    except subprocess.CalledProcessError:
-        # File does not exist on main yet (first PR to this repo).
-        return {}
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml") as f:
-        f.write(result.stdout)
-        f.flush()
-        # Do NOT catch CalledProcessError here: if sops fails (wrong key,
-        # corrupted file), treat it as fatal. Silently returning {} would cause
-        # every existing entry to look new and re-issue all credentials.
-        return sops_decrypt(Path(f.name))
 
 
 def _github_get(path: str) -> Any:
@@ -206,7 +216,7 @@ class Credential:
 
 def generate_credential(username: str, role: str, errors: list[str]) -> Credential | None:
     """
-    Fetch the PR opener's SSH keys, generate a random password, bcrypt-hash
+    Fetch the PR author's SSH keys, generate a random password, bcrypt-hash
     it, and age-encrypt the plaintext. Returns a Credential on success or
     appends to errors and returns None on failure.
 
@@ -214,11 +224,11 @@ def generate_credential(username: str, role: str, errors: list[str]) -> Credenti
     to the caller so they occur only after the hash is durably stored.
     """
     try:
-        ssh_keys = fetch_ssh_keys(GITHUB_ACTOR)
+        ssh_keys = fetch_ssh_keys(PR_AUTHOR)
     except (RuntimeError, OSError) as exc:
         errors.append(
             f"[{username}] ({role}): could not fetch SSH keys for "
-            f"@{GITHUB_ACTOR}: {exc}"
+            f"@{PR_AUTHOR}: {exc}"
         )
         return None
 
@@ -226,7 +236,7 @@ def generate_credential(username: str, role: str, errors: list[str]) -> Credenti
     if not age_keys:
         errors.append(
             f"[{username}] ({role}): no ed25519 or RSA SSH keys found for "
-            f"@{GITHUB_ACTOR}. Add one at https://github.com/settings/keys."
+            f"@{PR_AUTHOR}. Add one at https://github.com/settings/keys."
         )
         return None
 
@@ -256,7 +266,7 @@ def _post_credential_comment(
     )
     body = (
         f"Credentials issued for `{username}` ({role})\n\n"
-        f"Encrypted to the following SSH keys registered to @{GITHUB_ACTOR}:\n\n"
+        f"Encrypted to the following SSH keys registered to @{PR_AUTHOR}:\n\n"
         f"{fp_lines}\n\n"
         "Run the following to decrypt (replace `~/.ssh/your-private-key` with the "
         "matching private key):\n\n"
@@ -267,104 +277,211 @@ def _post_credential_comment(
     post_comment(body)
 
 
-def _entries(values: dict, role: str) -> dict[str, dict]:
-    return (values.get("opa", {}).get("registry", {}) or {}).get(role, {}) or {}
-
-
 def _pinned_owner(fp_data: dict, role: str, username: str) -> str | None:
     return fp_data.get(role, {}).get(username, {}).get("github_user")
 
 
-@dataclass
-class ChangeSet:
-    new:      dict[str, dict]
-    rotation: dict[str, dict]
-    tampered: list[str]
+# -- validation ----------------------------------------------------------------
+#
+# Error messages are posted as PR comments under the bot's name, so they never
+# echo a value that failed validation (it could carry markdown, links or mentions).
 
 
-def detect_changes(
-    pr:      dict[str, dict],
-    main:    dict[str, dict],
-    fp_data: dict,
-    role:    str,
-) -> ChangeSet:
-    new: dict[str, dict] = {}
-    rotation: dict[str, dict] = {}
-    tampered: list[str] = []
+def _role_entries(values: dict[str, Any], role: str) -> Any:
+    """opa.registry.<role>, an empty mapping when absent, or whatever non-mapping is there."""
+    opa = values.get("opa")
+    registry = opa.get("registry") if isinstance(opa, dict) else None
+    entries = registry.get(role) if isinstance(registry, dict) else None
+    return {} if entries is None else entries
 
-    for username, entry in pr.items():
-        has_hash = "password_hash" in entry
-        in_main  = username in main
 
-        if not in_main and not has_hash:
-            new[username] = entry
-        elif in_main and not has_hash:
-            if _pinned_owner(fp_data, role, username) == GITHUB_ACTOR:
-                rotation[username] = entry
+def _without_entries(values: dict[str, Any]) -> dict[str, Any]:
+    """*values* minus the two registry maps the bot manages."""
+    stripped = copy.deepcopy(values)
+    opa = stripped.get("opa")
+    registry = opa.get("registry") if isinstance(opa, dict) else None
+    if isinstance(registry, dict):
+        for role in ROLES:
+            registry.pop(role, None)
+    return stripped
+
+
+def _as_date(value: Any) -> str | None:
+    """Return *value* as a 'YYYY-MM-DD' string, or None if it is not a calendar date.
+
+    An unquoted date parses to datetime.date; the OPA policy needs the string.
+    """
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+        try:
+            return date.fromisoformat(value).isoformat()
+        except ValueError:
+            return None
+    return None
+
+
+def _valid_mountpoint(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and MOUNTPOINT_RE.fullmatch(value) is not None
+        and value.upper() not in RESERVED_MOUNTPOINTS
+    )
+
+
+def _check_new_entry(role: str, username: str, entry: Any) -> tuple[dict[str, Any] | None, list[str]]:
+    """Validate a new registry entry; return (clean entry with only allowed fields, errors)."""
+    label = f"`{username}` ({role})"
+    if not isinstance(entry, dict):
+        return None, [f"{label}: the entry must be a mapping."]
+
+    errors: list[str] = []
+    if "password_hash" in entry:
+        errors.append(f"{label}: do not add `password_hash`; the bot generates it.")
+    elif set(entry) - ALLOWED_FIELDS[role]:
+        allowed = ", ".join(f"`{name}`" for name in sorted(ALLOWED_FIELDS[role]))
+        errors.append(f"{label}: only these fields are allowed: {allowed}.")
+
+    clean: dict[str, Any] = {}
+    for name in ("valid_from", "valid_until"):
+        if name in entry:
+            parsed = _as_date(entry[name])
+            if parsed is None:
+                errors.append(f"{label}: `{name}` must be a date written as YYYY-MM-DD.")
             else:
-                tampered.append(f"`{username}` ({role})")
+                clean[name] = parsed
+    if "valid_from" in clean and "valid_until" in clean and clean["valid_until"] <= clean["valid_from"]:
+        errors.append(f"{label}: `valid_until` must be after `valid_from`.")
 
-    return ChangeSet(new=new, rotation=rotation, tampered=tampered)
+    if role == "rovers":
+        mountpoints = entry.get("mountpoints")
+        if (
+            not isinstance(mountpoints, list)
+            or not mountpoints
+            or not all(mp == "*" or _valid_mountpoint(mp) for mp in mountpoints)
+        ):
+            errors.append(
+                f"{label}: `mountpoints` must be a non-empty list of mountpoint names "
+                "(letters, digits, `_`, `-`) or `'*'`."
+            )
+        else:
+            clean["mountpoints"] = list(dict.fromkeys(mountpoints))
+    else:
+        mountpoint = entry.get("mountpoint")
+        if not _valid_mountpoint(mountpoint):
+            errors.append(
+                f"{label}: `mountpoint` must be 1-100 letters, digits, `_` or `-`, "
+                "and not a reserved name (NEAR, NEAREST, NSB)."
+            )
+        else:
+            clean["mountpoint"] = mountpoint
+
+    return (None if errors else clean), errors
+
+
+@dataclass
+class Plan:
+    new:      dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    rotation: list[tuple[str, str]] = field(default_factory=list)
+
+
+def plan_changes(
+    pr_values:   dict[str, Any],
+    main_values: dict[str, Any],
+    fp_data:     dict,
+) -> tuple[Plan, list[str]]:
+    """Compare the PR's values with main's; return what to issue, or why the PR is rejected."""
+    plan = Plan()
+    errors: list[str] = []
+
+    if _without_entries(pr_values) != _without_entries(main_values):
+        errors.append(
+            "Only new entries under `opa.registry.base_stations` and `opa.registry.rovers` "
+            "may be added. This PR also changes other parts of `ops/values.yaml`."
+        )
+
+    for role in ROLES:
+        main_entries = _role_entries(main_values, role)
+        pr_entries   = _role_entries(pr_values, role)
+        if not isinstance(pr_entries, dict):
+            errors.append(f"`opa.registry.{role}` must be a mapping of usernames to entries.")
+            continue
+
+        for username, main_entry in main_entries.items():
+            pr_entry = pr_entries.get(username)
+            if pr_entry == main_entry:
+                continue
+            hash_removed = (
+                "password_hash" in main_entry
+                and pr_entry == {k: v for k, v in main_entry.items() if k != "password_hash"}
+            )
+            if not hash_removed:
+                errors.append(f"`{username}` ({role}): existing entries cannot be changed or removed.")
+            elif _pinned_owner(fp_data, role, username) != PR_AUTHOR:
+                errors.append(f"`{username}` ({role}): only its registered owner can rotate this credential.")
+            else:
+                plan.rotation.append((role, username))
+
+        for username, entry in pr_entries.items():
+            if username in main_entries:
+                continue
+            if not isinstance(username, str) or USERNAME_RE.fullmatch(username) is None:
+                errors.append(
+                    f"A new entry under `{role}` has an invalid username: use 1-64 letters, "
+                    "digits, `.`, `_` or `-`, starting with a letter or digit."
+                )
+                continue
+            clean, entry_errors = _check_new_entry(role, username, entry)
+            errors.extend(entry_errors)
+            if clean is not None:
+                plan.new[(role, username)] = clean
+
+    # A new base station must not claim a mountpoint another station publishes to:
+    # its credentials would let it push forged corrections to that mountpoint's rovers.
+    claims = Counter(entry.get("mountpoint") for entry in _role_entries(main_values, "base_stations").values())
+    claims.update(clean["mountpoint"] for (role, _), clean in plan.new.items() if role == "base_stations")
+    for (role, username), clean in plan.new.items():
+        if role == "base_stations" and claims[clean["mountpoint"]] > 1:
+            errors.append(
+                f"`{username}` (base_stations): mountpoint `{clean['mountpoint']}` "
+                "is already registered to another station."
+            )
+
+    return plan, errors
 
 
 def main() -> None:
     try:
-        pr_values = sops_decrypt(VALUES_FILE, strict=True)
+        pr_values = sops_decrypt(PR_VALUES_FILE, strict=True)
     except yaml.YAMLError as exc:
         post_comment(
-            f"ops/values.yaml contains duplicate usernames: {exc}\n\n"
+            f"ops/values.yaml contains duplicate keys: {exc}\n\n"
             "Each username must appear at most once under each role."
         )
         sys.exit(1)
+    except subprocess.CalledProcessError:
+        post_comment(
+            "ops/values.yaml in this PR could not be decrypted. Only add plain-text "
+            "fields; never edit `ENC[...]` values or the `sops:` section."
+        )
+        sys.exit(1)
 
-    main_values = decrypt_main_values()
+    # main's file is the base checkout; a failure here is fatal (wrong key or a
+    # corrupted file), never something to paper over.
+    main_values = sops_decrypt(VALUES_FILE)
     fp_data     = yaml.safe_load(FINGERPRINTS_FILE.read_text()) or {} \
                   if FINGERPRINTS_FILE.exists() else {}
 
-    stations = detect_changes(
-        _entries(pr_values,   "base_stations"),
-        _entries(main_values, "base_stations"),
-        fp_data, "base_stations",
-    )
-    rovers = detect_changes(
-        _entries(pr_values,   "rovers"),
-        _entries(main_values, "rovers"),
-        fp_data, "rovers",
-    )
-
-    all_tampered = stations.tampered + rovers.tampered
-    if all_tampered:
+    plan, problems = plan_changes(pr_values, main_values, fp_data)
+    if problems:
         post_comment(
-            "Rotation rejected. The following entries had `password_hash` "
-            f"removed but @{GITHUB_ACTOR} is not their registered owner: "
-            f"{', '.join(all_tampered)}.\n\n"
-            "Credential rotation must be initiated by the original owner."
+            "Registration rejected:\n\n"
+            + "\n".join(f"- {problem}" for problem in problems)
+            + "\n\nFix the PR and push again."
         )
         sys.exit(1)
 
-    # A new base station must not claim a mountpoint another station publishes to:
-    # its credentials would let it push forged corrections to that mountpoint's rovers.
-    pr_stations = _entries(pr_values, "base_stations")
-    claims = Counter(str(entry.get("mountpoint")) for entry in pr_stations.values())
-    hijacks = [
-        f"`{username}` (mountpoint `{pr_stations[username].get('mountpoint')}`)"
-        for username in stations.new
-        if claims[str(pr_stations[username].get("mountpoint"))] > 1
-    ]
-    if hijacks:
-        post_comment(
-            "Registration rejected. The following base stations claim a mountpoint "
-            f"that is already registered to another station: {', '.join(hijacks)}.\n\n"
-            "Choose a mountpoint name that is not in use."
-        )
-        sys.exit(1)
-
-    to_process: list[tuple[str, str]] = [
-        ("base_stations", u) for u in {**stations.new, **stations.rotation}
-    ] + [
-        ("rovers", u) for u in {**rovers.new, **rovers.rotation}
-    ]
-
+    to_process = [*plan.new, *plan.rotation]
     if not to_process:
         print("No new or rotating entries -- nothing to do.")
         return
@@ -385,10 +502,15 @@ def main() -> None:
     # Write hashes before posting comments. If sops fails, no comment is sent
     # and the workflow fails cleanly without leaving a dangling credential.
     for (role, username), cred in results.items():
-        sops_set(VALUES_FILE, "opa", "registry", role, username, "password_hash",
-                 value=cred.pw_hash)
+        if (role, username) in plan.new:
+            # The whole entry is rebuilt from validated fields only.
+            sops_set(VALUES_FILE, "opa", "registry", role, username,
+                     value={**plan.new[(role, username)], "password_hash": cred.pw_hash})
+        else:
+            sops_set(VALUES_FILE, "opa", "registry", role, username, "password_hash",
+                     value=cred.pw_hash)
         fp_data.setdefault(role, {})[username] = {
-            "github_user":      GITHUB_ACTOR,
+            "github_user":      PR_AUTHOR,
             "key_fingerprints": cred.fingerprints,
         }
 
