@@ -58,6 +58,8 @@ spec:
             {{- end }}
             - name: LOG_LEVEL
               value: {{ .Values.app.logLevel | quote }}
+            - name: NTRIP_SYNTHETIC_MOUNTPOINT
+              value: {{ .Values.app.syntheticMountpoint | quote }}
             - name: GNSS_ARP_CHANGE_THRESHOLD
               value: {{ .Values.gnss.arpChangeThresholdMeters | quote }}
             - name: GNSS_CNR_DBHZ_HIGH_THRESHOLD

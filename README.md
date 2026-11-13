@@ -116,7 +116,7 @@ A base station streams RTCM corrections from a fixed antenna to the caster. Othe
 
 #### 1. Choose a mountpoint name
 
-The mountpoint identifies your base station on the caster. Pick something descriptive, for example `BRUSSELS-0` or `GHENT-ROOFTOP`. It must be unique across all registered base stations, use only letters, digits, `_` and `-`, and must not be `NEAR`, `NEAREST` or `NSB`.
+The mountpoint identifies your base station on the caster. Pick something descriptive, for example `BRUSSELS-0` or `GHENT-ROOFTOP`. It must be unique across all registered base stations, use only letters, digits, `_` and `-`, and must not be `NEAR`, `NEAREST`, `NSB` or `SYNTHETIC`.
 
 #### 2. Fork this repository and open `ops/values.yaml`
 

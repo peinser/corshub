@@ -8,7 +8,10 @@ Functions under test:
 
 from __future__ import annotations
 
+import pytest
+
 from corshub.ntrip.v2.caster import Mountpoint
+from corshub.ntrip.v2.headers import gga_problem
 from corshub.ntrip.v2.headers import haversine
 from corshub.ntrip.v2.headers import parse_ntrip_gga
 from corshub.ntrip.v2.headers import parse_ntrip_str
@@ -159,3 +162,40 @@ class TestHaversine:
         # Antipode of (0, 0) is (0, 180); half Earth circumference ≈ 20015 km
         dist = haversine(0.0, 0.0, 0.0, 180.0)
         assert 20000.0 < dist < 20030.0
+
+
+def _nmea(body: str) -> str:
+    checksum = 0
+    for ch in body:
+        checksum ^= ord(ch)
+    return f"${body}*{checksum:02X}"
+
+
+class TestGgaProblem:
+    """gga_problem names why a GGA was rejected, without echoing the position."""
+
+    @pytest.mark.parametrize("header", [None, "", "   "])
+    def test_absent(self, header: str | None) -> None:
+        assert gga_problem(header) == "Ntrip-GGA header is absent"
+
+    def test_invalid_checksum(self) -> None:
+        sentence = "$GPGGA,120000.00,5051.000,N,00421.000,E,1,08,1.0,50.0,M,47.0,M,,*6B"
+        assert gga_problem(sentence) == "Ntrip-GGA has an invalid checksum"
+
+    def test_not_nmea(self) -> None:
+        assert gga_problem("hello rover") == "Ntrip-GGA is not a valid NMEA sentence"
+
+    def test_other_sentence_type(self) -> None:
+        rmc = _nmea("GPRMC,120000.00,A,5051.000,N,00421.000,E,0.0,0.0,131126,,,A")
+        assert parse_ntrip_gga(rmc) is None
+        assert gga_problem(rmc) == "Ntrip-GGA is not a GGA sentence"
+
+    def test_no_fix(self) -> None:
+        # What a receiver sends before it has a position.
+        no_fix = _nmea("GPGGA,120000.00,,,,,0,00,99.99,,,,,,")
+        assert parse_ntrip_gga(no_fix) is None
+        assert gga_problem(no_fix) == "Ntrip-GGA has no position fix (empty latitude/longitude)"
+
+    def test_never_echoes_the_position(self) -> None:
+        sentence = "$GPGGA,120000.00,5051.000,N,00421.000,E,1,08,1.0,50.0,M,47.0,M,,*6B"
+        assert "5051" not in gga_problem(sentence)

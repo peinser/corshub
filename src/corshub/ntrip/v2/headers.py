@@ -17,6 +17,7 @@ import math
 
 from typing import TYPE_CHECKING
 
+from pynmeagps import VALNONE
 from pynmeagps import NMEAReader
 
 
@@ -212,6 +213,30 @@ def parse_ntrip_gga(header: str | None) -> tuple[float, float] | None:
 
     except Exception:  # noqa: BLE001 - untrusted rover input; any parse failure means "no fix"
         return None
+
+
+def gga_problem(header: str | None) -> str:
+    """Explain why ``parse_ntrip_gga`` rejected *header*, for the 400 body and logs.
+
+    Never includes the sentence itself: it carries the rover's position.  Only
+    called on the rejection path, so re-parsing costs nothing on success.
+    """
+    if not header or not header.strip():
+        return "Ntrip-GGA header is absent"
+    sentence = header.strip()
+    try:
+        msg = NMEAReader.parse(sentence)
+    except Exception:  # noqa: BLE001 - untrusted rover input; classified below
+        try:
+            NMEAReader.parse(sentence, validate=VALNONE)
+        except Exception:  # noqa: BLE001 - not NMEA at all
+            return "Ntrip-GGA is not a valid NMEA sentence"
+        return "Ntrip-GGA has an invalid checksum"
+    if msg is None:
+        return "Ntrip-GGA is not a valid NMEA sentence"
+    if msg.msgID != "GGA":
+        return "Ntrip-GGA is not a GGA sentence"
+    return "Ntrip-GGA has no position fix (empty latitude/longitude)"
 
 
 R_EARTH_KM: Final[float] = 6371.0  # mean Earth radius in km

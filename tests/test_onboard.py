@@ -148,7 +148,7 @@ class TestRejected:
         assert "evil.example" not in bot.comments[0]
         assert "@someone" not in bot.comments[0]
 
-    @pytest.mark.parametrize("mountpoint", ["NEAREST", "nsb", "a/b", "", 7])
+    @pytest.mark.parametrize("mountpoint", ["NEAREST", "nsb", "SYNTHETIC", "a/b", "", 7])
     def test_invalid_or_reserved_mountpoint(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mountpoint: Any
     ) -> None:

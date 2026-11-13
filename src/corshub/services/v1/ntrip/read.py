@@ -44,6 +44,7 @@ from corshub.ntrip.v2.headers import CONTENT_TYPE_GNSS
 from corshub.ntrip.v2.headers import NTRIP_GGA
 from corshub.ntrip.v2.headers import NTRIP_VERSION
 from corshub.ntrip.v2.headers import NTRIP_VERSION_2
+from corshub.ntrip.v2.headers import gga_problem
 from corshub.ntrip.v2.headers import haversine
 from corshub.ntrip.v2.headers import parse_ntrip_gga
 
@@ -142,10 +143,12 @@ async def stream_mountpoint(request: Request, mountpoint: str) -> HTTPResponse:
 
     # When the mountpoint requires NMEA, validate the rover's Ntrip-GGA header.
     if mp.nmea:
-        position = parse_ntrip_gga(request.headers.get(NTRIP_GGA))
+        header = request.headers.get(NTRIP_GGA)
+        position = parse_ntrip_gga(header)
         if position is None:
-            logger.info("Rover rejected: mountpoint=%s user=%s reason=missing GGA", mountpoint, rover_username)
-            raise BadRequestError("Ntrip-GGA header is absent or not a valid GGA sentence.")
+            problem = gga_problem(header)
+            logger.info("Rover rejected: mountpoint=%s user=%s reason=%s", mountpoint, rover_username, problem)
+            raise BadRequestError(f"{problem}; mountpoint {mountpoint!r} requires the rover position.")
         if mp.mask > 0.0:
             rover_lat, rover_lon = position
             dist = haversine(mp.latitude, mp.longitude, rover_lat, rover_lon)

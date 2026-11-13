@@ -4,6 +4,8 @@ Blueprint definition for NTRIP services, including shared utilities and base cla
 
 from __future__ import annotations
 
+import asyncio
+
 from typing import TYPE_CHECKING
 
 from prometheus_client import REGISTRY
@@ -15,6 +17,7 @@ from sanic.exceptions import SanicException
 
 from corshub import env
 from corshub.metrics import NTRIPCasterCollector
+from corshub.ntrip.v2 import synthetic
 from corshub.ntrip.v2.caster import NTRIPCaster
 from corshub.opa import OPAClient
 
@@ -69,6 +72,11 @@ async def setup(app: Sanic) -> None:
     # Start the caster and its reaper loop.
     await app.ctx.ntrip_caster.start()
 
+    # Debug aid, off by default: a mountpoint streaming observation-free RTCM 1005.
+    app.ctx.ntrip_synthetic_task = (
+        asyncio.create_task(synthetic.run(app.ctx.ntrip_caster)) if env.flag("NTRIP_SYNTHETIC_MOUNTPOINT") else None
+    )
+
 
 @bp.after_server_stop
 async def finalize(app: Sanic) -> None:
@@ -76,7 +84,16 @@ async def finalize(app: Sanic) -> None:
     if not hasattr(app.ctx, "ntrip_caster"):
         return
 
+    task = app.ctx.ntrip_synthetic_task
+    if task is not None:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
     await app.ctx.ntrip_caster.stop()
     REGISTRY.unregister(app.ctx.ntrip_metrics_collector)
     del app.ctx.ntrip_caster
     del app.ctx.ntrip_metrics_collector
+    del app.ctx.ntrip_synthetic_task

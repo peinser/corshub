@@ -47,6 +47,17 @@ def extract(
     return dtype(value) if value else None
 
 
+def flag(key: str, default: bool = False) -> bool:
+    """Read a boolean environment variable: "1", "true", "yes" or "on" (any case) is True.
+
+    Unset or empty means *default*.
+    """
+    value = os.getenv(key, "").strip().lower()
+    if not value:
+        return default
+    return value in {"1", "true", "yes", "on"}
+
+
 def verify(blueprint: Blueprint, required: set[str]) -> None:
     r"""
     A method which verifies the scope of the program environment.

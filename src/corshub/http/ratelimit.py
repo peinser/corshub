@@ -97,17 +97,13 @@ def enforce_auth_rate_limit(request: Request) -> None:
         raise RateLimitedError("Too many authentication attempts. Slow down.")
 
 
-def _flag(key: str, default: str) -> bool:
-    return env.extract(key, default=default).strip().lower() in {"1", "true", "yes", "on"}
-
-
 def initialize(app: object) -> None:
     """Attach an ``auth_rate_limiter`` to ``app.ctx`` from the environment.
 
     Sets it to None when ``AUTH_RATELIMIT_ENABLED`` is false, in which case
     ``enforce_auth_rate_limit`` becomes a no-op.
     """
-    if not _flag("AUTH_RATELIMIT_ENABLED", "true"):
+    if not env.flag("AUTH_RATELIMIT_ENABLED", default=True):
         app.ctx.auth_rate_limiter = None  # type: ignore[attr-defined]
         return
 

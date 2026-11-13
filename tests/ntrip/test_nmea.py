@@ -388,6 +388,18 @@ def masked_two_app(masked_two_caster: NTRIPCaster) -> Sanic:
 
 
 class TestNearestRoute:
+    async def test_no_fix_gga_explains_the_rejection(self, two_app: Sanic) -> None:
+        body = "GPGGA,120000.00,,,,,0,00,99.99,,,,,,"
+        checksum = 0
+        for ch in body:
+            checksum ^= ord(ch)
+        _, response = await two_app.asgi_client.get(
+            "/NEAREST",
+            headers={**NTRIP_H, "Authorization": AUTH, "Ntrip-GGA": f"${body}*{checksum:02X}"},
+        )
+        assert response.status_code == 400
+        assert "no position fix" in response.text
+
     @pytest.mark.parametrize("path", ["/NEAR", "/NEAREST", "/NSB"])
     async def test_missing_gga_returns_400(self, path: str, two_app: Sanic) -> None:
         _, response = await two_app.asgi_client.get(

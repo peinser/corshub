@@ -110,8 +110,9 @@ ALLOWED_FIELDS = {
 USERNAME_RE   = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}")
 # Same rule as the caster's Mountpoint name.
 MOUNTPOINT_RE = re.compile(r"[A-Za-z0-9_-]{1,100}")
-# Caster routes that would shadow a mountpoint of the same name.
-RESERVED_MOUNTPOINTS = {"NEAR", "NEAREST", "NSB"}
+# Caster routes that would shadow a mountpoint of the same name, and the caster's
+# built-in synthetic debug mountpoint.
+RESERVED_MOUNTPOINTS = {"NEAR", "NEAREST", "NSB", "SYNTHETIC"}
 
 
 def sops_decrypt(path: Path, *, strict: bool = False) -> dict[str, Any]:
@@ -377,7 +378,7 @@ def _check_new_entry(role: str, username: str, entry: Any) -> tuple[dict[str, An
         if not _valid_mountpoint(mountpoint):
             errors.append(
                 f"{label}: `mountpoint` must be 1-100 letters, digits, `_` or `-`, "
-                "and not a reserved name (NEAR, NEAREST, NSB)."
+                "and not a reserved name (NEAR, NEAREST, NSB, SYNTHETIC)."
             )
         else:
             clean["mountpoint"] = mountpoint

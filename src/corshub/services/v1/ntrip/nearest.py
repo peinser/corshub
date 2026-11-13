@@ -13,6 +13,7 @@ from sanic.exceptions import NotFound
 from corshub.exceptions.http import BadRequestError
 from corshub.logging import logger
 from corshub.ntrip.v2.headers import NTRIP_GGA
+from corshub.ntrip.v2.headers import gga_problem
 from corshub.ntrip.v2.headers import parse_ntrip_gga
 
 from .base import bp
@@ -35,10 +36,12 @@ async def find_and_read(request: Request) -> HTTPResponse:
     invalid.  Raises ``NotFound`` (404) if no mountpoint lies within range of
     the rover's reported position.
     """
-    position = parse_ntrip_gga(request.headers.get(NTRIP_GGA))
+    header = request.headers.get(NTRIP_GGA)
+    position = parse_ntrip_gga(header)
     if position is None:
-        logger.info("NEAREST rejected: reason=missing GGA")
-        raise BadRequestError("Ntrip-GGA header is absent or not a valid GGA sentence.")
+        problem = gga_problem(header)
+        logger.info("NEAREST rejected: reason=%s", problem)
+        raise BadRequestError(f"{problem}; NEAREST needs the rover position in the Ntrip-GGA request header.")
 
     best_id = request.app.ctx.ntrip_caster.nearest(*position)
     # Positions are personal data: only at DEBUG.

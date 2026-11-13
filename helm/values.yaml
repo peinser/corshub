@@ -47,6 +47,11 @@ app:
   # Level of the application (caster/NTRIP/UDP) logger: DEBUG, INFO, WARNING, ERROR.
   # DEBUG adds per-chunk, OPA latency and NEAREST position lines; keep INFO in production.
   logLevel: INFO
+  # Debug aid: serve a "SYNTHETIC" mountpoint streaming one RTCM 1005 frame per
+  # second (antenna position only, no observations: no receiver can compute an RTK
+  # fix from it). Never used by NEAREST; rovers must request it by name. Exercises
+  # auth, transport, UDP and GCS forwarding without a real base station.
+  syntheticMountpoint: false
 
 # Token-bucket rate limiting on authentication endpoints (NTRIP base/rover auth
 # and the RTCM session bootstrap). Protects the CPU-heavy bcrypt path from

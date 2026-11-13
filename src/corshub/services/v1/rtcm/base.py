@@ -35,10 +35,6 @@ if TYPE_CHECKING:
 bp: Blueprint = Blueprint(name="rtcm-v1", url_prefix="/api/v1/rtcm")
 
 
-def _flag(key: str, default: str = "false") -> bool:
-    return env.extract(key, default=default).strip().lower() in {"1", "true", "yes", "on"}
-
-
 @dataclass(frozen=True)
 class RTCMConfig:
     enabled: bool
@@ -55,7 +51,7 @@ class RTCMConfig:
 
 
 def load_config() -> RTCMConfig:
-    enabled = _flag("RTCM_UDP_ENABLED")
+    enabled = env.flag("RTCM_UDP_ENABLED")
     # Bind all interfaces by default: this is a containerized service whose
     # exposure is governed by the k8s Service/NetworkPolicy, not the bind address.
     host = env.extract("RTCM_UDP_HOST", default="0.0.0.0")  # nosec B104
@@ -67,7 +63,7 @@ def load_config() -> RTCMConfig:
 
     return RTCMConfig(
         enabled=enabled,
-        signing_enabled=_flag("RTCM_UDP_SIGNING_ENABLED"),
+        signing_enabled=env.flag("RTCM_UDP_SIGNING_ENABLED"),
         udp_host=host,
         udp_port=port,
         udp_endpoint=env.extract("RTCM_UDP_ENDPOINT", default=f"{host}:{port}"),
@@ -76,7 +72,7 @@ def load_config() -> RTCMConfig:
         session_ttl=env.extract("RTCM_UDP_SESSION_TTL", default="30", dtype=float),
         keepalive_interval=env.extract("RTCM_UDP_KEEPALIVE_INTERVAL", default="10", dtype=int),
         max_datagram=env.extract("RTCM_UDP_MAX_DATAGRAM", default="1200", dtype=int),
-        allow_ephemeral_key=_flag("RTCM_SIGNING_ALLOW_EPHEMERAL"),
+        allow_ephemeral_key=env.flag("RTCM_SIGNING_ALLOW_EPHEMERAL"),
     )
 
 

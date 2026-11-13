@@ -6,6 +6,11 @@
 .secrets
 .vars
 
+# SOPS age private keys: never commit (keep them in ~/.config/sops/age/keys.txt)
+key.txt
+keys.txt
+*.agekey
+
 # Ops directory
 ops
 
